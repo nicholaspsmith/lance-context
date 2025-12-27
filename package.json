@@ -1,0 +1,48 @@
+{
+  "name": "lance-context",
+  "version": "0.1.0",
+  "description": "MCP plugin for semantic code search using LanceDB - gives AI coding agents deep context from your entire codebase",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "lance-context": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nicholaspsmith/lance-context.git"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "code-search",
+    "embeddings",
+    "lancedb",
+    "semantic-search",
+    "ai-coding"
+  ],
+  "author": "Nicholas Smith",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/nicholaspsmith/lance-context/issues"
+  },
+  "homepage": "https://github.com/nicholaspsmith/lance-context#readme",
+  "dependencies": {
+    "@lancedb/lancedb": "^0.22.3",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "glob": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
