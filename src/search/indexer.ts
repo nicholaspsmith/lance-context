@@ -2,6 +2,7 @@ import * as lancedb from '@lancedb/lancedb';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { EmbeddingBackend } from '../embeddings/index.js';
+import { ASTChunker } from './ast-chunker.js';
 
 export interface CodeChunk {
   id: string;
@@ -347,11 +348,55 @@ export class CodeIndexer {
   }
 
   private async chunkFile(filePath: string): Promise<CodeChunk[]> {
-    const content = await fs.readFile(filePath, 'utf-8');
-    const lines = content.split('\n');
     const ext = path.extname(filePath).slice(1);
     const language = this.getLanguage(ext);
     const relativePath = path.relative(this.projectPath, filePath);
+
+    // Try AST-aware chunking for supported languages
+    if (ASTChunker.canParse(filePath)) {
+      try {
+        return await this.chunkFileWithAST(filePath, relativePath, language);
+      } catch (error) {
+        // Fall back to line-based chunking if AST parsing fails
+        console.error(`[lance-context] AST parsing failed for ${relativePath}, falling back to line-based chunking`);
+      }
+    }
+
+    // Line-based chunking for unsupported languages or as fallback
+    return this.chunkFileByLines(filePath, relativePath, language);
+  }
+
+  /**
+   * Chunk a file using AST-aware parsing
+   */
+  private async chunkFileWithAST(
+    filePath: string,
+    relativePath: string,
+    language: string
+  ): Promise<CodeChunk[]> {
+    const astChunker = new ASTChunker();
+    const astChunks = await astChunker.chunkFile(filePath);
+
+    return astChunks.map((chunk) => ({
+      id: `${relativePath}:${chunk.startLine}-${chunk.endLine}${chunk.name ? `:${chunk.name}` : ''}`,
+      filePath: relativePath,
+      content: chunk.content,
+      startLine: chunk.startLine,
+      endLine: chunk.endLine,
+      language,
+    }));
+  }
+
+  /**
+   * Chunk a file using line-based splitting (fallback)
+   */
+  private async chunkFileByLines(
+    filePath: string,
+    relativePath: string,
+    language: string
+  ): Promise<CodeChunk[]> {
+    const content = await fs.readFile(filePath, 'utf-8');
+    const lines = content.split('\n');
 
     const chunks: CodeChunk[] = [];
     for (let i = 0; i < lines.length; i += CHUNK_SIZE - CHUNK_OVERLAP) {
