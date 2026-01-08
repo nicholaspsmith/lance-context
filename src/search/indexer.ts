@@ -35,6 +35,15 @@ interface FileChanges {
   unchanged: string[];
 }
 
+export interface IndexProgress {
+  phase: 'scanning' | 'chunking' | 'embedding' | 'storing' | 'complete';
+  current: number;
+  total: number;
+  message: string;
+}
+
+export type ProgressCallback = (progress: IndexProgress) => void;
+
 const CHUNK_SIZE = 100; // lines per chunk
 const CHUNK_OVERLAP = 20; // overlap between chunks
 
@@ -178,13 +187,21 @@ export class CodeIndexer {
   async indexCodebase(
     patterns?: string[],
     excludePatterns?: string[],
-    forceReindex: boolean = false
+    forceReindex: boolean = false,
+    onProgress?: ProgressCallback
   ): Promise<{ filesIndexed: number; chunksCreated: number; incremental: boolean }> {
     const { glob } = await import('glob');
+
+    const report = (progress: IndexProgress) => {
+      console.error(`[lance-context] ${progress.message}`);
+      onProgress?.(progress);
+    };
 
     // Use provided patterns or fall back to config/defaults
     const effectivePatterns = patterns || this.config?.patterns || getDefaultPatterns();
     const effectiveExcludePatterns = excludePatterns || this.config?.excludePatterns || getDefaultExcludePatterns();
+
+    report({ phase: 'scanning', current: 0, total: 0, message: 'Scanning for files...' });
 
     // Find all matching files
     const files: string[] = [];
@@ -197,7 +214,7 @@ export class CodeIndexer {
       files.push(...matches);
     }
 
-    console.error(`[lance-context] Found ${files.length} files to index`);
+    report({ phase: 'scanning', current: files.length, total: files.length, message: `Found ${files.length} files to index` });
 
     // Check if we can do incremental indexing
     const tableNames = await this.db!.tableNames();
@@ -205,30 +222,41 @@ export class CodeIndexer {
     const canDoIncremental = hasExistingIndex && !forceReindex;
 
     if (canDoIncremental) {
-      return this.indexIncremental(files);
+      return this.indexIncremental(files, onProgress);
     }
 
     // Full reindex
-    return this.indexFull(files);
+    return this.indexFull(files, onProgress);
   }
 
   /**
    * Perform a full reindex of all files
    */
   private async indexFull(
-    files: string[]
+    files: string[],
+    onProgress?: ProgressCallback
   ): Promise<{ filesIndexed: number; chunksCreated: number; incremental: boolean }> {
+    const report = (progress: IndexProgress) => {
+      console.error(`[lance-context] ${progress.message}`);
+      onProgress?.(progress);
+    };
+
     // Process files into chunks
+    report({ phase: 'chunking', current: 0, total: files.length, message: 'Chunking files...' });
+
     const allChunks: CodeChunk[] = [];
-    for (const filePath of files) {
-      const chunks = await this.chunkFile(filePath);
+    for (let i = 0; i < files.length; i++) {
+      const chunks = await this.chunkFile(files[i]);
       allChunks.push(...chunks);
+      if ((i + 1) % 50 === 0 || i === files.length - 1) {
+        report({ phase: 'chunking', current: i + 1, total: files.length, message: `Chunked ${i + 1}/${files.length} files (${allChunks.length} chunks)` });
+      }
     }
 
-    console.error(`[lance-context] Created ${allChunks.length} chunks`);
+    report({ phase: 'chunking', current: files.length, total: files.length, message: `Created ${allChunks.length} chunks` });
 
     // Generate embeddings in batches
-    await this.embedChunks(allChunks);
+    await this.embedChunks(allChunks, onProgress);
 
     // Store in LanceDB
     const data = allChunks.map((chunk) => ({
@@ -263,15 +291,21 @@ export class CodeIndexer {
    * Perform incremental indexing - only process changed files
    */
   private async indexIncremental(
-    files: string[]
+    files: string[],
+    onProgress?: ProgressCallback
   ): Promise<{ filesIndexed: number; chunksCreated: number; incremental: boolean }> {
+    const report = (progress: IndexProgress) => {
+      console.error(`[lance-context] ${progress.message}`);
+      onProgress?.(progress);
+    };
+
     const changes = await this.detectFileChanges(files);
 
     const filesToProcess = [...changes.added, ...changes.modified];
     const hasChanges = filesToProcess.length > 0 || changes.deleted.length > 0;
 
     if (!hasChanges) {
-      console.error(`[lance-context] No changes detected, index is up to date`);
+      report({ phase: 'complete', current: 0, total: 0, message: 'No changes detected, index is up to date' });
       this.table = await this.db!.openTable('code_chunks');
       const count = await this.table.countRows();
       return {
@@ -281,9 +315,7 @@ export class CodeIndexer {
       };
     }
 
-    console.error(
-      `[lance-context] Incremental update: ${changes.added.length} added, ${changes.modified.length} modified, ${changes.deleted.length} deleted`
-    );
+    report({ phase: 'scanning', current: 0, total: filesToProcess.length, message: `Incremental update: ${changes.added.length} added, ${changes.modified.length} modified, ${changes.deleted.length} deleted` });
 
     // Open the existing table
     this.table = await this.db!.openTable('code_chunks');
@@ -294,21 +326,21 @@ export class CodeIndexer {
       for (const relativePath of filesToRemove) {
         await this.table.delete(`filePath = '${relativePath.replace(/'/g, "''")}'`);
       }
-      console.error(`[lance-context] Removed chunks from ${filesToRemove.length} files`);
+      report({ phase: 'chunking', current: 0, total: filesToProcess.length, message: `Removed chunks from ${filesToRemove.length} files` });
     }
 
     // Process new and modified files
     if (filesToProcess.length > 0) {
       const newChunks: CodeChunk[] = [];
-      for (const filePath of filesToProcess) {
-        const chunks = await this.chunkFile(filePath);
+      for (let i = 0; i < filesToProcess.length; i++) {
+        const chunks = await this.chunkFile(filesToProcess[i]);
         newChunks.push(...chunks);
       }
 
-      console.error(`[lance-context] Created ${newChunks.length} new chunks`);
+      report({ phase: 'chunking', current: filesToProcess.length, total: filesToProcess.length, message: `Created ${newChunks.length} new chunks` });
 
       // Generate embeddings
-      await this.embedChunks(newChunks);
+      await this.embedChunks(newChunks, onProgress);
 
       // Add new chunks to the table
       const data = newChunks.map((chunk) => ({
@@ -342,7 +374,12 @@ export class CodeIndexer {
   /**
    * Generate embeddings for chunks in batches
    */
-  private async embedChunks(chunks: CodeChunk[]): Promise<void> {
+  private async embedChunks(chunks: CodeChunk[], onProgress?: ProgressCallback): Promise<void> {
+    const report = (progress: IndexProgress) => {
+      console.error(`[lance-context] ${progress.message}`);
+      onProgress?.(progress);
+    };
+
     const batchSize = 32;
     for (let i = 0; i < chunks.length; i += batchSize) {
       const batch = chunks.slice(i, i + batchSize);
@@ -351,7 +388,7 @@ export class CodeIndexer {
       batch.forEach((chunk, idx) => {
         chunk.embedding = embeddings[idx];
       });
-      console.error(`[lance-context] Embedded ${i + batch.length}/${chunks.length} chunks`);
+      report({ phase: 'embedding', current: i + batch.length, total: chunks.length, message: `Embedded ${i + batch.length}/${chunks.length} chunks` });
     }
   }
 
