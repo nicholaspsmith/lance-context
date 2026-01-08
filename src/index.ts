@@ -41,7 +41,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: 'index_codebase',
         description:
-          'Index the codebase for semantic search. Creates vector embeddings of all code files.',
+          'Index the codebase for semantic search. Creates vector embeddings of all code files. Supports incremental indexing - only changed files are re-indexed unless forceReindex is true.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -54,6 +54,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: 'array',
               items: { type: 'string' },
               description: 'Glob patterns for files to exclude (default: node_modules, dist, .git)',
+            },
+            forceReindex: {
+              type: 'boolean',
+              description: 'Force a full reindex, ignoring cached file modification times (default: false)',
             },
           },
         },
@@ -108,12 +112,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'index_codebase': {
         const patterns = (args?.patterns as string[]) || undefined;
         const excludePatterns = (args?.excludePatterns as string[]) || undefined;
-        const result = await idx.indexCodebase(patterns, excludePatterns);
+        const forceReindex = (args?.forceReindex as boolean) || false;
+        const result = await idx.indexCodebase(patterns, excludePatterns, forceReindex);
+        const mode = result.incremental ? 'Incremental update' : 'Full reindex';
         return {
           content: [
             {
               type: 'text',
-              text: `Indexed ${result.filesIndexed} files, created ${result.chunksCreated} chunks.`,
+              text: `${mode}: Indexed ${result.filesIndexed} files, total ${result.chunksCreated} chunks.`,
             },
           ],
         };
