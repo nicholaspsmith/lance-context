@@ -10,7 +10,7 @@ export interface EmbeddingBackend {
 }
 
 export interface EmbeddingConfig {
-  backend: 'jina' | 'local' | 'ollama';
+  backend: 'jina' | 'openai' | 'ollama' | 'local';
   model?: string;
   apiKey?: string;
   baseUrl?: string;
