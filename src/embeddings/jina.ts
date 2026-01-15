@@ -1,4 +1,5 @@
 import type { EmbeddingBackend, EmbeddingConfig } from './types.js';
+import { fetchWithRetry } from './retry.js';
 
 /**
  * Jina AI embedding backend
@@ -29,7 +30,7 @@ export class JinaBackend implements EmbeddingBackend {
   }
 
   async embed(text: string): Promise<number[]> {
-    const response = await fetch(this.baseUrl, {
+    const response = await fetchWithRetry(this.baseUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -51,7 +52,7 @@ export class JinaBackend implements EmbeddingBackend {
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    const response = await fetch(this.baseUrl, {
+    const response = await fetchWithRetry(this.baseUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

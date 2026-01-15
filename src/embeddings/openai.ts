@@ -1,4 +1,5 @@
 import type { EmbeddingBackend, EmbeddingConfig } from './types.js';
+import { fetchWithRetry } from './retry.js';
 
 const OPENAI_EMBEDDING_MODELS: Record<string, number> = {
   'text-embedding-3-small': 1536,
@@ -27,7 +28,7 @@ export class OpenAIBackend implements EmbeddingBackend {
 
   async initialize(): Promise<void> {
     // Test the API key with a simple request
-    const response = await fetch(`${this.baseUrl}/models`, {
+    const response = await fetchWithRetry(`${this.baseUrl}/models`, {
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
       },
@@ -44,7 +45,7 @@ export class OpenAIBackend implements EmbeddingBackend {
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    const response = await fetch(`${this.baseUrl}/embeddings`, {
+    const response = await fetchWithRetry(`${this.baseUrl}/embeddings`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.apiKey}`,

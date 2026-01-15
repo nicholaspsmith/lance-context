@@ -11,15 +11,18 @@ import { CodeIndexer } from './search/indexer.js';
 
 const PROJECT_PATH = process.env.LANCE_CONTEXT_PROJECT || process.cwd();
 
-let indexer: CodeIndexer | null = null;
+let indexerPromise: Promise<CodeIndexer> | null = null;
 
 async function getIndexer(): Promise<CodeIndexer> {
-  if (!indexer) {
-    const backend = await createEmbeddingBackend();
-    indexer = new CodeIndexer(PROJECT_PATH, backend);
-    await indexer.initialize();
+  if (!indexerPromise) {
+    indexerPromise = (async () => {
+      const backend = await createEmbeddingBackend();
+      const idx = new CodeIndexer(PROJECT_PATH, backend);
+      await idx.initialize();
+      return idx;
+    })();
   }
-  return indexer;
+  return indexerPromise;
 }
 
 const server = new Server(

@@ -31,6 +31,7 @@ interface IndexMetadata {
   chunkCount: number;
   embeddingBackend: string;
   embeddingModel?: string;
+  embeddingDimensions: number;
   version: string;
 }
 
@@ -95,6 +96,7 @@ export class CodeIndexer {
       fileCount,
       chunkCount,
       embeddingBackend: this.embeddingBackend.name,
+      embeddingDimensions: this.embeddingBackend.getDimensions(),
       version: '1.0.0',
     };
 
@@ -265,7 +267,22 @@ export class CodeIndexer {
     // Check if we can do incremental indexing
     const tableNames = await this.db!.tableNames();
     const hasExistingIndex = tableNames.includes('code_chunks');
-    const canDoIncremental = hasExistingIndex && !forceReindex;
+
+    // Check for embedding dimension mismatch
+    let dimensionMismatch = false;
+    if (hasExistingIndex && !forceReindex) {
+      const metadata = await this.loadIndexMetadata();
+      const currentDimensions = this.embeddingBackend.getDimensions();
+      if (metadata?.embeddingDimensions && metadata.embeddingDimensions !== currentDimensions) {
+        console.error(
+          `[lance-context] Embedding dimension mismatch: index has ${metadata.embeddingDimensions}, ` +
+          `current backend (${this.embeddingBackend.name}) uses ${currentDimensions}. Forcing full reindex.`
+        );
+        dimensionMismatch = true;
+      }
+    }
+
+    const canDoIncremental = hasExistingIndex && !forceReindex && !dimensionMismatch;
 
     if (canDoIncremental) {
       return this.indexIncremental(files, onProgress);

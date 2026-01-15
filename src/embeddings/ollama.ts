@@ -1,4 +1,5 @@
 import type { EmbeddingBackend, EmbeddingConfig } from './types.js';
+import { fetchWithRetry } from './retry.js';
 
 /**
  * Ollama embedding backend
@@ -18,7 +19,7 @@ export class OllamaBackend implements EmbeddingBackend {
   async initialize(): Promise<void> {
     // Test connection
     try {
-      const response = await fetch(`${this.baseUrl}/api/tags`);
+      const response = await fetchWithRetry(`${this.baseUrl}/api/tags`, {});
       if (!response.ok) {
         throw new Error(`Ollama server returned ${response.status}`);
       }
@@ -28,7 +29,7 @@ export class OllamaBackend implements EmbeddingBackend {
   }
 
   async embed(text: string): Promise<number[]> {
-    const response = await fetch(`${this.baseUrl}/api/embeddings`, {
+    const response = await fetchWithRetry(`${this.baseUrl}/api/embeddings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
