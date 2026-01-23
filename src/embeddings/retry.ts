@@ -5,12 +5,19 @@ export interface RetryOptions {
   maxRetries?: number;
   baseDelayMs?: number;
   maxDelayMs?: number;
+  maxResponseSizeBytes?: number;
 }
+
+/**
+ * Default maximum response size (10MB)
+ */
+const DEFAULT_MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
 
 const DEFAULT_OPTIONS: Required<RetryOptions> = {
   maxRetries: 3,
   baseDelayMs: 1000,
   maxDelayMs: 10000,
+  maxResponseSizeBytes: DEFAULT_MAX_RESPONSE_SIZE,
 };
 
 /**
@@ -21,13 +28,30 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Check if response size exceeds the maximum allowed
+ */
+function checkResponseSize(response: Response, maxSize: number): void {
+  const contentLength = response.headers?.get?.('content-length');
+  if (contentLength) {
+    const size = parseInt(contentLength, 10);
+    if (!isNaN(size) && size > maxSize) {
+      throw new Error(`Response size ${size} bytes exceeds maximum allowed ${maxSize} bytes`);
+    }
+  }
+}
+
+/**
  * Check if an error is retryable (network errors, rate limits, server errors)
  */
 function isRetryableError(error: unknown): boolean {
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
     // Retry on network errors
-    if (message.includes('fetch') || message.includes('network') || message.includes('econnrefused')) {
+    if (
+      message.includes('fetch') ||
+      message.includes('network') ||
+      message.includes('econnrefused')
+    ) {
       return true;
     }
   }
@@ -56,6 +80,9 @@ export async function fetchWithRetry(
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
     try {
       const response = await fetch(url, options);
+
+      // Check response size before processing
+      checkResponseSize(response, opts.maxResponseSizeBytes);
 
       // If response is ok or non-retryable error, return it
       if (response.ok || !isRetryableStatus(response.status)) {
