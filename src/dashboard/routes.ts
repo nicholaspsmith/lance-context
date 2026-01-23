@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import { dashboardState } from './state.js';
 import { sseManager } from './events.js';
 import { getDashboardHTML } from './ui.js';
+import { getBeadsStatus } from './beads.js';
 
 /**
  * Send a JSON response
@@ -105,6 +106,24 @@ function handleUsage(_req: IncomingMessage, res: ServerResponse): void {
 }
 
 /**
+ * Handle GET /api/beads - Beads issue tracker status
+ */
+async function handleBeads(_req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const projectPath = dashboardState.getProjectPath();
+  if (!projectPath) {
+    sendJSON(res, { available: false, issueCount: 0, openCount: 0, readyCount: 0, issues: [] });
+    return;
+  }
+
+  try {
+    const status = await getBeadsStatus(projectPath);
+    sendJSON(res, status);
+  } catch (error) {
+    sendJSON(res, { available: false, error: String(error) }, 500);
+  }
+}
+
+/**
  * Route dispatcher
  */
 export async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -137,6 +156,9 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
         break;
       case '/api/usage':
         handleUsage(req, res);
+        break;
+      case '/api/beads':
+        await handleBeads(req, res);
         break;
       default:
         send404(res);
