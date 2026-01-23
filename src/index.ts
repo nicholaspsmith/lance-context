@@ -9,6 +9,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const execAsync = promisify(exec);
+
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const packageJson = require('../package.json');
+
 import { createEmbeddingBackend } from './embeddings/index.js';
 import { CodeIndexer } from './search/indexer.js';
 import { isStringArray, isString, isNumber, isBoolean } from './utils/type-guards.js';
@@ -166,6 +171,18 @@ const SERVER_INSTRUCTIONS = `# lance-context - Semantic Code Search & Symbol Ana
 - **index_codebase**: Build/update the search index
 - **get_index_status**: Check if index is ready
 
+## CRITICAL: Always Use the \`commit\` Tool
+
+**NEVER use raw \`git commit\`** - ALWAYS use the \`commit\` MCP tool.
+
+The \`commit\` tool:
+- Validates you're on a feature branch (not main)
+- Checks message format (≤72 chars, imperative mood)
+- Enforces single responsibility per commit
+- Prevents common mistakes
+
+A post-commit hook will warn if commits bypass this tool.
+
 ## Signs You Should Have Used search_code
 
 - You used wildcards or regex alternation
@@ -191,7 +208,8 @@ const PRIORITY_INSTRUCTIONS = `
 
 3. **get_index_status** - Check if index is ready before searching
 
-4. **commit** - Use instead of \`git commit\`:
+4. **commit** - **ALWAYS use instead of \`git commit\`** (MANDATORY):
+   - NEVER run raw \`git commit\` - always use this tool
    - Validates you're on a feature branch (not main)
    - Checks message format (≤72 chars, imperative mood)
    - Enforces single responsibility per commit
@@ -204,6 +222,41 @@ const PRIORITY_INSTRUCTIONS = `
 - Your pattern-based search returned nothing
 
 `;
+
+// Package version - read from package.json
+const PACKAGE_VERSION: string = packageJson.version;
+
+/**
+ * Check for updates from npm registry (non-blocking).
+ * Logs a warning if a newer version is available.
+ */
+async function checkForUpdates(): Promise<void> {
+  try {
+    // Use npm view command to get latest version
+    const { stdout } = await execAsync('npm view lance-context version 2>/dev/null', {
+      timeout: 5000, // 5 second timeout
+    });
+    const latestVersion = stdout.trim();
+
+    if (latestVersion && latestVersion !== PACKAGE_VERSION) {
+      // Simple semver comparison: split and compare major.minor.patch
+      const current = PACKAGE_VERSION.split('.').map(Number);
+      const latest = latestVersion.split('.').map(Number);
+
+      const isOutdated =
+        latest[0] > current[0] ||
+        (latest[0] === current[0] && latest[1] > current[1]) ||
+        (latest[0] === current[0] && latest[1] === current[1] && latest[2] > current[2]);
+
+      if (isOutdated) {
+        console.error(`[lance-context] Update available: ${PACKAGE_VERSION} → ${latestVersion}`);
+        console.error('[lance-context] Run: npm install -g lance-context@latest');
+      }
+    }
+  } catch {
+    // Silently ignore update check failures (network issues, npm not available, etc.)
+  }
+}
 
 let indexerPromise: Promise<CodeIndexer> | null = null;
 let configPromise: ReturnType<typeof loadConfig> | null = null;
@@ -242,7 +295,7 @@ async function getIndexer(): Promise<CodeIndexer> {
 const server = new Server(
   {
     name: 'lance-context',
-    version: '0.1.0',
+    version: PACKAGE_VERSION,
   },
   {
     capabilities: {
@@ -1327,6 +1380,14 @@ ${conceptList}`;
         // Build commit message with Co-Authored-By
         const fullMessage = `${message}\n\nCo-Authored-By: Claude <noreply@anthropic.com>`;
 
+        // Write marker file to indicate commit is via MCP tool (for post-commit hook)
+        const markerPath = path.join(PROJECT_PATH, '.git', 'MCP_COMMIT_MARKER');
+        try {
+          fs.writeFileSync(markerPath, Date.now().toString());
+        } catch {
+          // Ignore marker write failures - non-critical
+        }
+
         // Execute commit
         try {
           const { stdout } = await execAsync(
@@ -2084,6 +2145,9 @@ ${conceptList}`;
 
 // Start server
 async function main() {
+  // Check for updates in background (non-blocking)
+  checkForUpdates();
+
   // Load config to check if dashboard is enabled
   const config = await getConfig();
   const dashboardConfig = getDashboardConfig(config);
@@ -2096,16 +2160,26 @@ async function main() {
     console.error('[lance-context] Failed to initialize indexer:', error);
   }
 
-  // Auto-index if project is not yet indexed
+  // Auto-index if project is not yet indexed or backend has changed
   if (indexer) {
     const status = await indexer.getStatus();
-    if (!status.indexed) {
+    const needsIndex = !status.indexed;
+    const needsReindex = status.indexed && status.backendMismatch;
+
+    if (needsIndex) {
       console.error('[lance-context] Project not indexed, starting auto-index...');
+    } else if (needsReindex) {
+      console.error(`[lance-context] ${status.backendMismatchReason}`);
+      console.error('[lance-context] Starting automatic reindex with new backend...');
+    }
+
+    if (needsIndex || needsReindex) {
       dashboardState.onIndexingStart();
 
       // Run indexing in background so server can start immediately
+      // Force reindex if backend changed to rebuild all vectors
       indexer
-        .indexCodebase(undefined, undefined, false, (progress) => {
+        .indexCodebase(undefined, undefined, needsReindex, (progress) => {
           dashboardState.onProgress(progress);
         })
         .then((result) => {

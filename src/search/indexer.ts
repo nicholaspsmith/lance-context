@@ -92,6 +92,12 @@ export interface IndexStatus {
   corrupted?: boolean;
   /** Description of detected corruption */
   corruptionReason?: string;
+  /** Whether the current embedding backend differs from the indexed backend */
+  backendMismatch?: boolean;
+  /** Description of the backend mismatch */
+  backendMismatchReason?: string;
+  /** Whether the index is currently being rebuilt due to backend change */
+  isIndexing?: boolean;
 }
 
 interface IndexMetadata {
@@ -418,6 +424,9 @@ export class CodeIndexer {
     // Validate index integrity
     const corruptionCheck = await this.validateIndexIntegrity(metadata, count);
 
+    // Check for backend mismatch
+    const backendMismatch = this.checkBackendMismatch(metadata);
+
     return {
       indexed: true,
       fileCount: metadata?.fileCount ?? 0,
@@ -428,7 +437,56 @@ export class CodeIndexer {
       embeddingModel: metadata?.embeddingModel ?? this.embeddingBackend.getModel(),
       corrupted: corruptionCheck.corrupted,
       corruptionReason: corruptionCheck.reason,
+      backendMismatch: backendMismatch.mismatch,
+      backendMismatchReason: backendMismatch.reason,
     };
+  }
+
+  /**
+   * Check if the current embedding backend differs from the one used to create the index.
+   * Returns mismatch status and reason if mismatched.
+   */
+  private checkBackendMismatch(metadata: IndexMetadata | null): {
+    mismatch: boolean;
+    reason?: string;
+  } {
+    if (!metadata) {
+      return { mismatch: false };
+    }
+
+    const currentBackend = this.embeddingBackend.name;
+    const currentModel = this.embeddingBackend.getModel();
+    const currentDimensions = this.embeddingBackend.getDimensions();
+
+    // Check dimension mismatch (critical - will cause search failures)
+    if (metadata.embeddingDimensions && metadata.embeddingDimensions !== currentDimensions) {
+      return {
+        mismatch: true,
+        reason:
+          `Embedding dimension mismatch: index has ${metadata.embeddingDimensions}-dim vectors, ` +
+          `current backend (${currentBackend}) produces ${currentDimensions}-dim vectors. Reindex required.`,
+      };
+    }
+
+    // Check model mismatch (different models produce incompatible embeddings)
+    if (metadata.embeddingModel && metadata.embeddingModel !== currentModel) {
+      return {
+        mismatch: true,
+        reason:
+          `Embedding model mismatch: index uses '${metadata.embeddingModel}', ` +
+          `current backend uses '${currentModel}'. Reindex required.`,
+      };
+    }
+
+    // Check backend mismatch (even same dimensions may have different embedding spaces)
+    if (metadata.embeddingBackend && metadata.embeddingBackend !== currentBackend) {
+      return {
+        mismatch: true,
+        reason: `Embedding backend changed from '${metadata.embeddingBackend}' to '${currentBackend}'. Reindex required.`,
+      };
+    }
+
+    return { mismatch: false };
   }
 
   /**
