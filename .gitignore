@@ -25,3 +25,19 @@ Thumbs.db
 *.log
 npm-debug.log*
 coverage/
+
+# Claude Code auto-generated context
+**/CLAUDE.md
+.claude/plugins/
+
+# Serena MCP
+.serena/
+
+# Beads (keep issues.jsonl tracked)
+.beads/*
+!.beads/issues.jsonl
+
+# Symlinked directories
+gt/
+lancecontext/
+mayor/
