@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'IMPORTANT: Before committing, ensure you have read and followed the rules in .claude/rules.md - each commit must have exactly one responsibility and the body must only contain the Co-Authored-By line.'"
+            "command": "branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null); if [ \"$branch\" = \"main\" ] || [ \"$branch\" = \"master\" ]; then echo '🚫 ERROR: You are on the main branch! Create a feature branch first: git checkout -b feature/your-feature-name'; exit 1; else echo '✓ Branch OK. Remember: one responsibility per commit, body contains only Co-Authored-By line.'; fi"
           }
         ]
       }
