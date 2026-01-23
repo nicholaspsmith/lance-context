@@ -131,6 +131,9 @@ function sanitizePathForFilter(filepath: string): string {
  * const results = await indexer.search('authentication middleware');
  * ```
  */
+/** Maximum number of query embeddings to cache */
+const QUERY_CACHE_MAX_SIZE = 100;
+
 export class CodeIndexer {
   private db: lancedb.Connection | null = null;
   private table: lancedb.Table | null = null;
@@ -139,6 +142,8 @@ export class CodeIndexer {
   private indexPath: string;
   private projectPath: string;
   private config: LanceContextConfig | null = null;
+  /** LRU cache for query embeddings to avoid recomputing identical queries */
+  private queryEmbeddingCache: Map<string, number[]> = new Map();
 
   constructor(projectPath: string, embeddingBackend: EmbeddingBackend) {
     this.projectPath = projectPath;
@@ -682,6 +687,36 @@ export class CodeIndexer {
     return langMap[ext] || ext;
   }
 
+  /**
+   * Get query embedding from cache or compute it.
+   * Uses LRU eviction when cache is full.
+   */
+  private async getQueryEmbedding(query: string): Promise<number[]> {
+    // Check cache first
+    const cached = this.queryEmbeddingCache.get(query);
+    if (cached) {
+      // Move to end for LRU (delete and re-insert)
+      this.queryEmbeddingCache.delete(query);
+      this.queryEmbeddingCache.set(query, cached);
+      return cached;
+    }
+
+    // Compute embedding
+    const embedding = await this.embeddingBackend.embed(query);
+
+    // Evict oldest entry if cache is full (first entry in Map)
+    if (this.queryEmbeddingCache.size >= QUERY_CACHE_MAX_SIZE) {
+      const oldestKey = this.queryEmbeddingCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.queryEmbeddingCache.delete(oldestKey);
+      }
+    }
+
+    // Store in cache
+    this.queryEmbeddingCache.set(query, embedding);
+    return embedding;
+  }
+
   async search(query: string, limit: number = 10): Promise<CodeChunk[]> {
     if (!this.table) {
       const status = await this.getStatus();
@@ -690,7 +725,7 @@ export class CodeIndexer {
       }
     }
 
-    const queryEmbedding = await this.embeddingBackend.embed(query);
+    const queryEmbedding = await this.getQueryEmbedding(query);
     const searchConfig = getSearchConfig(this.config!);
 
     // Fetch more results than needed for re-ranking
@@ -772,5 +807,7 @@ export class CodeIndexer {
       await this.db!.dropTable('code_chunks');
     }
     this.table = null;
+    // Clear query embedding cache to prevent stale embeddings
+    this.queryEmbeddingCache.clear();
   }
 }
