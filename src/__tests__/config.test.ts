@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { getDefaultPatterns, getDefaultExcludePatterns } from '../config.js';
+import {
+  getDefaultPatterns,
+  getDefaultExcludePatterns,
+  getInstructions,
+  LanceContextConfig,
+} from '../config.js';
 
 describe('config', () => {
   describe('getDefaultPatterns', () => {
@@ -36,6 +41,20 @@ describe('config', () => {
       expect(patterns).toContain('**/node_modules/**');
       expect(patterns).toContain('**/.git/**');
       expect(patterns).toContain('**/dist/**');
+    });
+  });
+
+  describe('getInstructions', () => {
+    it('should return instructions when present in config', () => {
+      const config: LanceContextConfig = {
+        instructions: 'Use semantic search for this codebase.',
+      };
+      expect(getInstructions(config)).toBe('Use semantic search for this codebase.');
+    });
+
+    it('should return undefined when instructions not set', () => {
+      const config: LanceContextConfig = {};
+      expect(getInstructions(config)).toBeUndefined();
     });
   });
 });
