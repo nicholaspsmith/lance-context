@@ -10,6 +10,7 @@ import type { LanceContextConfig } from '../config.js';
 export type CommandName =
   | 'index_codebase'
   | 'search_code'
+  | 'search_similar'
   | 'get_index_status'
   | 'clear_index'
   | 'get_project_instructions';
@@ -44,6 +45,7 @@ export interface DashboardStateEvents {
 const COMMAND_LABELS: Record<CommandName, string> = {
   index_codebase: 'Index Codebase',
   search_code: 'Search Code',
+  search_similar: 'Search Similar',
   get_index_status: 'Get Status',
   clear_index: 'Clear Index',
   get_project_instructions: 'Get Instructions',
@@ -219,6 +221,7 @@ export class DashboardStateManager extends EventEmitter {
 
     const allCommands: CommandName[] = [
       'search_code',
+      'search_similar',
       'index_codebase',
       'get_index_status',
       'clear_index',

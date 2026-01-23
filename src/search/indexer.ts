@@ -77,6 +77,34 @@ interface FileChanges {
 }
 
 /**
+ * Options for searching similar code.
+ */
+export interface SearchSimilarOptions {
+  /** File path to find similar code for (relative to project root) */
+  filepath?: string;
+  /** Starting line number (1-indexed, requires filepath) */
+  startLine?: number;
+  /** Ending line number (1-indexed, requires filepath) */
+  endLine?: number;
+  /** Code snippet to find similar code for (alternative to filepath) */
+  code?: string;
+  /** Maximum number of results to return (default: 10) */
+  limit?: number;
+  /** Minimum similarity score threshold 0-1 (default: 0) */
+  threshold?: number;
+  /** Exclude the source chunk from results (default: true) */
+  excludeSelf?: boolean;
+}
+
+/**
+ * Result from similar code search, includes similarity score.
+ */
+export interface SimilarCodeResult extends CodeChunk {
+  /** Similarity score from 0 to 1 (1 = identical) */
+  similarity: number;
+}
+
+/**
  * Progress information during indexing operations.
  * Used to report status to callers via the progress callback.
  */
@@ -799,6 +827,111 @@ export class CodeIndexer {
     const bonusScore = Math.min(exactMatchBonus / queryTerms.length, 0.5);
 
     return Math.min(baseScore + bonusScore, 1);
+  }
+
+  /**
+   * Find code chunks semantically similar to a given code snippet or file location.
+   * This is useful for finding duplicate logic, similar implementations, or related code.
+   */
+  async searchSimilar(options: SearchSimilarOptions): Promise<SimilarCodeResult[]> {
+    const {
+      filepath,
+      startLine,
+      endLine,
+      code,
+      limit = 10,
+      threshold = 0,
+      excludeSelf = true,
+    } = options;
+
+    // Validate input first - need either code or filepath
+    if (!code && !filepath) {
+      throw new Error('Either code or filepath must be provided');
+    }
+
+    if (!this.table) {
+      const status = await this.getStatus();
+      if (!status.indexed) {
+        throw new Error('Codebase not indexed. Run index_codebase first.');
+      }
+    }
+
+    // Get the source code to find similar chunks for
+    let sourceCode: string;
+    let sourceId: string | null = null;
+
+    if (code) {
+      sourceCode = code;
+    } else {
+      // Read from file
+      const fullPath = path.join(this.projectPath, filepath!);
+      const fileContent = await fs.readFile(fullPath, 'utf-8');
+      const lines = fileContent.split('\n');
+
+      const start = startLine ? startLine - 1 : 0;
+      const end = endLine ? endLine : lines.length;
+
+      sourceCode = lines.slice(start, end).join('\n');
+
+      // Build source ID for exclusion
+      if (startLine && endLine) {
+        sourceId = `${filepath}:${startLine}-${endLine}`;
+      }
+    }
+
+    if (!sourceCode.trim()) {
+      throw new Error('Source code is empty');
+    }
+
+    // Embed the source code
+    const sourceEmbedding = await this.embeddingBackend.embed(sourceCode);
+
+    // Search for similar chunks - fetch extra to account for filtering
+    const fetchLimit = Math.min((limit + 5) * 2, 100);
+    const results = await this.table!.search(sourceEmbedding).limit(fetchLimit).toArray();
+
+    // LanceDB returns results sorted by distance (ascending)
+    // Convert distance to similarity score (1 - normalized_distance)
+    const maxDistance = results.length > 0 ? Math.max(...results.map((r) => r._distance || 0)) : 1;
+
+    const scoredResults: SimilarCodeResult[] = [];
+
+    for (const r of results) {
+      // Skip self if requested
+      if (excludeSelf && sourceId && r.id === sourceId) {
+        continue;
+      }
+
+      // Also skip if content is identical (for code-based search)
+      if (excludeSelf && code && r.content.trim() === code.trim()) {
+        continue;
+      }
+
+      // Convert distance to similarity (0 = far, 1 = identical)
+      const distance = r._distance || 0;
+      const similarity = maxDistance > 0 ? 1 - distance / maxDistance : 1;
+
+      // Apply threshold filter
+      if (similarity < threshold) {
+        continue;
+      }
+
+      scoredResults.push({
+        id: r.id,
+        filepath: r.filepath,
+        content: r.content,
+        startLine: r.startLine,
+        endLine: r.endLine,
+        language: r.language,
+        similarity,
+      });
+
+      if (scoredResults.length >= limit) {
+        break;
+      }
+    }
+
+    return scoredResults;
   }
 
   async clearIndex(): Promise<void> {

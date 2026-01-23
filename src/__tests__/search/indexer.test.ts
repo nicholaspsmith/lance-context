@@ -348,6 +348,137 @@ describe('CodeIndexer', () => {
     });
   });
 
+  describe('searchSimilar', () => {
+    it('should find similar code with code snippet input', async () => {
+      const chunks = [
+        {
+          id: 'file1.ts:1-10',
+          filepath: 'file1.ts',
+          content: 'function authenticate(user) { return true; }',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+          _distance: 0.1,
+        },
+        {
+          id: 'file2.ts:1-10',
+          filepath: 'file2.ts',
+          content: 'function validate(input) { return false; }',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+          _distance: 0.5,
+        },
+      ];
+      const mockTable = createMockTable(chunks);
+      mockConnection.tableNames.mockResolvedValue(['code_chunks']);
+      mockConnection.openTable.mockResolvedValue(mockTable as any);
+      vi.mocked(fsPromises.readFile).mockRejectedValue(new Error('ENOENT'));
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      const results = await indexer.searchSimilar({
+        code: 'function login(user) { return true; }',
+        limit: 10,
+      });
+
+      expect(results.length).toBe(2);
+      expect(results[0].filepath).toBe('file1.ts');
+      expect(results[0]).toHaveProperty('similarity');
+      expect(mockBackend.embed).toHaveBeenCalledWith('function login(user) { return true; }');
+    });
+
+    it('should exclude self when excludeSelf is true', async () => {
+      const chunks = [
+        {
+          id: 'file1.ts:1-10',
+          filepath: 'file1.ts',
+          content: 'function test() {}',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+          _distance: 0,
+        },
+        {
+          id: 'file2.ts:1-10',
+          filepath: 'file2.ts',
+          content: 'function other() {}',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+          _distance: 0.3,
+        },
+      ];
+      const mockTable = createMockTable(chunks);
+      mockConnection.tableNames.mockResolvedValue(['code_chunks']);
+      mockConnection.openTable.mockResolvedValue(mockTable as any);
+      vi.mocked(fsPromises.readFile).mockRejectedValue(new Error('ENOENT'));
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      // Should exclude exact content match
+      const results = await indexer.searchSimilar({
+        code: 'function test() {}',
+        excludeSelf: true,
+      });
+
+      expect(results.every((r) => r.content.trim() !== 'function test() {}')).toBe(true);
+    });
+
+    it('should throw error when neither code nor filepath is provided', async () => {
+      mockConnection.tableNames.mockResolvedValue(['code_chunks']);
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      await expect(indexer.searchSimilar({})).rejects.toThrow(
+        'Either code or filepath must be provided'
+      );
+    });
+
+    it('should respect threshold parameter', async () => {
+      const chunks = [
+        {
+          id: 'file1.ts:1-10',
+          filepath: 'file1.ts',
+          content: 'high similarity',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+          _distance: 0.1,
+        },
+        {
+          id: 'file2.ts:1-10',
+          filepath: 'file2.ts',
+          content: 'low similarity',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+          _distance: 0.9,
+        },
+      ];
+      const mockTable = createMockTable(chunks);
+      mockConnection.tableNames.mockResolvedValue(['code_chunks']);
+      mockConnection.openTable.mockResolvedValue(mockTable as any);
+      vi.mocked(fsPromises.readFile).mockRejectedValue(new Error('ENOENT'));
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      // With high threshold, should filter out low similarity results
+      const results = await indexer.searchSimilar({
+        code: 'test code',
+        threshold: 0.5,
+      });
+
+      // Only high similarity result should pass
+      expect(results.length).toBe(1);
+      expect(results[0].filepath).toBe('file1.ts');
+    });
+  });
+
   describe('indexCodebase', () => {
     beforeEach(() => {
       // Mock glob

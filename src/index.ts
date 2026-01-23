@@ -196,6 +196,46 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {},
         },
       },
+      {
+        name: 'search_similar',
+        description:
+          'Find code semantically similar to a given code snippet or file location. Useful for finding duplicate logic, similar implementations, or related code patterns.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            filepath: {
+              type: 'string',
+              description:
+                'File path (relative to project root) to find similar code for. Use with startLine/endLine to specify a range.',
+            },
+            startLine: {
+              type: 'number',
+              description: 'Starting line number (1-indexed). Requires filepath.',
+            },
+            endLine: {
+              type: 'number',
+              description: 'Ending line number (1-indexed). Requires filepath.',
+            },
+            code: {
+              type: 'string',
+              description:
+                'Code snippet to find similar code for. Alternative to filepath - provide either code or filepath, not both.',
+            },
+            limit: {
+              type: 'number',
+              description: 'Maximum number of results (default: 10)',
+            },
+            threshold: {
+              type: 'number',
+              description: 'Minimum similarity score 0-1 (default: 0)',
+            },
+            excludeSelf: {
+              type: 'boolean',
+              description: 'Exclude the source chunk from results (default: true)',
+            },
+          },
+        },
+      },
     ],
   };
 });
@@ -208,6 +248,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const validCommands: CommandName[] = [
     'index_codebase',
     'search_code',
+    'search_similar',
     'get_index_status',
     'clear_index',
     'get_project_instructions',
@@ -311,6 +352,45 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text:
                 instructions ||
                 'No project instructions configured. Add an "instructions" field to .lance-context.json.',
+            },
+          ],
+        };
+      }
+
+      case 'search_similar': {
+        const results = await idx.searchSimilar({
+          filepath: isString(args?.filepath) ? args.filepath : undefined,
+          startLine: isNumber(args?.startLine) ? args.startLine : undefined,
+          endLine: isNumber(args?.endLine) ? args.endLine : undefined,
+          code: isString(args?.code) ? args.code : undefined,
+          limit: isNumber(args?.limit) ? args.limit : 10,
+          threshold: isNumber(args?.threshold) ? args.threshold : 0,
+          excludeSelf: isBoolean(args?.excludeSelf) ? args.excludeSelf : true,
+        });
+
+        if (results.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: 'No similar code found.',
+              },
+            ],
+          };
+        }
+
+        const formatted = results
+          .map(
+            (r, i) =>
+              `## Similar ${i + 1}: ${r.filepath}:${r.startLine}-${r.endLine} (${(r.similarity * 100).toFixed(1)}% similar)\n\`\`\`${r.language}\n${r.content}\n\`\`\``
+          )
+          .join('\n\n');
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: formatted,
             },
           ],
         };
