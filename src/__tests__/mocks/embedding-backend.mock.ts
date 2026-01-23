@@ -13,10 +13,16 @@ export function createMockEmbeddingBackend(
     name: 'mock',
     initialize: vi.fn().mockResolvedValue(undefined),
     embed: vi.fn().mockImplementation(async () => {
-      return Array(dimensions).fill(0).map(() => Math.random());
+      return Array(dimensions)
+        .fill(0)
+        .map(() => Math.random());
     }),
     embedBatch: vi.fn().mockImplementation(async (texts: string[]) => {
-      return texts.map(() => Array(dimensions).fill(0).map(() => Math.random()));
+      return texts.map(() =>
+        Array(dimensions)
+          .fill(0)
+          .map(() => Math.random())
+      );
     }),
     getDimensions: vi.fn().mockReturnValue(dimensions),
     ...overrides,

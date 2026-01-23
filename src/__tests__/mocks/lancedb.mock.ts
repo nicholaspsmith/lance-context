@@ -46,7 +46,9 @@ export function createMockTable(initialData: MockRow[] = []) {
 /**
  * Creates a mock LanceDB connection
  */
-export function createMockConnection(tables: Record<string, ReturnType<typeof createMockTable>> = {}) {
+export function createMockConnection(
+  tables: Record<string, ReturnType<typeof createMockTable>> = {}
+) {
   const tableStore = { ...tables };
 
   return {

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ASTChunker } from '../search/ast-chunker.js';
-import type { ASTChunk } from '../search/ast-chunker.js';
 
 // Mock fs/promises
 vi.mock('fs/promises', () => ({

@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OllamaBackend } from '../../embeddings/ollama.js';
-import { createOllamaEmbeddingResponse, createSuccessFetch, createErrorFetch } from '../mocks/fetch.mock.js';
+import {
+  createOllamaEmbeddingResponse,
+  createSuccessFetch,
+  createErrorFetch,
+} from '../mocks/fetch.mock.js';
 
 describe('OllamaBackend', () => {
   beforeEach(() => {
@@ -47,10 +51,7 @@ describe('OllamaBackend', () => {
       const backend = new OllamaBackend({ backend: 'ollama' });
       await backend.initialize();
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:11434/api/tags',
-        expect.anything()
-      );
+      expect(mockFetch).toHaveBeenCalledWith('http://localhost:11434/api/tags', expect.anything());
     });
 
     it('should use custom baseUrl for initialization', async () => {
@@ -63,10 +64,7 @@ describe('OllamaBackend', () => {
       });
       await backend.initialize();
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'http://custom:1234/api/tags',
-        expect.anything()
-      );
+      expect(mockFetch).toHaveBeenCalledWith('http://custom:1234/api/tags', expect.anything());
     });
 
     it('should throw on connection failure', async () => {
@@ -155,7 +153,8 @@ describe('OllamaBackend', () => {
 
   describe('embedBatch', () => {
     it('should parallelize calls since Ollama has no native batch', async () => {
-      const mockFetch = vi.fn()
+      const mockFetch = vi
+        .fn()
         .mockResolvedValueOnce(createOllamaEmbeddingResponse([0.1]))
         .mockResolvedValueOnce(createOllamaEmbeddingResponse([0.2]))
         .mockResolvedValueOnce(createOllamaEmbeddingResponse([0.3]));
@@ -170,7 +169,6 @@ describe('OllamaBackend', () => {
 
     it('should preserve order of embeddings', async () => {
       // Simulate different response times by controlling mock order
-      let callCount = 0;
       const mockFetch = vi.fn().mockImplementation(async (_url, options) => {
         const body = JSON.parse(options.body);
         const index = ['text1', 'text2', 'text3'].indexOf(body.prompt);

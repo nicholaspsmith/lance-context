@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import * as path from 'path';
 import { CodeIndexer } from '../../search/indexer.js';
 import { createMockEmbeddingBackend } from '../mocks/embedding-backend.mock.js';
 import { createMockConnection, createMockTable } from '../mocks/lancedb.mock.js';
@@ -17,11 +16,15 @@ vi.mock('fs/promises', () => ({
 }));
 
 // Mock config
-vi.mock('../../config.js', async (importOriginal) => {
+vi.mock('../../config.js', async (_importOriginal) => {
   return {
-    loadConfig: vi.fn().mockResolvedValue({ patterns: ['**/*.ts'], excludePatterns: ['**/node_modules/**'] }),
+    loadConfig: vi
+      .fn()
+      .mockResolvedValue({ patterns: ['**/*.ts'], excludePatterns: ['**/node_modules/**'] }),
     getDefaultPatterns: vi.fn().mockReturnValue(['**/*.ts', '**/*.js']),
     getDefaultExcludePatterns: vi.fn().mockReturnValue(['**/node_modules/**']),
+    getChunkingConfig: vi.fn().mockReturnValue({ maxLines: 100, overlap: 20 }),
+    getSearchConfig: vi.fn().mockReturnValue({ semanticWeight: 0.7, keywordWeight: 0.3 }),
   };
 });
 
@@ -42,9 +45,19 @@ describe('CodeIndexer', () => {
 
     vi.mocked(lancedb.connect).mockResolvedValue(mockConnection as any);
     // Re-establish the config mock after resetAllMocks
-    vi.mocked(configModule.loadConfig).mockResolvedValue({ patterns: ['**/*.ts'], excludePatterns: ['**/node_modules/**'] });
+    vi.mocked(configModule.loadConfig).mockResolvedValue({
+      patterns: ['**/*.ts'],
+      excludePatterns: ['**/node_modules/**'],
+      chunking: { maxLines: 100, overlap: 20 },
+      search: { semanticWeight: 0.7, keywordWeight: 0.3 },
+    });
     vi.mocked(configModule.getDefaultPatterns).mockReturnValue(['**/*.ts', '**/*.js']);
     vi.mocked(configModule.getDefaultExcludePatterns).mockReturnValue(['**/node_modules/**']);
+    vi.mocked(configModule.getChunkingConfig).mockReturnValue({ maxLines: 100, overlap: 20 });
+    vi.mocked(configModule.getSearchConfig).mockReturnValue({
+      semanticWeight: 0.7,
+      keywordWeight: 0.3,
+    });
   });
 
   afterEach(() => {
@@ -85,8 +98,22 @@ describe('CodeIndexer', () => {
 
     it('should return correct counts when indexed', async () => {
       const mockTable = createMockTable([
-        { id: '1', filePath: 'test.ts', content: 'code', startLine: 1, endLine: 10, language: 'typescript' },
-        { id: '2', filePath: 'test.ts', content: 'more', startLine: 11, endLine: 20, language: 'typescript' },
+        {
+          id: '1',
+          filePath: 'test.ts',
+          content: 'code',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+        },
+        {
+          id: '2',
+          filePath: 'test.ts',
+          content: 'more',
+          startLine: 11,
+          endLine: 20,
+          language: 'typescript',
+        },
       ]);
       mockConnection.tableNames.mockResolvedValue(['code_chunks']);
       mockConnection.openTable.mockResolvedValue(mockTable as any);
@@ -116,7 +143,14 @@ describe('CodeIndexer', () => {
 
     it('should handle missing metadata gracefully', async () => {
       const mockTable = createMockTable([
-        { id: '1', filePath: 'test.ts', content: 'code', startLine: 1, endLine: 10, language: 'typescript' },
+        {
+          id: '1',
+          filePath: 'test.ts',
+          content: 'code',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+        },
       ]);
       mockConnection.tableNames.mockResolvedValue(['code_chunks']);
       mockConnection.openTable.mockResolvedValue(mockTable as any);
@@ -147,7 +181,14 @@ describe('CodeIndexer', () => {
 
     it('should embed query via backend', async () => {
       const mockTable = createMockTable([
-        { id: '1', filePath: 'test.ts', content: 'function test', startLine: 1, endLine: 10, language: 'typescript' },
+        {
+          id: '1',
+          filePath: 'test.ts',
+          content: 'function test',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+        },
       ]);
       mockConnection.tableNames.mockResolvedValue(['code_chunks']);
       mockConnection.openTable.mockResolvedValue(mockTable as any);
@@ -162,14 +203,16 @@ describe('CodeIndexer', () => {
     });
 
     it('should respect limit parameter', async () => {
-      const chunks = Array(10).fill(null).map((_, i) => ({
-        id: `${i}`,
-        filePath: `test${i}.ts`,
-        content: `content ${i}`,
-        startLine: 1,
-        endLine: 10,
-        language: 'typescript',
-      }));
+      const chunks = Array(10)
+        .fill(null)
+        .map((_, i) => ({
+          id: `${i}`,
+          filePath: `test${i}.ts`,
+          content: `content ${i}`,
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+        }));
       const mockTable = createMockTable(chunks);
       mockConnection.tableNames.mockResolvedValue(['code_chunks']);
       mockConnection.openTable.mockResolvedValue(mockTable as any);
@@ -348,8 +391,22 @@ describe('CodeIndexer', () => {
     it('should apply 70/30 semantic/keyword split', async () => {
       // This tests the calculateKeywordScore indirectly through search
       const mockTable = createMockTable([
-        { id: '1', filePath: 'auth.ts', content: 'function authenticate() {}', startLine: 1, endLine: 1, language: 'typescript' },
-        { id: '2', filePath: 'other.ts', content: 'function other() {}', startLine: 1, endLine: 1, language: 'typescript' },
+        {
+          id: '1',
+          filePath: 'auth.ts',
+          content: 'function authenticate() {}',
+          startLine: 1,
+          endLine: 1,
+          language: 'typescript',
+        },
+        {
+          id: '2',
+          filePath: 'other.ts',
+          content: 'function other() {}',
+          startLine: 1,
+          endLine: 1,
+          language: 'typescript',
+        },
       ]);
       mockConnection.tableNames.mockResolvedValue(['code_chunks']);
       mockConnection.openTable.mockResolvedValue(mockTable as any);

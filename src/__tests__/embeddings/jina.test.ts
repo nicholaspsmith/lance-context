@@ -116,9 +116,9 @@ describe('JinaBackend', () => {
 
   describe('embedBatch', () => {
     it('should send all texts in single request', async () => {
-      const mockFetch = vi.fn().mockResolvedValue(
-        createJinaEmbeddingResponse([[0.1], [0.2], [0.3]])
-      );
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue(createJinaEmbeddingResponse([[0.1], [0.2], [0.3]]));
       vi.stubGlobal('fetch', mockFetch);
 
       const backend = new JinaBackend({ backend: 'jina', apiKey: 'test-key' });
@@ -157,7 +157,9 @@ describe('JinaBackend', () => {
       vi.stubGlobal('fetch', mockFetch);
 
       const backend = new JinaBackend({ backend: 'jina', apiKey: 'test-key' });
-      await expect(backend.embedBatch(['text'])).rejects.toThrow('Jina API error: 400 - Bad request');
+      await expect(backend.embedBatch(['text'])).rejects.toThrow(
+        'Jina API error: 400 - Bad request'
+      );
     });
   });
 

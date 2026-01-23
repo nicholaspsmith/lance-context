@@ -71,7 +71,9 @@ export class ASTChunker {
     if (imports.length > 0) {
       const firstImport = imports[0];
       const lastImport = imports[imports.length - 1];
-      const startLine = sourceFile.getLineAndCharacterOfPosition(firstImport.getStart(sourceFile)).line;
+      const startLine = sourceFile.getLineAndCharacterOfPosition(
+        firstImport.getStart(sourceFile)
+      ).line;
       const endLine = sourceFile.getLineAndCharacterOfPosition(lastImport.getEnd()).line;
 
       chunks.unshift({
@@ -105,7 +107,6 @@ export class ASTChunker {
    */
   private extractChunks(node: ts.Node, sourceFile: ts.SourceFile, lines: string[]): ASTChunk[] {
     const chunks: ASTChunk[] = [];
-    const startLine = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line;
     const endLine = sourceFile.getLineAndCharacterOfPosition(node.getEnd()).line;
 
     // Get leading comments/decorators
@@ -239,7 +240,11 @@ export class ASTChunker {
     let name: string | undefined;
     let type: ASTChunk['type'] = 'other';
 
-    if (ts.isMethodDeclaration(member) || ts.isGetAccessorDeclaration(member) || ts.isSetAccessorDeclaration(member)) {
+    if (
+      ts.isMethodDeclaration(member) ||
+      ts.isGetAccessorDeclaration(member) ||
+      ts.isSetAccessorDeclaration(member)
+    ) {
       type = 'method';
       name = `${className}.${member.name?.getText(sourceFile) || 'anonymous'}`;
     } else if (ts.isConstructorDeclaration(member)) {
@@ -250,19 +255,21 @@ export class ASTChunker {
       name = `${className}.${member.name?.getText(sourceFile) || 'property'}`;
     }
 
-    return [{
-      content: lines.slice(startLine, endLine + 1).join('\n'),
-      startLine: startLine + 1,
-      endLine: endLine + 1,
-      type,
-      name,
-    }];
+    return [
+      {
+        content: lines.slice(startLine, endLine + 1).join('\n'),
+        startLine: startLine + 1,
+        endLine: endLine + 1,
+        type,
+        name,
+      },
+    ];
   }
 
   /**
    * Split a large chunk into smaller pieces
    */
-  private splitLargeChunk(chunk: ASTChunk, allLines: string[]): ASTChunk[] {
+  private splitLargeChunk(chunk: ASTChunk, _allLines: string[]): ASTChunk[] {
     const chunkLines = chunk.content.split('\n');
     const totalLines = chunkLines.length;
     const chunks: ASTChunk[] = [];

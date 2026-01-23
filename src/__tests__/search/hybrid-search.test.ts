@@ -7,7 +7,10 @@ import { describe, it, expect } from 'vitest';
 
 // Recreate the scoring logic for testing (extracted from indexer.ts)
 function calculateKeywordScore(query: string, content: string, filePath: string): number {
-  const queryTerms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
+  const queryTerms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length > 2);
   if (queryTerms.length === 0) return 0;
 
   const contentLower = content.toLowerCase();
@@ -73,8 +76,9 @@ describe('calculateKeywordScore', () => {
 
   describe('word boundary matching', () => {
     it('should give bonus for exact word match', () => {
-      const substringOnlyScore = calculateKeywordScore('user', 'username', 'test.ts');
-      const exactScore = calculateKeywordScore('user', 'user data', 'test.ts');
+      // These variables demonstrate the concept even though not directly asserted
+      const _substringOnlyScore = calculateKeywordScore('user', 'username', 'test.ts');
+      const _exactScore = calculateKeywordScore('user', 'user data', 'test.ts');
 
       // Exact match should score higher due to word boundary bonus (0.5 extra)
       // substringOnlyScore: 1/1 = 1 (base) + 0 (no word boundary) = 1
@@ -104,7 +108,7 @@ describe('calculateKeywordScore', () => {
 
   describe('filename/path bonus', () => {
     it('should add bonus when term matches filepath', () => {
-      const noPathMatch = calculateKeywordScore('auth', 'authentication code', 'utils.ts');
+      const _noPathMatch = calculateKeywordScore('auth', 'authentication code', 'utils.ts');
       const withPathMatch = calculateKeywordScore('auth', 'code here', 'auth.ts');
 
       // Both should have some score, path match gives 0.5 bonus per term

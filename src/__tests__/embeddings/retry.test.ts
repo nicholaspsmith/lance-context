@@ -122,10 +122,14 @@ describe('fetchWithRetry', () => {
         .mockResolvedValueOnce({ ok: true, status: 200 });
       vi.stubGlobal('fetch', mockFetch);
 
-      const responsePromise = fetchWithRetry('https://api.test.com', {}, {
-        maxRetries: 3,
-        baseDelayMs: 1000,
-      });
+      const responsePromise = fetchWithRetry(
+        'https://api.test.com',
+        {},
+        {
+          maxRetries: 3,
+          baseDelayMs: 1000,
+        }
+      );
 
       await vi.advanceTimersByTimeAsync(0);
       expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -155,11 +159,15 @@ describe('fetchWithRetry', () => {
         .mockResolvedValueOnce({ ok: true, status: 200 });
       vi.stubGlobal('fetch', mockFetch);
 
-      const responsePromise = fetchWithRetry('https://api.test.com', {}, {
-        maxRetries: 3,
-        baseDelayMs: 5000,
-        maxDelayMs: 8000,
-      });
+      const responsePromise = fetchWithRetry(
+        'https://api.test.com',
+        {},
+        {
+          maxRetries: 3,
+          baseDelayMs: 5000,
+          maxDelayMs: 8000,
+        }
+      );
 
       await vi.advanceTimersByTimeAsync(0);
       expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -201,7 +209,9 @@ describe('fetchWithRetry', () => {
 
   describe('non-retryable errors', () => {
     it('should not retry on 400 status code', async () => {
-      const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 400, statusText: 'Bad Request' });
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue({ ok: false, status: 400, statusText: 'Bad Request' });
       vi.stubGlobal('fetch', mockFetch);
 
       const response = await fetchWithRetry('https://api.test.com', {});
@@ -212,7 +222,9 @@ describe('fetchWithRetry', () => {
     });
 
     it('should not retry on 401 status code', async () => {
-      const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 401, statusText: 'Unauthorized' });
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue({ ok: false, status: 401, statusText: 'Unauthorized' });
       vi.stubGlobal('fetch', mockFetch);
 
       const response = await fetchWithRetry('https://api.test.com', {});
@@ -223,7 +235,9 @@ describe('fetchWithRetry', () => {
     });
 
     it('should not retry on 403 status code', async () => {
-      const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 403, statusText: 'Forbidden' });
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue({ ok: false, status: 403, statusText: 'Forbidden' });
       vi.stubGlobal('fetch', mockFetch);
 
       const response = await fetchWithRetry('https://api.test.com', {});
@@ -234,7 +248,9 @@ describe('fetchWithRetry', () => {
     });
 
     it('should not retry on 404 status code', async () => {
-      const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' });
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' });
       vi.stubGlobal('fetch', mockFetch);
 
       const response = await fetchWithRetry('https://api.test.com', {});
@@ -283,18 +299,19 @@ describe('fetchWithRetry', () => {
       vi.stubGlobal('fetch', mockFetch);
 
       // Wrap in try-catch to properly handle the rejection
-      let error: Error | null = null;
-      const responsePromise = fetchWithRetry('https://api.test.com', {}, { maxRetries: 2 })
-        .catch((e) => {
+      let error: unknown = null;
+      const responsePromise = fetchWithRetry('https://api.test.com', {}, { maxRetries: 2 }).catch(
+        (e) => {
           error = e;
-        });
+        }
+      );
 
       // Need to flush all timers to let the retries complete
       await vi.runAllTimersAsync();
       await responsePromise;
 
       expect(error).toBeInstanceOf(Error);
-      expect(error?.message).toBe('fetch failed');
+      expect((error as Error).message).toBe('fetch failed');
       expect(mockFetch).toHaveBeenCalledTimes(3);
     });
 

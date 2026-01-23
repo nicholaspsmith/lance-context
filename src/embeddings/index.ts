@@ -1,43 +1,43 @@
 import type { EmbeddingBackend, EmbeddingConfig } from './types.js';
 import { OllamaBackend } from './ollama.js';
 import { JinaBackend } from './jina.js';
-import { OpenAIBackend } from './openai.js';
 
 export * from './types.js';
 export { OllamaBackend } from './ollama.js';
 export { JinaBackend } from './jina.js';
-export { OpenAIBackend } from './openai.js';
 
 /**
- * Create an embedding backend based on configuration
- * Falls back through backends: openai -> jina -> ollama
+ * Create an embedding backend based on configuration and available credentials.
+ *
+ * Tries backends in priority order:
+ * 1. Jina (if JINA_API_KEY environment variable or config.apiKey is set)
+ * 2. Ollama (local fallback, requires Ollama to be running)
+ *
+ * @param config - Optional configuration to customize the backend
+ * @returns A promise resolving to an initialized embedding backend
+ * @throws Error if no backend is available (no API keys and Ollama not running)
+ *
+ * @example
+ * ```typescript
+ * // Use automatic backend selection
+ * const backend = await createEmbeddingBackend();
+ *
+ * // Force a specific model
+ * const backend = await createEmbeddingBackend({ model: 'jina-embeddings-v3' });
+ * ```
  */
 export async function createEmbeddingBackend(
   config?: Partial<EmbeddingConfig>
 ): Promise<EmbeddingBackend> {
   const backends: Array<() => EmbeddingBackend> = [];
 
-  // Priority 1: OpenAI (if API key available)
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (openaiKey) {
-    backends.push(
-      () =>
-        new OpenAIBackend({
-          backend: 'openai',
-          apiKey: openaiKey,
-          model: config?.model || 'text-embedding-3-small',
-          baseUrl: config?.baseUrl,
-        })
-    );
-  }
-
-  // Priority 2: Jina (if API key available)
+  // Priority 1: Jina (if API key available)
   const jinaKey = config?.apiKey || process.env.JINA_API_KEY;
   if (jinaKey) {
     backends.push(() => new JinaBackend({ backend: 'jina', apiKey: jinaKey, ...config }));
   }
 
-  // Priority 3: Ollama (local fallback)
+  // Priority 2: Ollama (local fallback)
   backends.push(
     () =>
       new OllamaBackend({
@@ -59,7 +59,5 @@ export async function createEmbeddingBackend(
     }
   }
 
-  throw new Error(
-    'No embedding backend available. Set OPENAI_API_KEY, JINA_API_KEY, or install Ollama.'
-  );
+  throw new Error('No embedding backend available. Set JINA_API_KEY or install Ollama.');
 }

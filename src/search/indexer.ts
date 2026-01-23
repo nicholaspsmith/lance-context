@@ -3,25 +3,53 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { EmbeddingBackend } from '../embeddings/index.js';
 import { ASTChunker } from './ast-chunker.js';
-import { loadConfig, getDefaultPatterns, getDefaultExcludePatterns, type LanceContextConfig } from '../config.js';
+import {
+  loadConfig,
+  getDefaultPatterns,
+  getDefaultExcludePatterns,
+  getChunkingConfig,
+  getSearchConfig,
+  type LanceContextConfig,
+} from '../config.js';
 
+/**
+ * Represents a chunk of code that has been indexed.
+ * Each chunk contains a portion of a source file with its location metadata.
+ */
 export interface CodeChunk {
+  /** Unique identifier for this chunk (format: filepath:startLine-endLine) */
   id: string;
+  /** Relative path to the source file from the project root */
   filePath: string;
+  /** The actual source code content of this chunk */
   content: string;
+  /** Starting line number in the source file (1-indexed) */
   startLine: number;
+  /** Ending line number in the source file (1-indexed) */
   endLine: number;
+  /** Programming language of the source code */
   language: string;
+  /** Vector embedding for semantic search (populated during indexing) */
   embedding?: number[];
 }
 
+/**
+ * Status information about the code index.
+ */
 export interface IndexStatus {
+  /** Whether the codebase has been indexed */
   indexed: boolean;
+  /** Number of files that have been indexed */
   fileCount: number;
+  /** Total number of code chunks in the index */
   chunkCount: number;
+  /** ISO timestamp of the last index update, or null if never indexed */
   lastUpdated: string | null;
+  /** Path to the LanceDB index directory */
   indexPath: string;
+  /** Name of the embedding backend used */
   embeddingBackend?: string;
+  /** Model identifier used for embeddings */
   embeddingModel?: string;
 }
 
@@ -35,10 +63,11 @@ interface IndexMetadata {
   version: string;
 }
 
-interface FileMetadata {
-  filePath: string;
-  mtime: number;
-}
+// Note: FileMetadata is used for LanceDB schema and is implicitly typed
+// interface FileMetadata {
+//   filePath: string;
+//   mtime: number;
+// }
 
 interface FileChanges {
   added: string[];
@@ -47,20 +76,60 @@ interface FileChanges {
   unchanged: string[];
 }
 
+/**
+ * Progress information during indexing operations.
+ * Used to report status to callers via the progress callback.
+ */
 export interface IndexProgress {
+  /** Current phase of the indexing process */
   phase: 'scanning' | 'chunking' | 'embedding' | 'storing' | 'complete';
+  /** Current progress count within the phase */
   current: number;
+  /** Total items to process in the current phase */
   total: number;
+  /** Human-readable status message */
   message: string;
 }
 
+/**
+ * Callback function for receiving indexing progress updates.
+ */
 export type ProgressCallback = (progress: IndexProgress) => void;
 
-const CHUNK_SIZE = 100; // lines per chunk
-const CHUNK_OVERLAP = 20; // overlap between chunks
+/**
+ * Sanitize a file path for use in LanceDB filter expressions.
+ * Prevents SQL injection by only allowing safe path characters.
+ */
+function sanitizePathForFilter(filePath: string): string {
+  // Only allow safe file path characters: alphanumeric, /, ., -, _, space
+  // This is more restrictive than escaping and prevents injection attacks
+  if (!/^[\w\s./-]+$/.test(filePath)) {
+    // If path contains unusual characters, escape single quotes and backslashes
+    return filePath.replace(/\\/g, '\\\\').replace(/'/g, "''");
+  }
+  return filePath.replace(/'/g, "''");
+}
 
 /**
- * Code indexer using LanceDB for vector storage
+ * Code indexer that uses LanceDB for vector storage and semantic search.
+ *
+ * Provides functionality to:
+ * - Index a codebase by chunking files and generating embeddings
+ * - Perform hybrid semantic + keyword search
+ * - Support incremental indexing (only re-index changed files)
+ *
+ * @example
+ * ```typescript
+ * const backend = await createEmbeddingBackend();
+ * const indexer = new CodeIndexer('/path/to/project', backend);
+ * await indexer.initialize();
+ *
+ * // Index the codebase
+ * await indexer.indexCodebase();
+ *
+ * // Search for code
+ * const results = await indexer.search('authentication middleware');
+ * ```
  */
 export class CodeIndexer {
   private db: lancedb.Connection | null = null;
@@ -198,7 +267,10 @@ export class CodeIndexer {
     }
 
     if (metadata.length > 0) {
-      this.metadataTable = await this.db!.createTable('file_metadata', metadata as Record<string, unknown>[]);
+      this.metadataTable = await this.db!.createTable(
+        'file_metadata',
+        metadata as Record<string, unknown>[]
+      );
     }
   }
 
@@ -247,7 +319,8 @@ export class CodeIndexer {
 
     // Use provided patterns or fall back to config/defaults
     const effectivePatterns = patterns || this.config?.patterns || getDefaultPatterns();
-    const effectiveExcludePatterns = excludePatterns || this.config?.excludePatterns || getDefaultExcludePatterns();
+    const effectiveExcludePatterns =
+      excludePatterns || this.config?.excludePatterns || getDefaultExcludePatterns();
 
     report({ phase: 'scanning', current: 0, total: 0, message: 'Scanning for files...' });
 
@@ -262,7 +335,12 @@ export class CodeIndexer {
       files.push(...matches);
     }
 
-    report({ phase: 'scanning', current: files.length, total: files.length, message: `Found ${files.length} files to index` });
+    report({
+      phase: 'scanning',
+      current: files.length,
+      total: files.length,
+      message: `Found ${files.length} files to index`,
+    });
 
     // Check if we can do incremental indexing
     const tableNames = await this.db!.tableNames();
@@ -276,7 +354,7 @@ export class CodeIndexer {
       if (metadata?.embeddingDimensions && metadata.embeddingDimensions !== currentDimensions) {
         console.error(
           `[lance-context] Embedding dimension mismatch: index has ${metadata.embeddingDimensions}, ` +
-          `current backend (${this.embeddingBackend.name}) uses ${currentDimensions}. Forcing full reindex.`
+            `current backend (${this.embeddingBackend.name}) uses ${currentDimensions}. Forcing full reindex.`
         );
         dimensionMismatch = true;
       }
@@ -312,11 +390,21 @@ export class CodeIndexer {
       const chunks = await this.chunkFile(files[i]);
       allChunks.push(...chunks);
       if ((i + 1) % 50 === 0 || i === files.length - 1) {
-        report({ phase: 'chunking', current: i + 1, total: files.length, message: `Chunked ${i + 1}/${files.length} files (${allChunks.length} chunks)` });
+        report({
+          phase: 'chunking',
+          current: i + 1,
+          total: files.length,
+          message: `Chunked ${i + 1}/${files.length} files (${allChunks.length} chunks)`,
+        });
       }
     }
 
-    report({ phase: 'chunking', current: files.length, total: files.length, message: `Created ${allChunks.length} chunks` });
+    report({
+      phase: 'chunking',
+      current: files.length,
+      total: files.length,
+      message: `Created ${allChunks.length} chunks`,
+    });
 
     // Generate embeddings in batches
     await this.embedChunks(allChunks, onProgress);
@@ -371,7 +459,12 @@ export class CodeIndexer {
     const hasChanges = filesToProcess.length > 0 || changes.deleted.length > 0;
 
     if (!hasChanges) {
-      report({ phase: 'complete', current: 0, total: 0, message: 'No changes detected, index is up to date' });
+      report({
+        phase: 'complete',
+        current: 0,
+        total: 0,
+        message: 'No changes detected, index is up to date',
+      });
       this.table = await this.db!.openTable('code_chunks');
       const count = await this.table.countRows();
       return {
@@ -381,18 +474,32 @@ export class CodeIndexer {
       };
     }
 
-    report({ phase: 'scanning', current: 0, total: filesToProcess.length, message: `Incremental update: ${changes.added.length} added, ${changes.modified.length} modified, ${changes.deleted.length} deleted` });
+    report({
+      phase: 'scanning',
+      current: 0,
+      total: filesToProcess.length,
+      message: `Incremental update: ${changes.added.length} added, ${changes.modified.length} modified, ${changes.deleted.length} deleted`,
+    });
 
     // Open the existing table
     this.table = await this.db!.openTable('code_chunks');
 
     // Delete chunks from modified and deleted files
-    const filesToRemove = [...changes.modified.map(f => path.relative(this.projectPath, f)), ...changes.deleted];
+    const filesToRemove = [
+      ...changes.modified.map((f) => path.relative(this.projectPath, f)),
+      ...changes.deleted,
+    ];
     if (filesToRemove.length > 0) {
       for (const relativePath of filesToRemove) {
-        await this.table.delete(`filePath = '${relativePath.replace(/'/g, "''")}'`);
+        const sanitizedPath = sanitizePathForFilter(relativePath);
+        await this.table.delete(`filePath = '${sanitizedPath}'`);
       }
-      report({ phase: 'chunking', current: 0, total: filesToProcess.length, message: `Removed chunks from ${filesToRemove.length} files` });
+      report({
+        phase: 'chunking',
+        current: 0,
+        total: filesToProcess.length,
+        message: `Removed chunks from ${filesToRemove.length} files`,
+      });
     }
 
     // Process new and modified files
@@ -403,7 +510,12 @@ export class CodeIndexer {
         newChunks.push(...chunks);
       }
 
-      report({ phase: 'chunking', current: filesToProcess.length, total: filesToProcess.length, message: `Created ${newChunks.length} new chunks` });
+      report({
+        phase: 'chunking',
+        current: filesToProcess.length,
+        total: filesToProcess.length,
+        message: `Created ${newChunks.length} new chunks`,
+      });
 
       // Generate embeddings
       await this.embedChunks(newChunks, onProgress);
@@ -457,7 +569,12 @@ export class CodeIndexer {
       batch.forEach((chunk, idx) => {
         chunk.embedding = embeddings[idx];
       });
-      report({ phase: 'embedding', current: i + batch.length, total: chunks.length, message: `Embedded ${i + batch.length}/${chunks.length} chunks` });
+      report({
+        phase: 'embedding',
+        current: i + batch.length,
+        total: chunks.length,
+        message: `Embedded ${i + batch.length}/${chunks.length} chunks`,
+      });
     }
   }
 
@@ -470,9 +587,11 @@ export class CodeIndexer {
     if (ASTChunker.canParse(filePath)) {
       try {
         return await this.chunkFileWithAST(filePath, relativePath, language);
-      } catch (error) {
+      } catch {
         // Fall back to line-based chunking if AST parsing fails
-        console.error(`[lance-context] AST parsing failed for ${relativePath}, falling back to line-based chunking`);
+        console.error(
+          `[lance-context] AST parsing failed for ${relativePath}, falling back to line-based chunking`
+        );
       }
     }
 
@@ -511,10 +630,13 @@ export class CodeIndexer {
   ): Promise<CodeChunk[]> {
     const content = await fs.readFile(filePath, 'utf-8');
     const lines = content.split('\n');
+    const chunkingConfig = getChunkingConfig(this.config!);
+    const chunkSize = chunkingConfig.maxLines;
+    const chunkOverlap = chunkingConfig.overlap;
 
     const chunks: CodeChunk[] = [];
-    for (let i = 0; i < lines.length; i += CHUNK_SIZE - CHUNK_OVERLAP) {
-      const chunkLines = lines.slice(i, i + CHUNK_SIZE);
+    for (let i = 0; i < lines.length; i += chunkSize - chunkOverlap) {
+      const chunkLines = lines.slice(i, i + chunkSize);
       const chunkContent = chunkLines.join('\n');
 
       if (chunkContent.trim().length === 0) continue;
@@ -568,6 +690,7 @@ export class CodeIndexer {
     }
 
     const queryEmbedding = await this.embeddingBackend.embed(query);
+    const searchConfig = getSearchConfig(this.config!);
 
     // Fetch more results than needed for re-ranking
     const fetchLimit = Math.min(limit * 3, 50);
@@ -581,8 +704,9 @@ export class CodeIndexer {
       // Keyword score: based on query term matches
       const keywordScore = this.calculateKeywordScore(query, r.content, r.filePath);
 
-      // Combined score (weighted: 70% semantic, 30% keyword)
-      const combinedScore = 0.7 * semanticScore + 0.3 * keywordScore;
+      // Combined score using configurable weights
+      const combinedScore =
+        searchConfig.semanticWeight * semanticScore + searchConfig.keywordWeight * keywordScore;
 
       return { result: r, score: combinedScore };
     });
@@ -604,7 +728,10 @@ export class CodeIndexer {
    * Calculate keyword match score for hybrid search
    */
   private calculateKeywordScore(query: string, content: string, filePath: string): number {
-    const queryTerms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
+    const queryTerms = query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((t) => t.length > 2);
     if (queryTerms.length === 0) return 0;
 
     const contentLower = content.toLowerCase();

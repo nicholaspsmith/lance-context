@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Reminder for Claude: Review .claude/rules.md before committing
+# Ensure commits follow project standards:
+# - One responsibility per commit
+# - Subject line under 72 characters
+# - Imperative mood ("Add" not "Added")
+# - Body contains only "Co-Authored-By: Claude <noreply@anthropic.com>"
+# - No OpenAI products or services
+echo "[pre-commit] Review .claude/rules.md for commit standards"
+
+npx lint-staged

@@ -2,12 +2,11 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { createEmbeddingBackend } from './embeddings/index.js';
 import { CodeIndexer } from './search/indexer.js';
+import { isStringArray, isString, isNumber, isBoolean } from './utils/type-guards.js';
+import { loadConfig, getInstructions } from './config.js';
 
 const PROJECT_PATH = process.env.LANCE_CONTEXT_PROJECT || process.cwd();
 
@@ -60,15 +59,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             forceReindex: {
               type: 'boolean',
-              description: 'Force a full reindex, ignoring cached file modification times (default: false)',
+              description:
+                'Force a full reindex, ignoring cached file modification times (default: false)',
             },
           },
         },
       },
       {
         name: 'search_code',
-        description:
-          'Search the codebase using natural language. Returns relevant code snippets.',
+        description: 'Search the codebase using natural language. Returns relevant code snippets.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -100,6 +99,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {},
         },
       },
+      {
+        name: 'get_project_instructions',
+        description:
+          'Get project-specific instructions from the .lance-context.json config file. Returns instructions for how to work with this codebase.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
     ],
   };
 });
@@ -113,9 +121,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     switch (name) {
       case 'index_codebase': {
-        const patterns = (args?.patterns as string[]) || undefined;
-        const excludePatterns = (args?.excludePatterns as string[]) || undefined;
-        const forceReindex = (args?.forceReindex as boolean) || false;
+        const patterns = isStringArray(args?.patterns) ? args.patterns : undefined;
+        const excludePatterns = isStringArray(args?.excludePatterns)
+          ? args.excludePatterns
+          : undefined;
+        const forceReindex = isBoolean(args?.forceReindex) ? args.forceReindex : false;
         const result = await idx.indexCodebase(patterns, excludePatterns, forceReindex);
         const mode = result.incremental ? 'Incremental update' : 'Full reindex';
         return {
@@ -129,8 +139,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'search_code': {
-        const query = args?.query as string;
-        const limit = (args?.limit as number) || 10;
+        const query = isString(args?.query) ? args.query : '';
+        if (!query) {
+          throw new Error('query is required');
+        }
+        const limit = isNumber(args?.limit) ? args.limit : 10;
         const results = await idx.search(query, limit);
         const formatted = results
           .map(
@@ -167,6 +180,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: 'Index cleared.',
+            },
+          ],
+        };
+      }
+
+      case 'get_project_instructions': {
+        const config = await loadConfig(PROJECT_PATH);
+        const instructions = getInstructions(config);
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                instructions ||
+                'No project instructions configured. Add an "instructions" field to .lance-context.json.',
             },
           ],
         };

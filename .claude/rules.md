@@ -1,5 +1,28 @@
 # Project Rules for Claude Code
 
+## OpenAI Policy
+
+**NEVER use any OpenAI products or services.** This includes:
+- OpenAI API (GPT models, embeddings, etc.)
+- OpenAI SDKs or libraries
+- ChatGPT
+- DALL-E
+- Whisper API
+- Any other OpenAI service
+
+Use Jina or Ollama for embeddings instead.
+
+## Semantic Code Search
+
+Use **lance-context** for semantic code search when exploring the codebase:
+- Run `search_code` to find relevant code using natural language queries
+- Run `index_codebase` if the index is out of date
+- Prefer semantic search over manual file exploration for understanding code patterns
+
+## Pre-Commit Review
+
+Before committing changes, always review this rules file (`.claude/rules.md`) to ensure compliance with project standards.
+
 ## Git Commit Rules
 
 1. **Maximum Subject Line Length**: 72 characters maximum for the commit subject line (first line)

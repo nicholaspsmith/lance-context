@@ -49,37 +49,24 @@ export function createErrorFetch(
 /**
  * Creates a mock fetch that fails with a network error
  */
-export function createNetworkErrorFetch(message: string = 'fetch failed'): ReturnType<typeof createMockFetch> {
+export function createNetworkErrorFetch(
+  message: string = 'fetch failed'
+): ReturnType<typeof createMockFetch> {
   return vi.fn().mockRejectedValue(new Error(message));
 }
 
 /**
  * Creates a mock fetch that returns different responses based on call count
  */
-export function createSequentialFetch(responses: MockFetchResponse[]): ReturnType<typeof createMockFetch> {
+export function createSequentialFetch(
+  responses: MockFetchResponse[]
+): ReturnType<typeof createMockFetch> {
   let callCount = 0;
   return vi.fn().mockImplementation(async () => {
     const response = responses[Math.min(callCount, responses.length - 1)];
     callCount++;
     return response;
   });
-}
-
-/**
- * Creates OpenAI-style embedding response
- */
-export function createOpenAIEmbeddingResponse(embeddings: number[][]): MockFetchResponse {
-  return {
-    ok: true,
-    status: 200,
-    json: async () => ({
-      data: embeddings.map((embedding, index) => ({ embedding, index })),
-    }),
-    text: async () =>
-      JSON.stringify({
-        data: embeddings.map((embedding, index) => ({ embedding, index })),
-      }),
-  };
 }
 
 /**
