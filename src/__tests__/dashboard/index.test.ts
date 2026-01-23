@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { EventEmitter } from 'events';
 
 vi.mock('../../dashboard/state.js', async () => {
   const { EventEmitter } = await import('events');
