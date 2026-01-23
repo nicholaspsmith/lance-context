@@ -8,6 +8,16 @@ export interface MockRow {
   endLine: number;
   language: string;
   vector?: number[];
+  symbolType?:
+    | 'function'
+    | 'class'
+    | 'method'
+    | 'interface'
+    | 'type'
+    | 'variable'
+    | 'import'
+    | 'other';
+  symbolName?: string;
 }
 
 /**
