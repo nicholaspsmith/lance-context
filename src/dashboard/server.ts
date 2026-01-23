@@ -71,10 +71,13 @@ export async function startServer(port?: number): Promise<DashboardServer> {
     });
 
     server.listen(actualPort, '127.0.0.1', () => {
-      const url = `http://127.0.0.1:${actualPort}`;
+      // Get the actual port from the server (important when port 0 is used)
+      const address = server.address();
+      const boundPort = typeof address === 'object' && address ? address.port : actualPort;
+      const url = `http://127.0.0.1:${boundPort}`;
       resolve({
         server,
-        port: actualPort,
+        port: boundPort,
         url,
         stop: async () => {
           sseManager.closeAll();

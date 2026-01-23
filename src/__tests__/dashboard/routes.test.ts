@@ -30,7 +30,9 @@ describe('Dashboard Routes', () => {
   let server: DashboardServer;
 
   beforeEach(async () => {
-    server = await startServer();
+    // Use port 0 to let the OS assign a random available port
+    // This avoids race conditions when tests run in parallel
+    server = await startServer(0);
   });
 
   afterEach(async () => {
