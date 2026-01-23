@@ -355,6 +355,10 @@ export function getDashboardHTML(): string {
       grid-column: 1 / -1;
     }
 
+    .card.double-width {
+      grid-column: span 2;
+    }
+
     .empty-state {
       text-align: center;
       padding: 40px 20px;
@@ -385,51 +389,40 @@ export function getDashboardHTML(): string {
       --color-5: #d29922;
     }
 
-    #usage-chart {
-      height: 200px;
+    #chartWrapper {
+      width: 100%;
       max-width: 100%;
-      margin: 0;
+      overflow: hidden;
     }
 
-    #usage-chart tbody tr {
-      height: 32px;
+    #chartWrapper #usage-chart {
+      --aspect-ratio: 21 / 9;
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
     }
 
-    #usage-chart td {
-      border-radius: 4px;
-      transition: all 0.3s ease;
-    }
-
-    #usage-chart .bar::after {
-      content: attr(data-count);
-      position: absolute;
-      right: 8px;
-      color: var(--text-primary);
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .chart-legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 16px;
-      padding-top: 12px;
-      border-top: 1px solid var(--border-color);
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
+    #usage-chart th {
+      font-size: 11px;
       color: var(--text-secondary);
     }
 
-    .legend-color {
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
+    #usage-chart td {
+      border-top-left-radius: 6px;
+      border-top-right-radius: 6px;
+    }
+
+    /* Charts.css legend overrides */
+    #usageChartContainer .legend {
+      margin-top: 16px;
+      padding-top: 12px;
+      justify-content: center;
+      border-radius: 4px;
+    }
+
+    #usageChartContainer .legend li {
+      font-size: 12px;
+      color: var(--text-secondary);
     }
 
     .usage-total {
@@ -707,23 +700,25 @@ export function getDashboardHTML(): string {
       </div>
 
       <!-- Command Usage Card -->
-      <div class="card full-width">
+      <div class="card double-width">
         <div class="card-header">
           <span class="card-title">Command Usage</span>
           <span class="badge" id="sessionBadge">This Session</span>
         </div>
         <div id="usageChartContainer">
           <div class="usage-empty" id="usageEmpty">No commands executed yet</div>
-          <table class="charts-css bar show-labels labels-align-start" id="usage-chart" style="display: none;">
-            <tbody id="usageChartBody"></tbody>
-          </table>
-          <div class="chart-legend" id="chartLegend" style="display: none;">
-            <div class="legend-item"><span class="legend-color" style="background: #58a6ff;"></span>Search Code</div>
-            <div class="legend-item"><span class="legend-color" style="background: #3fb950;"></span>Index Codebase</div>
-            <div class="legend-item"><span class="legend-color" style="background: #a371f7;"></span>Get Status</div>
-            <div class="legend-item"><span class="legend-color" style="background: #f85149;"></span>Clear Index</div>
-            <div class="legend-item"><span class="legend-color" style="background: #d29922;"></span>Get Instructions</div>
+          <div id="chartWrapper">
+            <table class="charts-css column show-labels show-primary-axis show-data data-spacing-20" id="usage-chart" style="display: none;">
+              <tbody id="usageChartBody"></tbody>
+            </table>
           </div>
+          <ul class="charts-css legend legend-inline legend-square" id="chartLegend" style="display: none;">
+            <li style="--color: #58a6ff;">Search Code</li>
+            <li style="--color: #3fb950;">Index Codebase</li>
+            <li style="--color: #a371f7;">Get Status</li>
+            <li style="--color: #f85149;">Clear Index</li>
+            <li style="--color: #d29922;">Get Instructions</li>
+          </ul>
           <div class="usage-total" id="usageTotal" style="display: none;">
             <span class="usage-total-label">Total Commands</span>
             <span class="usage-total-count" id="totalCount">0</span>
@@ -954,7 +949,7 @@ export function getDashboardHTML(): string {
 
         html += '<tr>';
         html += '<th scope="row">' + escapeHtml(item.label) + '</th>';
-        html += '<td style="--size: ' + percent + '; --color: ' + color + ';" data-count="' + item.count + '"></td>';
+        html += '<td style="--size: ' + percent + '; --color: ' + color + ';"><span class="data">' + item.count + '</span></td>';
         html += '</tr>';
       }
 
