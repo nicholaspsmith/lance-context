@@ -505,7 +505,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (currentBranch === 'main' || currentBranch === 'master') {
             errors.push(`Cannot commit directly to ${currentBranch}. Create a feature branch first:\n  git checkout -b feature/your-feature-name`);
           }
-        } catch (e) {
+        } catch {
           errors.push('Failed to determine current branch. Are you in a git repository?');
         }
 
