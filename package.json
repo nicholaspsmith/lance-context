@@ -13,6 +13,7 @@
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "prepublishOnly": "npm run build"
   },
   "files": [
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^4.0.16",
     "tsx": "^4.0.0",
     "typescript": "^5.7.0",
     "vitest": "^4.0.16"
