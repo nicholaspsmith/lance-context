@@ -10,7 +10,7 @@ import { createEmbeddingBackend } from './embeddings/index.js';
 import { CodeIndexer } from './search/indexer.js';
 import { isStringArray, isString, isNumber, isBoolean } from './utils/type-guards.js';
 import { loadConfig, getInstructions, getDashboardConfig } from './config.js';
-import { startDashboard, dashboardState, isPortAvailable } from './dashboard/index.js';
+import { startDashboard, stopDashboard, dashboardState, isPortAvailable } from './dashboard/index.js';
 import type { CommandName } from './dashboard/index.js';
 
 /**
@@ -396,6 +396,35 @@ async function main() {
   await server.connect(transport);
   console.error('[lance-context] MCP server started');
 }
+
+/**
+ * Gracefully shutdown the server and cleanup resources
+ */
+async function shutdown(signal: string): Promise<void> {
+  console.error(`[lance-context] Received ${signal}, shutting down gracefully...`);
+
+  try {
+    // Stop the dashboard server
+    await stopDashboard();
+    console.error('[lance-context] Dashboard stopped');
+  } catch (error) {
+    console.error('[lance-context] Error stopping dashboard:', error);
+  }
+
+  // Close the MCP server connection
+  try {
+    await server.close();
+    console.error('[lance-context] MCP server closed');
+  } catch (error) {
+    console.error('[lance-context] Error closing MCP server:', error);
+  }
+
+  process.exit(0);
+}
+
+// Register signal handlers for graceful shutdown
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 main().catch((error) => {
   console.error('[lance-context] Fatal error:', error);
