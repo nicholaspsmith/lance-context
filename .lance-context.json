@@ -1,6 +1,12 @@
 {
-  "patterns": ["**/*.ts"],
-  "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/__tests__/**"],
+  "patterns": [
+    "**/*.ts"
+  ],
+  "excludePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/__tests__/**"
+  ],
   "chunking": {
     "maxLines": 100,
     "overlap": 20
@@ -9,5 +15,8 @@
     "semanticWeight": 0.7,
     "keywordWeight": 0.3
   },
-  "instructions": "This is the lance-context MCP server codebase.\n\n## Key Guidelines\n- Use Jina or Ollama for embeddings - NEVER use OpenAI\n- Run `npm test` before committing\n- One responsibility per commit\n\n## Architecture\n- src/index.ts - MCP server entry point\n- src/search/indexer.ts - CodeIndexer with AST-aware chunking\n- src/embeddings/ - Embedding backends (Jina, Ollama)\n- src/config.ts - Configuration loading with Zod validation"
+  "instructions": "This is the lance-context MCP server codebase.\n\n## Key Guidelines\n- Use Jina or Ollama for embeddings - NEVER use OpenAI\n- Run `npm test` before committing\n- One responsibility per commit\n\n## Architecture\n- src/index.ts - MCP server entry point\n- src/search/indexer.ts - CodeIndexer with AST-aware chunking\n- src/embeddings/ - Embedding backends (Jina, Ollama)\n- src/config.ts - Configuration loading with Zod validation",
+  "embedding": {
+    "backend": "jina"
+  }
 }

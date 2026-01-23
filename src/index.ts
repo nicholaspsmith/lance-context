@@ -217,16 +217,17 @@ async function getConfig() {
 async function getIndexer(): Promise<CodeIndexer> {
   if (!indexerPromise) {
     indexerPromise = (async () => {
-      // Load secrets to get API key for embedding backend
+      // Load config and secrets to configure embedding backend
+      const config = await getConfig();
       const secrets = await loadSecrets(PROJECT_PATH);
       const backend = await createEmbeddingBackend({
+        backend: config.embedding?.backend,
         apiKey: secrets.jinaApiKey,
       });
       const idx = new CodeIndexer(PROJECT_PATH, backend);
       await idx.initialize();
 
       // Share indexer and config with dashboard state
-      const config = await getConfig();
       dashboardState.setIndexer(idx);
       dashboardState.setConfig(config);
       dashboardState.setProjectPath(PROJECT_PATH);
