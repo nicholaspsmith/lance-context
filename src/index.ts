@@ -39,6 +39,7 @@ import {
   formatNamePath,
 } from './symbols/index.js';
 import { MemoryManager, formatMemoryList } from './memory/index.js';
+import { WorktreeManager, formatWorktreeInfo, formatWorktreeList } from './worktree/index.js';
 
 /**
  * Check if browser was recently opened (within the last hour)
@@ -751,6 +752,94 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
           },
           required: ['name_path', 'relative_path', 'new_name'],
+        },
+      },
+      // --- Worktree Tools ---
+      {
+        name: 'create_worktree',
+        description:
+          'Create an isolated git worktree for parallel agent work. Prevents file conflicts when multiple agents work simultaneously. Creates a new branch and optionally installs dependencies.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            short_name: {
+              type: 'string',
+              description:
+                'Short descriptive name for the worktree (e.g., "add-auth", "fix-login"). Used in branch name.',
+            },
+            issue_id: {
+              type: 'string',
+              description:
+                'Optional issue ID (e.g., "bd-123"). Combined with short_name for naming.',
+            },
+            prefix: {
+              type: 'string',
+              enum: ['feature', 'fix', 'refactor', 'docs', 'test'],
+              description: 'Branch prefix (default: "feature").',
+            },
+            base_branch: {
+              type: 'string',
+              description: 'Base branch to create from (default: main or current branch).',
+            },
+            install_deps: {
+              type: 'boolean',
+              description: 'Whether to install dependencies after creation (default: true).',
+            },
+            package_manager: {
+              type: 'string',
+              enum: ['npm', 'yarn', 'pnpm', 'bun'],
+              description: 'Package manager to use (default: auto-detect from lock file).',
+            },
+          },
+          required: ['short_name'],
+        },
+      },
+      {
+        name: 'list_worktrees',
+        description:
+          'List all agent worktrees and their status. Shows branch, commit, dirty state, and ahead/behind counts.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'remove_worktree',
+        description:
+          'Remove an agent worktree. Optionally deletes the associated branch. Fails if worktree has uncommitted changes unless force is true.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              description: 'Name of the worktree to remove.',
+            },
+            delete_branch: {
+              type: 'boolean',
+              description: 'Whether to also delete the branch (default: false).',
+            },
+            force: {
+              type: 'boolean',
+              description:
+                'Force removal even if worktree has uncommitted changes (default: false).',
+            },
+          },
+          required: ['name'],
+        },
+      },
+      {
+        name: 'worktree_status',
+        description:
+          'Get detailed status of a specific worktree including branch, commit, and dirty state.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              description: 'Name of the worktree to get status for.',
+            },
+          },
+          required: ['name'],
         },
       },
     ],
@@ -1611,6 +1700,161 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: formatRenameResult(result) + modeLabel + TOOL_GUIDANCE,
+            },
+          ],
+        };
+      }
+
+      // --- Worktree Tools ---
+      case 'create_worktree': {
+        const shortName = isString(args?.short_name) ? args.short_name : '';
+
+        if (!shortName) {
+          throw new LanceContextError('short_name is required', 'validation', {
+            tool: 'create_worktree',
+          });
+        }
+
+        const worktreeManager = new WorktreeManager(PROJECT_PATH);
+        const result = await worktreeManager.createWorktree({
+          shortName,
+          issueId: isString(args?.issue_id) ? args.issue_id : undefined,
+          prefix: isString(args?.prefix)
+            ? (args.prefix as 'feature' | 'fix' | 'refactor' | 'docs' | 'test')
+            : undefined,
+          baseBranch: isString(args?.base_branch) ? args.base_branch : undefined,
+          installDeps: isBoolean(args?.install_deps) ? args.install_deps : true,
+          packageManager: isString(args?.package_manager)
+            ? (args.package_manager as 'npm' | 'yarn' | 'pnpm' | 'bun')
+            : undefined,
+        });
+
+        if (!result.success) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Failed to create worktree: ${result.error}` + TOOL_GUIDANCE,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const worktree = result.worktree;
+        const parts: string[] = [];
+        parts.push('## Worktree Created\n');
+        parts.push(`**Name:** ${worktree?.name}`);
+        parts.push(`**Path:** ${worktree?.path}`);
+        parts.push(`**Branch:** ${worktree?.branch}`);
+
+        if (result.depsInstalled !== undefined) {
+          const depsStatus = result.depsInstalled ? 'installed' : 'skipped/failed';
+          const timeInfo = result.depsInstallTime ? ` (${result.depsInstallTime}ms)` : '';
+          parts.push(`**Dependencies:** ${depsStatus}${timeInfo}`);
+        }
+
+        parts.push('\n**Usage:** Spawn agent with `cwd: "' + (worktree?.path ?? '') + '"`');
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: parts.join('\n') + TOOL_GUIDANCE,
+            },
+          ],
+        };
+      }
+
+      case 'list_worktrees': {
+        const worktreeManager = new WorktreeManager(PROJECT_PATH);
+        const result = await worktreeManager.listWorktrees();
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: formatWorktreeList(result) + TOOL_GUIDANCE,
+            },
+          ],
+        };
+      }
+
+      case 'remove_worktree': {
+        const worktreeName = isString(args?.name) ? args.name : '';
+
+        if (!worktreeName) {
+          throw new LanceContextError('name is required', 'validation', {
+            tool: 'remove_worktree',
+          });
+        }
+
+        const worktreeManager = new WorktreeManager(PROJECT_PATH);
+        const result = await worktreeManager.removeWorktree({
+          name: worktreeName,
+          deleteBranch: isBoolean(args?.delete_branch) ? args.delete_branch : false,
+          force: isBoolean(args?.force) ? args.force : false,
+        });
+
+        if (!result.success) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Failed to remove worktree: ${result.error}` + TOOL_GUIDANCE,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const parts: string[] = [];
+        parts.push('## Worktree Removed\n');
+        parts.push(`**Name:** ${worktreeName}`);
+        if (result.branch) {
+          parts.push(`**Branch:** ${result.branch}`);
+          parts.push(`**Branch deleted:** ${result.branchDeleted ? 'yes' : 'no'}`);
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: parts.join('\n') + TOOL_GUIDANCE,
+            },
+          ],
+        };
+      }
+
+      case 'worktree_status': {
+        const worktreeName = isString(args?.name) ? args.name : '';
+
+        if (!worktreeName) {
+          throw new LanceContextError('name is required', 'validation', {
+            tool: 'worktree_status',
+          });
+        }
+
+        const worktreeManager = new WorktreeManager(PROJECT_PATH);
+        const info = await worktreeManager.getWorktreeInfo(worktreeName);
+
+        if (!info) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Worktree "${worktreeName}" not found.` + TOOL_GUIDANCE,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: formatWorktreeInfo(info) + TOOL_GUIDANCE,
             },
           ],
         };

@@ -14,6 +14,7 @@ export type ErrorCategory =
   | 'embedding' // Embedding generation failures
   | 'config' // Configuration errors
   | 'git' // Git operation failures
+  | 'worktree' // Git worktree operation failures
   | 'internal'; // Unexpected internal errors
 
 /**
