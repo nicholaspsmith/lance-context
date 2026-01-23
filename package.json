@@ -51,8 +51,10 @@
   "dependencies": {
     "@lancedb/lancedb": "^0.22.3",
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "@vscode/tree-sitter-wasm": "^0.3.0",
     "glob": "^13.0.0",
     "minimatch": "^10.1.1",
+    "web-tree-sitter": "^0.26.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {

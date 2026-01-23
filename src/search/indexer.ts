@@ -3,6 +3,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { EmbeddingBackend } from '../embeddings/index.js';
 import { ASTChunker } from './ast-chunker.js';
+import { TreeSitterChunker } from './tree-sitter-chunker.js';
 import {
   loadConfig,
   getDefaultPatterns,
@@ -647,7 +648,7 @@ export class CodeIndexer {
     const language = this.getLanguage(ext);
     const relativePath = path.relative(this.projectPath, filepath);
 
-    // Try AST-aware chunking for supported languages
+    // Try AST-aware chunking for TypeScript/JavaScript
     if (ASTChunker.canParse(filepath)) {
       try {
         return await this.chunkFileWithAST(filepath, relativePath, language);
@@ -655,6 +656,19 @@ export class CodeIndexer {
         // Fall back to line-based chunking if AST parsing fails
         console.error(
           `[lance-context] AST parsing failed for ${relativePath}, falling back to line-based chunking`
+        );
+      }
+    }
+
+    // Try tree-sitter chunking for other languages (Python, Go, Rust, Java, Kotlin)
+    if (TreeSitterChunker.canParse(filepath)) {
+      try {
+        return await this.chunkFileWithTreeSitter(filepath, relativePath, language);
+      } catch (error) {
+        // Fall back to line-based chunking if tree-sitter parsing fails
+        console.error(
+          `[lance-context] Tree-sitter parsing failed for ${relativePath}, falling back to line-based chunking:`,
+          error
         );
       }
     }
@@ -675,6 +689,27 @@ export class CodeIndexer {
     const astChunks = await astChunker.chunkFile(filepath);
 
     return astChunks.map((chunk) => ({
+      id: `${relativePath}:${chunk.startLine}-${chunk.endLine}${chunk.name ? `:${chunk.name}` : ''}`,
+      filepath: relativePath,
+      content: chunk.content,
+      startLine: chunk.startLine,
+      endLine: chunk.endLine,
+      language,
+    }));
+  }
+
+  /**
+   * Chunk a file using tree-sitter AST parsing (Python, Go, Rust, Java, Kotlin)
+   */
+  private async chunkFileWithTreeSitter(
+    filepath: string,
+    relativePath: string,
+    language: string
+  ): Promise<CodeChunk[]> {
+    const treeSitterChunker = new TreeSitterChunker();
+    const treeSitterChunks = await treeSitterChunker.chunkFile(filepath);
+
+    return treeSitterChunks.map((chunk) => ({
       id: `${relativePath}:${chunk.startLine}-${chunk.endLine}${chunk.name ? `:${chunk.name}` : ''}`,
       filepath: relativePath,
       content: chunk.content,
