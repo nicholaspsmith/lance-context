@@ -257,6 +257,73 @@ describe('CodeIndexer', () => {
     });
   });
 
+  describe('query embedding cache', () => {
+    it('should cache query embeddings and not recompute for identical queries', async () => {
+      const mockTable = createMockTable([
+        {
+          id: 'test.ts:1-10',
+          filepath: 'test.ts',
+          content: 'function test() {}',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+        },
+      ]);
+      mockConnection.tableNames.mockResolvedValue(['code_chunks']);
+      mockConnection.openTable.mockResolvedValue(mockTable as any);
+      vi.mocked(fsPromises.readFile).mockRejectedValue(new Error('ENOENT'));
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      // First search - should call embed
+      await indexer.search('test query');
+      expect(mockBackend.embed).toHaveBeenCalledTimes(1);
+
+      // Second search with same query - should use cache
+      await indexer.search('test query');
+      expect(mockBackend.embed).toHaveBeenCalledTimes(1); // Still 1, not 2
+
+      // Different query - should call embed again
+      await indexer.search('different query');
+      expect(mockBackend.embed).toHaveBeenCalledTimes(2);
+    });
+
+    it('should clear cache when index is cleared', async () => {
+      const mockTable = createMockTable([
+        {
+          id: 'test.ts:1-10',
+          filepath: 'test.ts',
+          content: 'function test() {}',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+        },
+      ]);
+      mockConnection.tableNames.mockResolvedValue(['code_chunks']);
+      mockConnection.openTable.mockResolvedValue(mockTable as any);
+      vi.mocked(fsPromises.readFile).mockRejectedValue(new Error('ENOENT'));
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      // First search - populates cache
+      await indexer.search('cached query');
+      expect(mockBackend.embed).toHaveBeenCalledTimes(1);
+
+      // Clear index - should clear cache
+      await indexer.clearIndex();
+
+      // Re-setup the mock table for next search
+      mockConnection.tableNames.mockResolvedValue(['code_chunks']);
+      mockConnection.openTable.mockResolvedValue(mockTable as any);
+
+      // Same query after clear - should recompute
+      await indexer.search('cached query');
+      expect(mockBackend.embed).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe('clearIndex', () => {
     it('should drop table when it exists', async () => {
       mockConnection.tableNames.mockResolvedValue(['code_chunks']);
