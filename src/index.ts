@@ -186,10 +186,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         // Notify dashboard of indexing start
         dashboardState.onIndexingStart();
 
-        const result = await idx.indexCodebase(patterns, excludePatterns, forceReindex, (progress) => {
-          // Emit progress events to dashboard
-          dashboardState.onProgress(progress);
-        });
+        const result = await idx.indexCodebase(
+          patterns,
+          excludePatterns,
+          forceReindex,
+          (progress) => {
+            // Emit progress events to dashboard
+            dashboardState.onProgress(progress);
+          }
+        );
 
         // Notify dashboard of indexing completion
         dashboardState.onIndexingComplete(result);
