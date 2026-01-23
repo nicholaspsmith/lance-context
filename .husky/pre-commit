@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# Allow commits in CI environment (for semantic-release)
+if [ "$CI" = "true" ]; then
+  exit 0
+fi
+
 # Block direct commits to main branch
 current_branch=$(git branch --show-current)
 if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
