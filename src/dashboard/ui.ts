@@ -1307,14 +1307,26 @@ export function getDashboardHTML(): string {
           fetch('/api/beads')
         ]);
 
+        let currentStatus = null;
+        let currentConfig = null;
+
         if (statusRes.ok) {
-          const status = await statusRes.json();
-          updateStatus(status);
+          currentStatus = await statusRes.json();
+          updateStatus(currentStatus);
         }
 
         if (configRes.ok) {
-          const config = await configRes.json();
-          updateConfig(config);
+          currentConfig = await configRes.json();
+          updateConfig(currentConfig);
+        }
+
+        // Check if configured backend differs from running backend
+        if (currentStatus && currentConfig) {
+          const runningBackend = currentStatus.embeddingBackend;
+          const configuredBackend = currentConfig.embedding?.backend;
+          if (configuredBackend && runningBackend && configuredBackend !== runningBackend) {
+            embeddingBackend.innerHTML = runningBackend + ' <span class="badge warning" title="Restart required to use ' + configuredBackend + '">\u26a0 restart needed</span>';
+          }
         }
 
         if (usageRes.ok) {
