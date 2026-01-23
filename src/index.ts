@@ -970,6 +970,30 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     'clear_index',
     'get_project_instructions',
     'commit',
+    // Symbolic analysis
+    'get_symbols_overview',
+    'find_symbol',
+    'find_referencing_symbols',
+    'search_for_pattern',
+    'replace_symbol_body',
+    'insert_before_symbol',
+    'insert_after_symbol',
+    'rename_symbol',
+    // Memory
+    'write_memory',
+    'read_memory',
+    'list_memories',
+    'delete_memory',
+    'edit_memory',
+    // Worktree
+    'create_worktree',
+    'list_worktrees',
+    'remove_worktree',
+    'worktree_status',
+    // Clustering
+    'list_concepts',
+    'search_by_concept',
+    'summarize_codebase',
   ];
   if (validCommands.includes(name as CommandName)) {
     dashboardState.recordCommandUsage(name as CommandName);

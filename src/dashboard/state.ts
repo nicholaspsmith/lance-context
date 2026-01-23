@@ -14,7 +14,31 @@ export type CommandName =
   | 'get_index_status'
   | 'clear_index'
   | 'get_project_instructions'
-  | 'commit';
+  | 'commit'
+  // Symbolic analysis tools
+  | 'get_symbols_overview'
+  | 'find_symbol'
+  | 'find_referencing_symbols'
+  | 'search_for_pattern'
+  | 'replace_symbol_body'
+  | 'insert_before_symbol'
+  | 'insert_after_symbol'
+  | 'rename_symbol'
+  // Memory tools
+  | 'write_memory'
+  | 'read_memory'
+  | 'list_memories'
+  | 'delete_memory'
+  | 'edit_memory'
+  // Worktree tools
+  | 'create_worktree'
+  | 'list_worktrees'
+  | 'remove_worktree'
+  | 'worktree_status'
+  // Clustering tools
+  | 'list_concepts'
+  | 'search_by_concept'
+  | 'summarize_codebase';
 
 /**
  * Command usage statistics
@@ -51,6 +75,30 @@ const COMMAND_LABELS: Record<CommandName, string> = {
   clear_index: 'Clear Index',
   get_project_instructions: 'Get Instructions',
   commit: 'Commit',
+  // Symbolic analysis tools
+  get_symbols_overview: 'Symbols Overview',
+  find_symbol: 'Find Symbol',
+  find_referencing_symbols: 'Find References',
+  search_for_pattern: 'Pattern Search',
+  replace_symbol_body: 'Replace Symbol',
+  insert_before_symbol: 'Insert Before',
+  insert_after_symbol: 'Insert After',
+  rename_symbol: 'Rename Symbol',
+  // Memory tools
+  write_memory: 'Write Memory',
+  read_memory: 'Read Memory',
+  list_memories: 'List Memories',
+  delete_memory: 'Delete Memory',
+  edit_memory: 'Edit Memory',
+  // Worktree tools
+  create_worktree: 'Create Worktree',
+  list_worktrees: 'List Worktrees',
+  remove_worktree: 'Remove Worktree',
+  worktree_status: 'Worktree Status',
+  // Clustering tools
+  list_concepts: 'List Concepts',
+  search_by_concept: 'Search by Concept',
+  summarize_codebase: 'Summarize Codebase',
 };
 
 export class DashboardStateManager extends EventEmitter {
@@ -229,6 +277,30 @@ export class DashboardStateManager extends EventEmitter {
       'clear_index',
       'get_project_instructions',
       'commit',
+      // Symbolic analysis
+      'get_symbols_overview',
+      'find_symbol',
+      'find_referencing_symbols',
+      'search_for_pattern',
+      'replace_symbol_body',
+      'insert_before_symbol',
+      'insert_after_symbol',
+      'rename_symbol',
+      // Memory
+      'write_memory',
+      'read_memory',
+      'list_memories',
+      'delete_memory',
+      'edit_memory',
+      // Worktree
+      'create_worktree',
+      'list_worktrees',
+      'remove_worktree',
+      'worktree_status',
+      // Clustering
+      'list_concepts',
+      'search_by_concept',
+      'summarize_codebase',
     ];
 
     return allCommands.map((command) => ({
