@@ -415,6 +415,9 @@ export class CodeIndexer {
     // Load persisted metadata
     const metadata = await this.loadIndexMetadata();
 
+    // Validate index integrity
+    const corruptionCheck = await this.validateIndexIntegrity(metadata, count);
+
     return {
       indexed: true,
       fileCount: metadata?.fileCount ?? 0,
@@ -423,21 +426,84 @@ export class CodeIndexer {
       indexPath: this.indexPath,
       embeddingBackend: metadata?.embeddingBackend ?? this.embeddingBackend.name,
       embeddingModel: metadata?.embeddingModel ?? this.embeddingBackend.getModel(),
+      corrupted: corruptionCheck.corrupted,
+      corruptionReason: corruptionCheck.reason,
     };
+  }
+
+  /**
+   * Validate index integrity by checking metadata consistency.
+   * Returns corruption status and reason if corrupted.
+   */
+  private async validateIndexIntegrity(
+    metadata: IndexMetadata | null,
+    actualChunkCount: number
+  ): Promise<{ corrupted: boolean; reason?: string }> {
+    // No metadata file - possible incomplete indexing
+    if (!metadata) {
+      return {
+        corrupted: true,
+        reason:
+          'Missing index metadata file. Index may be incomplete. Run clear_index followed by index_codebase to rebuild.',
+      };
+    }
+
+    // Check if chunk count matches
+    if (metadata.chunkCount !== actualChunkCount) {
+      return {
+        corrupted: true,
+        reason: `Chunk count mismatch: metadata says ${metadata.chunkCount}, index has ${actualChunkCount}. Run clear_index followed by index_codebase to rebuild.`,
+      };
+    }
+
+    // Validate checksum if present
+    if (metadata.checksum) {
+      const storedFiles = await this.getStoredMetadata();
+      const fileList = Array.from(storedFiles.keys());
+      const computedChecksum = computeIndexChecksum(fileList, actualChunkCount);
+
+      if (computedChecksum !== metadata.checksum) {
+        return {
+          corrupted: true,
+          reason: `Checksum mismatch: file metadata does not match index. Run clear_index followed by index_codebase to rebuild.`,
+        };
+      }
+    }
+
+    return { corrupted: false };
   }
 
   async indexCodebase(
     patterns?: string[],
     excludePatterns?: string[],
     forceReindex: boolean = false,
-    onProgress?: ProgressCallback
-  ): Promise<{ filesIndexed: number; chunksCreated: number; incremental: boolean }> {
+    onProgress?: ProgressCallback,
+    autoRepair: boolean = false
+  ): Promise<{
+    filesIndexed: number;
+    chunksCreated: number;
+    incremental: boolean;
+    repaired?: boolean;
+  }> {
     const { glob } = await import('glob');
 
     const report = (progress: IndexProgress) => {
       console.error(`[lance-context] ${progress.message}`);
       onProgress?.(progress);
     };
+
+    // Check for corruption if autoRepair is enabled
+    if (autoRepair) {
+      const status = await this.getStatus();
+      if (status.corrupted) {
+        console.error(`[lance-context] Index corruption detected: ${status.corruptionReason}`);
+        console.error('[lance-context] Auto-repair enabled, clearing and rebuilding index...');
+        await this.clearIndex();
+        // Recursively call with forceReindex but without autoRepair to avoid loops
+        const result = await this.indexCodebase(patterns, excludePatterns, true, onProgress, false);
+        return { ...result, repaired: true };
+      }
+    }
 
     // Use provided patterns or fall back to config/defaults
     const effectivePatterns = patterns || this.config?.patterns || getDefaultPatterns();
@@ -688,7 +754,7 @@ export class CodeIndexer {
 
     const totalChunks = await this.table.countRows();
 
-    // Save index metadata
+    // Save index metadata with checksum
     await this.saveIndexMetadata(allCurrentFiles.length, totalChunks, allCurrentFiles);
 
     return {

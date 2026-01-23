@@ -278,6 +278,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               description:
                 'Force a full reindex, ignoring cached file modification times (default: false)',
             },
+            autoRepair: {
+              type: 'boolean',
+              description:
+                'Automatically repair a corrupted index by forcing a full reindex (default: false)',
+            },
           },
         },
       },
@@ -927,6 +932,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ? args.excludePatterns
           : undefined;
         const forceReindex = isBoolean(args?.forceReindex) ? args.forceReindex : false;
+        const autoRepair = isBoolean(args?.autoRepair) ? args.autoRepair : false;
 
         // Notify dashboard of indexing start
         dashboardState.onIndexingStart();
@@ -938,13 +944,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           (progress) => {
             // Emit progress events to dashboard
             dashboardState.onProgress(progress);
-          }
+          },
+          autoRepair
         );
 
         // Notify dashboard of indexing completion
         dashboardState.onIndexingComplete(result);
 
-        const mode = result.incremental ? 'Incremental update' : 'Full reindex';
+        const mode = result.repaired
+          ? 'Repaired (corruption detected)'
+          : result.incremental
+            ? 'Incremental update'
+            : 'Full reindex';
         return {
           content: [
             {
@@ -989,11 +1000,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'get_index_status': {
         const status = await idx.getStatus();
+        let statusText = JSON.stringify(status, null, 2);
+
+        // Add corruption warning if detected
+        if (status.corrupted) {
+          statusText =
+            `**WARNING: Index corruption detected!**\n` +
+            `Reason: ${status.corruptionReason}\n` +
+            `\nTo repair, either:\n` +
+            `1. Run \`index_codebase\` with \`autoRepair: true\`\n` +
+            `2. Run \`clear_index\` followed by \`index_codebase\`\n\n` +
+            statusText;
+        }
+
         return {
           content: [
             {
               type: 'text',
-              text: JSON.stringify(status, null, 2) + TOOL_GUIDANCE,
+              text: statusText + TOOL_GUIDANCE,
             },
           ],
         };

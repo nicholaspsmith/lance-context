@@ -918,4 +918,120 @@ describe('CodeIndexer', () => {
       expect(results[0].filepath).toBe('auth.ts');
     });
   });
+
+  describe('corruption detection', () => {
+    it('should detect missing metadata as corruption', async () => {
+      const mockTable = createMockTable([
+        {
+          id: '1',
+          filepath: 'test.ts',
+          content: 'code',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+        },
+      ]);
+      mockConnection.tableNames.mockResolvedValue(['code_chunks']);
+      mockConnection.openTable.mockResolvedValue(mockTable as any);
+
+      // Metadata file doesn't exist
+      vi.mocked(fsPromises.readFile).mockRejectedValue(new Error('ENOENT'));
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      const status = await indexer.getStatus();
+
+      expect(status.corrupted).toBe(true);
+      expect(status.corruptionReason).toContain('Missing index metadata');
+    });
+
+    it('should detect chunk count mismatch as corruption', async () => {
+      const mockTable = createMockTable([
+        {
+          id: '1',
+          filepath: 'test.ts',
+          content: 'code',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+        },
+      ]);
+      mockConnection.tableNames.mockResolvedValue(['code_chunks']);
+      mockConnection.openTable.mockResolvedValue(mockTable as any);
+
+      // Metadata says 5 chunks but table only has 1
+      vi.mocked(fsPromises.readFile).mockResolvedValue(
+        JSON.stringify({
+          lastUpdated: '2024-01-01T00:00:00Z',
+          fileCount: 1,
+          chunkCount: 5,
+          embeddingBackend: 'mock',
+          embeddingDimensions: 1536,
+          checksum: 'abc123',
+        })
+      );
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      const status = await indexer.getStatus();
+
+      expect(status.corrupted).toBe(true);
+      expect(status.corruptionReason).toContain('Chunk count mismatch');
+    });
+
+    it('should report healthy index when metadata matches', async () => {
+      const mockTable = createMockTable([
+        {
+          id: '1',
+          filepath: 'test.ts',
+          content: 'code',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+        },
+      ]);
+      const mockMetadataTable = createMockTable([{ filepath: 'test.ts', mtime: Date.now() }]);
+
+      mockConnection.tableNames.mockResolvedValue(['code_chunks', 'file_metadata']);
+      mockConnection.openTable.mockImplementation(async (name: string) => {
+        if (name === 'file_metadata') return mockMetadataTable as any;
+        return mockTable as any;
+      });
+
+      // Metadata matches actual state
+      vi.mocked(fsPromises.readFile).mockResolvedValue(
+        JSON.stringify({
+          lastUpdated: '2024-01-01T00:00:00Z',
+          fileCount: 1,
+          chunkCount: 1,
+          embeddingBackend: 'mock',
+          embeddingDimensions: 1536,
+          checksum: '4694592dbdda93c1',
+        })
+      );
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      const status = await indexer.getStatus();
+
+      expect(status.corrupted).toBe(false);
+      expect(status.corruptionReason).toBeUndefined();
+    });
+
+    it('should report no corruption when index is empty', async () => {
+      mockConnection.tableNames.mockResolvedValue([]);
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      const status = await indexer.getStatus();
+
+      expect(status.indexed).toBe(false);
+      // Empty index has no corruption field (undefined, not false)
+      expect(status.corrupted).toBeUndefined();
+    });
+  });
 });

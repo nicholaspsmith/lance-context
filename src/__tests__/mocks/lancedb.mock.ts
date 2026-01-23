@@ -1,13 +1,14 @@
 import { vi } from 'vitest';
 
 export interface MockRow {
-  id: string;
+  id?: string;
   filepath: string;
-  content: string;
-  startLine: number;
-  endLine: number;
-  language: string;
+  content?: string;
+  startLine?: number;
+  endLine?: number;
+  language?: string;
   vector?: number[];
+  mtime?: number;
   symbolType?:
     | 'function'
     | 'class'
