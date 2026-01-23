@@ -1,4 +1,5 @@
 import * as lancedb from '@lancedb/lancedb';
+import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { EmbeddingBackend } from '../embeddings/index.js';
@@ -25,6 +26,16 @@ import {
 
 /** Default concurrency for parallel file processing */
 const FILE_PROCESSING_CONCURRENCY = 10;
+
+/**
+ * Compute a checksum for index integrity validation.
+ * Based on sorted file list and chunk count.
+ */
+function computeIndexChecksum(files: string[], chunkCount: number): string {
+  const sortedFiles = [...files].sort();
+  const data = JSON.stringify({ files: sortedFiles, chunkCount });
+  return crypto.createHash('sha256').update(data).digest('hex').slice(0, 16);
+}
 
 /**
  * Represents a chunk of code that has been indexed.
@@ -77,6 +88,10 @@ export interface IndexStatus {
   embeddingBackend?: string;
   /** Model identifier used for embeddings */
   embeddingModel?: string;
+  /** Whether index corruption was detected */
+  corrupted?: boolean;
+  /** Description of detected corruption */
+  corruptionReason?: string;
 }
 
 interface IndexMetadata {
@@ -87,6 +102,8 @@ interface IndexMetadata {
   embeddingModel?: string;
   embeddingDimensions: number;
   version: string;
+  /** Checksum of indexed files (sorted file list hash) for corruption detection */
+  checksum?: string;
 }
 
 // Note: FileMetadata is used for LanceDB schema and is implicitly typed
@@ -250,7 +267,16 @@ export class CodeIndexer {
   /**
    * Save index metadata to disk
    */
-  private async saveIndexMetadata(fileCount: number, chunkCount: number): Promise<void> {
+  private async saveIndexMetadata(
+    fileCount: number,
+    chunkCount: number,
+    indexedFiles: string[]
+  ): Promise<void> {
+    // Convert to relative paths for checksum
+    const relativePaths = indexedFiles.map((f) =>
+      path.isAbsolute(f) ? path.relative(this.projectPath, f) : f
+    );
+
     const metadata: IndexMetadata = {
       lastUpdated: new Date().toISOString(),
       fileCount,
@@ -259,6 +285,7 @@ export class CodeIndexer {
       embeddingModel: this.embeddingBackend.getModel(),
       embeddingDimensions: this.embeddingBackend.getDimensions(),
       version: '1.0.0',
+      checksum: computeIndexChecksum(relativePaths, chunkCount),
     };
 
     await fs.writeFile(this.metadataPath, JSON.stringify(metadata, null, 2));
@@ -540,8 +567,8 @@ export class CodeIndexer {
     // Save file metadata for future incremental indexing
     await this.saveFileMetadata(files);
 
-    // Save index metadata
-    await this.saveIndexMetadata(files.length, allChunks.length);
+    // Save index metadata with checksum
+    await this.saveIndexMetadata(files.length, allChunks.length, files);
 
     return {
       filesIndexed: files.length,
@@ -662,7 +689,7 @@ export class CodeIndexer {
     const totalChunks = await this.table.countRows();
 
     // Save index metadata
-    await this.saveIndexMetadata(allCurrentFiles.length, totalChunks);
+    await this.saveIndexMetadata(allCurrentFiles.length, totalChunks, allCurrentFiles);
 
     return {
       filesIndexed: filesToProcess.length,
