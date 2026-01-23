@@ -9,7 +9,7 @@ const PORT_RANGE = 100;
 /**
  * Check if a port is available
  */
-async function isPortAvailable(port: number): Promise<boolean> {
+export async function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const server = net.createServer();
 

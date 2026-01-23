@@ -1,7 +1,7 @@
 export { dashboardState, DashboardStateManager } from './state.js';
 export type { CommandName, CommandUsage } from './state.js';
 export { sseManager, SSEManager } from './events.js';
-export { startServer, findAvailablePort, type DashboardServer } from './server.js';
+export { startServer, findAvailablePort, isPortAvailable, type DashboardServer } from './server.js';
 export type { IndexProgress } from '../search/indexer.js';
 
 import { startServer, type DashboardServer } from './server.js';
