@@ -944,6 +944,8 @@ export function getDashboardHTML(): string {
 
       let html = '';
       for (const item of usage) {
+        if (item.count === 0) continue;
+
         const percent = maxCount > 0 ? (item.count / maxCount) : 0;
         const color = commandColors[item.command] || '#58a6ff';
 
