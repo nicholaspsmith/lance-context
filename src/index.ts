@@ -112,6 +112,12 @@ const PRIORITY_INSTRUCTIONS = `
 
 3. **get_index_status** - Check if index is ready before searching
 
+4. **commit** - Use instead of \`git commit\`:
+   - Validates you're on a feature branch (not main)
+   - Checks message format (≤72 chars, imperative mood)
+   - Enforces single responsibility per commit
+   - Auto-appends Co-Authored-By trailer
+
 **Signs you should have used search_code:**
 - You used wildcards or regex alternation (e.g., \`foo|bar\`)
 - You made multiple search calls to find something
