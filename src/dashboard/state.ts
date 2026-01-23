@@ -1,4 +1,6 @@
 import { EventEmitter } from 'events';
+import * as fs from 'fs';
+import * as path from 'path';
 import type { CodeIndexer, IndexStatus, IndexProgress } from '../search/indexer.js';
 import type { LanceContextConfig } from '../config.js';
 
@@ -56,6 +58,54 @@ export class DashboardStateManager extends EventEmitter {
   private commandUsage: Map<CommandName, number> = new Map();
 
   /**
+   * Get the path to the usage file
+   */
+  private getUsageFilePath(): string | null {
+    if (!this.projectPath) return null;
+    return path.join(this.projectPath, '.lance-context', 'usage.json');
+  }
+
+  /**
+   * Load command usage from disk
+   */
+  private loadUsageFromDisk(): void {
+    const filePath = this.getUsageFilePath();
+    if (!filePath) return;
+
+    try {
+      if (fs.existsSync(filePath)) {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        this.commandUsage.clear();
+        for (const [cmd, count] of Object.entries(data)) {
+          if (typeof count === 'number') {
+            this.commandUsage.set(cmd as CommandName, count);
+          }
+        }
+      }
+    } catch {
+      // Ignore errors, start with empty usage
+    }
+  }
+
+  /**
+   * Save command usage to disk
+   */
+  private saveUsageToDisk(): void {
+    const filePath = this.getUsageFilePath();
+    if (!filePath) return;
+
+    try {
+      const data: Record<string, number> = {};
+      for (const [cmd, count] of this.commandUsage) {
+        data[cmd] = count;
+      }
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    } catch {
+      // Ignore errors
+    }
+  }
+
+  /**
    * Set the indexer instance for the dashboard to use
    */
   setIndexer(indexer: CodeIndexer): void {
@@ -74,6 +124,7 @@ export class DashboardStateManager extends EventEmitter {
    */
   setProjectPath(projectPath: string): void {
     this.projectPath = projectPath;
+    this.loadUsageFromDisk();
   }
 
   /**
@@ -151,8 +202,11 @@ export class DashboardStateManager extends EventEmitter {
    * Record a command usage
    */
   recordCommandUsage(command: CommandName): void {
+    // Reload from disk to get latest counts (in case another process updated)
+    this.loadUsageFromDisk();
     const current = this.commandUsage.get(command) || 0;
     this.commandUsage.set(command, current + 1);
+    this.saveUsageToDisk();
     this.emit('usage:update', this.getCommandUsage());
   }
 
@@ -160,6 +214,9 @@ export class DashboardStateManager extends EventEmitter {
    * Get command usage statistics
    */
   getCommandUsage(): CommandUsage[] {
+    // Reload from disk to get latest counts (in case another process updated)
+    this.loadUsageFromDisk();
+
     const allCommands: CommandName[] = [
       'search_code',
       'index_codebase',
