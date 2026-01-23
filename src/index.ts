@@ -171,6 +171,18 @@ const SERVER_INSTRUCTIONS = `# lance-context - Semantic Code Search & Symbol Ana
 - **index_codebase**: Build/update the search index
 - **get_index_status**: Check if index is ready
 
+## CRITICAL: Always Use the \`commit\` Tool
+
+**NEVER use raw \`git commit\`** - ALWAYS use the \`commit\` MCP tool.
+
+The \`commit\` tool:
+- Validates you're on a feature branch (not main)
+- Checks message format (≤72 chars, imperative mood)
+- Enforces single responsibility per commit
+- Prevents common mistakes
+
+A post-commit hook will warn if commits bypass this tool.
+
 ## Signs You Should Have Used search_code
 
 - You used wildcards or regex alternation
@@ -196,7 +208,8 @@ const PRIORITY_INSTRUCTIONS = `
 
 3. **get_index_status** - Check if index is ready before searching
 
-4. **commit** - Use instead of \`git commit\`:
+4. **commit** - **ALWAYS use instead of \`git commit\`** (MANDATORY):
+   - NEVER run raw \`git commit\` - always use this tool
    - Validates you're on a feature branch (not main)
    - Checks message format (≤72 chars, imperative mood)
    - Enforces single responsibility per commit
@@ -1366,6 +1379,14 @@ ${conceptList}`;
 
         // Build commit message with Co-Authored-By
         const fullMessage = `${message}\n\nCo-Authored-By: Claude <noreply@anthropic.com>`;
+
+        // Write marker file to indicate commit is via MCP tool (for post-commit hook)
+        const markerPath = path.join(PROJECT_PATH, '.git', 'MCP_COMMIT_MARKER');
+        try {
+          fs.writeFileSync(markerPath, Date.now().toString());
+        } catch {
+          // Ignore marker write failures - non-critical
+        }
 
         // Execute commit
         try {

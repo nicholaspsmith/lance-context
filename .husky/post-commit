@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+
+# Check if commit was made via MCP tool
+MARKER_FILE=".git/MCP_COMMIT_MARKER"
+
+if [ -f "$MARKER_FILE" ]; then
+  # Commit was made via MCP tool - clean up marker
+  rm -f "$MARKER_FILE"
+else
+  # Commit bypassed MCP tool - warn the user
+  echo ""
+  echo "⚠️  WARNING: Commit made without using lance-context commit tool"
+  echo ""
+  echo "Always use the MCP 'commit' tool instead of raw 'git commit'."
+  echo "The commit tool validates:"
+  echo "  - Feature branch (not main)"
+  echo "  - Message format (≤72 chars, imperative mood)"
+  echo "  - Single responsibility per commit"
+  echo ""
+  echo "Example: mcp__lance-context__commit(message: \"feat: add feature\")"
+  echo ""
+fi
