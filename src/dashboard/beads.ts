@@ -122,7 +122,7 @@ export async function getBeadsStatus(projectPath: string): Promise<BeadsStatus> 
       syncBranch,
       daemonRunning,
     };
-  } catch (error) {
+  } catch {
     // If bd commands fail, beads might not be properly configured
     return {
       available: true,
