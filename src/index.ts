@@ -13,7 +13,7 @@ import { createEmbeddingBackend } from './embeddings/index.js';
 import { CodeIndexer } from './search/indexer.js';
 import { isStringArray, isString, isNumber, isBoolean } from './utils/type-guards.js';
 import { logError, formatErrorResponse, wrapError, LanceContextError } from './utils/errors.js';
-import { loadConfig, getInstructions, getDashboardConfig } from './config.js';
+import { loadConfig, loadSecrets, getInstructions, getDashboardConfig } from './config.js';
 import {
   startDashboard,
   stopDashboard,
@@ -173,7 +173,11 @@ async function getConfig() {
 async function getIndexer(): Promise<CodeIndexer> {
   if (!indexerPromise) {
     indexerPromise = (async () => {
-      const backend = await createEmbeddingBackend();
+      // Load secrets to get API key for embedding backend
+      const secrets = await loadSecrets(PROJECT_PATH);
+      const backend = await createEmbeddingBackend({
+        apiKey: secrets.jinaApiKey,
+      });
       const idx = new CodeIndexer(PROJECT_PATH, backend);
       await idx.initialize();
 
