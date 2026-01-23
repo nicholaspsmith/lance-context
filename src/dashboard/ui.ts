@@ -688,6 +688,55 @@ export function getDashboardHTML(): string {
       color: var(--text-muted);
       font-size: 14px;
     }
+
+    .beads-issue {
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .beads-issue:hover {
+      background-color: var(--bg-secondary);
+    }
+
+    .beads-issue-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .beads-issue-expand {
+      width: 16px;
+      height: 16px;
+      color: var(--text-muted);
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .beads-issue.expanded .beads-issue-expand {
+      transform: rotate(90deg);
+    }
+
+    .beads-issue-description {
+      display: none;
+      margin-top: 8px;
+      padding: 12px;
+      background-color: var(--bg-secondary);
+      border-radius: 4px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      border-left: 3px solid var(--accent-blue);
+    }
+
+    .beads-issue.expanded .beads-issue-description {
+      display: block;
+    }
+
+    .beads-issue-no-description {
+      font-style: italic;
+      color: var(--text-muted);
+    }
   </style>
 </head>
 <body>
@@ -1203,10 +1252,14 @@ export function getDashboardHTML(): string {
       if (data.issues && data.issues.length > 0) {
         let html = '';
         for (const issue of data.issues) {
-          html += '<div class="beads-issue">';
+          const hasDescription = issue.description && issue.description.trim();
+          html += '<div class="beads-issue" onclick="toggleBeadsIssue(this)">';
           html += '<span class="beads-issue-id">' + escapeHtml(issue.id) + '</span>';
           html += '<div class="beads-issue-content">';
-          html += '<div class="beads-issue-title">' + escapeHtml(issue.title) + '</div>';
+          html += '<div class="beads-issue-title">';
+          html += '<svg class="beads-issue-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
+          html += '<span>' + escapeHtml(issue.title) + '</span>';
+          html += '</div>';
           html += '<div class="beads-issue-meta">';
           if (issue.issue_type) {
             html += '<span class="beads-issue-type">' + escapeHtml(issue.issue_type) + '</span>';
@@ -1218,6 +1271,11 @@ export function getDashboardHTML(): string {
             html += '</span>';
           }
           html += '</div>';
+          if (hasDescription) {
+            html += '<div class="beads-issue-description">' + escapeHtml(issue.description) + '</div>';
+          } else {
+            html += '<div class="beads-issue-description beads-issue-no-description">No description available</div>';
+          }
           html += '</div>';
           html += '</div>';
         }
@@ -1225,6 +1283,11 @@ export function getDashboardHTML(): string {
       } else {
         beadsIssuesList.innerHTML = '<div class="beads-empty">No ready tasks</div>';
       }
+    }
+
+    // Toggle beads issue expansion
+    function toggleBeadsIssue(element) {
+      element.classList.toggle('expanded');
     }
 
     // Escape HTML to prevent XSS

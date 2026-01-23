@@ -14,6 +14,7 @@ export interface BeadsIssue {
   status: string;
   priority?: number;
   issue_type?: string;
+  description?: string;
   created_at?: string;
   updated_at?: string;
   labels?: string[];
