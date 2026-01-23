@@ -2,6 +2,13 @@
   <img src="logo.svg" alt="lance-context logo" width="150" height="150">
 </p>
 
+<p align="center">
+  <a href="https://github.com/nicholaspsmith/lance-context/actions/workflows/ci.yml"><img src="https://github.com/nicholaspsmith/lance-context/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/lance-context"><img src="https://img.shields.io/npm/v/lance-context.svg" alt="npm version"></a>
+  <a href="https://github.com/nicholaspsmith/lance-context/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="License: GPL-3.0"></a>
+  <img src="https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg" alt="Node.js version">
+</p>
+
 # lance-context
 
 An MCP plugin that adds semantic code search to Claude Code and other AI coding agents, giving them deep context from your entire codebase.
@@ -39,7 +46,7 @@ In Claude Code, run `/mcp` to see lance-context in the list of MCP servers.
 
 ### Project-Level Installation
 
-For project-specific configuration, add a `.mcp.json` to your project root:
+For project-specific MCP configuration, add a `.mcp.json` to your project root:
 
 ```json
 {
@@ -51,6 +58,91 @@ For project-specific configuration, add a `.mcp.json` to your project root:
   }
 }
 ```
+
+### Project Configuration
+
+Create a `.lance-context.json` file in your project root to customize indexing behavior. All options are optional - lance-context works out of the box with sensible defaults.
+
+#### Minimal Configuration
+
+For most projects, you only need to specify what to include:
+
+```json
+{
+  "patterns": ["**/*.ts", "**/*.js"],
+  "instructions": "This is a TypeScript monorepo. Use semantic search to find relevant utilities."
+}
+```
+
+#### Full Configuration Example
+
+```json
+{
+  "patterns": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+  "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/*.test.ts"],
+  "embedding": {
+    "backend": "jina"
+  },
+  "chunking": {
+    "maxLines": 100,
+    "overlap": 20
+  },
+  "search": {
+    "semanticWeight": 0.7,
+    "keywordWeight": 0.3
+  },
+  "dashboard": {
+    "enabled": true,
+    "port": 24300,
+    "openBrowser": true
+  },
+  "instructions": "Project-specific instructions for AI agents working with this codebase."
+}
+```
+
+#### Configuration Options Reference
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `patterns` | Glob patterns for files to index | `["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py", "**/*.go", "**/*.rs", "**/*.java", "**/*.rb", "**/*.php", "**/*.c", "**/*.cpp", "**/*.h", "**/*.hpp", "**/*.cs", "**/*.swift", "**/*.kt"]` |
+| `excludePatterns` | Glob patterns for files to exclude | `["**/node_modules/**", "**/dist/**", "**/.git/**", "**/build/**", "**/target/**", "**/__pycache__/**", "**/venv/**", "**/.venv/**", "**/vendor/**", "**/*.min.js", "**/*.min.css"]` |
+| `embedding.backend` | Embedding provider: `"jina"` or `"ollama"` | Auto-detect based on available API keys |
+| `embedding.model` | Override the default embedding model | Backend default |
+| `chunking.maxLines` | Maximum lines per chunk | `100` |
+| `chunking.overlap` | Overlapping lines between chunks for context continuity | `20` |
+| `search.semanticWeight` | Weight for semantic (vector) similarity (0-1) | `0.7` |
+| `search.keywordWeight` | Weight for BM25 keyword matching (0-1) | `0.3` |
+| `dashboard.enabled` | Enable the web dashboard | `true` |
+| `dashboard.port` | Port for the dashboard server | `24300` |
+| `dashboard.openBrowser` | Auto-open browser when dashboard starts | `true` |
+| `instructions` | Project-specific instructions returned by `get_project_instructions` | None |
+
+#### Default Behavior
+
+Without a `.lance-context.json` file, lance-context will:
+
+- Index common source code files (TypeScript, JavaScript, Python, Go, Rust, Java, Ruby, PHP, C/C++, C#, Swift, Kotlin)
+- Exclude build artifacts, dependencies, and generated files
+- Use Jina embeddings if `JINA_API_KEY` is set, otherwise fall back to local Ollama
+- Split code into 100-line chunks with 20-line overlap
+- Use hybrid search with 70% semantic / 30% keyword weighting
+- Start the dashboard on port 24300
+
+#### Environment Variables
+
+Set these environment variables to configure embedding backends:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `JINA_API_KEY` | Jina AI API key for cloud embeddings ([free tier available](https://jina.ai/)) | None |
+| `OLLAMA_URL` | Custom Ollama server URL for local embeddings | `http://localhost:11434` |
+| `LANCE_CONTEXT_PROJECT` | Override the project path to index | Current working directory |
+
+**Backend Selection Priority:**
+
+1. If `embedding.backend` is set in config, use that backend
+2. If `JINA_API_KEY` is set, use Jina
+3. Fall back to Ollama (must be running locally)
 
 ## Architecture
 
@@ -78,9 +170,7 @@ For project-specific configuration, add a `.mcp.json` to your project root:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Configuration
-
-### Embedding Backends
+## Embedding Backend Setup
 
 lance-context automatically selects the best available backend (in priority order):
 
@@ -95,37 +185,7 @@ lance-context automatically selects the best available backend (in priority orde
    ollama pull nomic-embed-text
    ```
 
-### Project Configuration
-
-Create a `.lance-context.json` file in your project root to customize indexing:
-
-```json
-{
-  "patterns": ["**/*.ts", "**/*.js", "**/*.py"],
-  "excludePatterns": ["**/node_modules/**", "**/dist/**"],
-  "chunking": {
-    "maxLines": 100,
-    "overlap": 20
-  },
-  "search": {
-    "semanticWeight": 0.7,
-    "keywordWeight": 0.3
-  },
-  "instructions": "Project-specific instructions for AI agents working with this codebase."
-}
-```
-
-#### Configuration Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `patterns` | Glob patterns for files to index | Common code file extensions |
-| `excludePatterns` | Glob patterns for files to exclude | node_modules, dist, .git, etc. |
-| `chunking.maxLines` | Maximum lines per chunk | 100 |
-| `chunking.overlap` | Overlapping lines between chunks | 20 |
-| `search.semanticWeight` | Weight for semantic similarity (0-1) | 0.7 |
-| `search.keywordWeight` | Weight for keyword matching (0-1) | 0.3 |
-| `instructions` | Project-specific instructions for AI agents | - |
+See [Project Configuration](#project-configuration) for all configuration options including how to specify a backend.
 
 ## Usage
 
@@ -214,23 +274,7 @@ The browser opens automatically on startup (configurable).
 
 ### Dashboard Configuration
 
-Configure the dashboard in `.lance-context.json`:
-
-```json
-{
-  "dashboard": {
-    "enabled": true,
-    "port": 24300,
-    "openBrowser": true
-  }
-}
-```
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `enabled` | Enable/disable the dashboard | `true` |
-| `port` | Port to run dashboard on | `24300` |
-| `openBrowser` | Auto-open browser on startup | `true` |
+Configure the dashboard via the `dashboard` options in `.lance-context.json`. See [Configuration Options Reference](#configuration-options-reference) for details.
 
 ## How It Works
 
@@ -238,14 +282,6 @@ Configure the dashboard in `.lance-context.json`:
 2. **Embedding**: Each chunk is converted to a vector using your chosen backend
 3. **Storage**: Vectors are stored in LanceDB (`.lance-context/` directory)
 4. **Search**: Natural language queries are embedded and matched against stored vectors
-
-## Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `JINA_API_KEY` | Jina AI API key for embeddings | - |
-| `OLLAMA_URL` | Ollama server URL | `http://localhost:11434` |
-| `LANCE_CONTEXT_PROJECT` | Project path to index | Current directory |
 
 ## Supported Languages
 
@@ -258,7 +294,7 @@ TypeScript, JavaScript, Python, Go, Rust, Java, Ruby, PHP, C/C++, C#, Swift, Kot
 This error means no API keys are set and Ollama is not running/accessible.
 
 **Solutions:**
-1. Set an API key: `export OPENAI_API_KEY=sk-...` or `export JINA_API_KEY=jina_...`
+1. Set an API key: `export JINA_API_KEY=jina_...`
 2. Or start Ollama: `ollama serve` and ensure `nomic-embed-text` model is pulled
 
 ### "Embedding dimension mismatch"
