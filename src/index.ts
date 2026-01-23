@@ -10,7 +10,7 @@ import { createEmbeddingBackend } from './embeddings/index.js';
 import { CodeIndexer } from './search/indexer.js';
 import { isStringArray, isString, isNumber, isBoolean } from './utils/type-guards.js';
 import { loadConfig, getInstructions, getDashboardConfig } from './config.js';
-import { startDashboard, dashboardState, sseManager, isPortAvailable } from './dashboard/index.js';
+import { startDashboard, dashboardState, isPortAvailable } from './dashboard/index.js';
 import type { CommandName } from './dashboard/index.js';
 
 /**
