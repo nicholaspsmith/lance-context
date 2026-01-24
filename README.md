@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/nicholaspsmith/lance-context/actions/workflows/ci.yml"><img src="https://github.com/nicholaspsmith/lance-context/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.npmjs.com/package/lance-context"><img src="https://img.shields.io/npm/v/lance-context.svg" alt="npm version"></a>
-  <a href="https://github.com/nicholaspsmith/lance-context/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="License: GPL-3.0"></a>
+  <a href="https://github.com/nicholaspsmith/lance-context/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg" alt="Node.js version">
 </p>
 
@@ -329,7 +329,7 @@ Or manually delete the `.lance-context/` directory and re-index.
 
 ## License
 
-GPL-3.0 - See [LICENSE](LICENSE) for details.
+MIT - See [LICENSE](LICENSE) for details.
 
 ## Contributing
 
