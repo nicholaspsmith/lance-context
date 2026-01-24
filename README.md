@@ -346,3 +346,6 @@ Built with:
 - [LanceDB](https://lancedb.github.io/lancedb/) - Vector database
 - [MCP SDK](https://github.com/modelcontextprotocol/sdk) - Model Context Protocol
 - [Jina AI](https://jina.ai/) - Embedding API
+
+Inspired by:
+- [Serena](https://github.com/oraios/serena) by [Oraios](https://github.com/oraios) - Symbol-level code navigation and editing
