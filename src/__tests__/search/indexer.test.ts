@@ -13,6 +13,8 @@ vi.mock('fs/promises', () => ({
   readFile: vi.fn(),
   writeFile: vi.fn(),
   stat: vi.fn(),
+  mkdir: vi.fn(),
+  unlink: vi.fn(),
 }));
 
 // Mock config
@@ -1032,6 +1034,199 @@ describe('CodeIndexer', () => {
       expect(status.indexed).toBe(false);
       // Empty index has no corruption field (undefined, not false)
       expect(status.corrupted).toBeUndefined();
+    });
+  });
+
+  describe('checkpoint-based indexing', () => {
+    it('should save checkpoint after chunking phase', async () => {
+      const { glob } = await import('glob');
+      vi.mocked(glob as any).mockResolvedValue(['/project/test.ts']);
+      vi.mocked(fsPromises.readFile).mockResolvedValue('const x = 1;');
+      vi.mocked(fsPromises.stat).mockResolvedValue({ mtimeMs: Date.now() } as any);
+      mockConnection.tableNames.mockResolvedValue([]);
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      await indexer.indexCodebase();
+
+      // Should have written checkpoint at least once
+      const writeFileCalls = vi.mocked(fsPromises.writeFile).mock.calls;
+      const checkpointWrites = writeFileCalls.filter(
+        (call) => call[0] === '/project/.lance-context/checkpoint.json'
+      );
+      expect(checkpointWrites.length).toBeGreaterThan(0);
+
+      // First checkpoint should be after chunking phase
+      const firstCheckpoint = JSON.parse(checkpointWrites[0][1] as string);
+      expect(firstCheckpoint.phase).toBe('chunking');
+      expect(firstCheckpoint.embeddingBackend).toBe('mock');
+    });
+
+    it('should clear checkpoint after successful indexing', async () => {
+      const { glob } = await import('glob');
+      vi.mocked(glob as any).mockResolvedValue(['/project/test.ts']);
+      vi.mocked(fsPromises.readFile).mockResolvedValue('const x = 1;');
+      vi.mocked(fsPromises.stat).mockResolvedValue({ mtimeMs: Date.now() } as any);
+      mockConnection.tableNames.mockResolvedValue([]);
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      await indexer.indexCodebase();
+
+      // Should have tried to unlink the checkpoint file
+      expect(fsPromises.unlink).toHaveBeenCalledWith('/project/.lance-context/checkpoint.json');
+    });
+
+    it('should resume from checkpoint with embedded chunks', async () => {
+      // Create a checkpoint file with embedded chunks
+      const checkpoint = {
+        phase: 'embedding',
+        startedAt: '2024-01-01T00:00:00Z',
+        files: ['/project/test.ts'],
+        processedFiles: [],
+        embeddedChunks: [
+          {
+            id: 'test.ts:1-10',
+            filepath: 'test.ts',
+            content: 'const x = 1;',
+            startLine: 1,
+            endLine: 10,
+            language: 'typescript',
+            embedding: [0.1, 0.2, 0.3],
+          },
+        ],
+        embeddingBackend: 'mock',
+        embeddingModel: 'mock-model',
+      };
+
+      let checkpointCleared = false;
+      vi.mocked(fsPromises.readFile).mockImplementation(async (path) => {
+        if (path === '/project/.lance-context/checkpoint.json') {
+          if (checkpointCleared) {
+            throw new Error('ENOENT');
+          }
+          return JSON.stringify(checkpoint);
+        }
+        return 'const x = 1;';
+      });
+      vi.mocked(fsPromises.stat).mockResolvedValue({ mtimeMs: Date.now() } as any);
+      vi.mocked(fsPromises.unlink).mockImplementation(async (path) => {
+        if (path === '/project/.lance-context/checkpoint.json') {
+          checkpointCleared = true;
+        }
+      });
+      mockConnection.tableNames.mockResolvedValue([]);
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      const result = await indexer.indexCodebase();
+
+      // Should have resumed and completed without re-embedding
+      expect(result.filesIndexed).toBe(1);
+      expect(result.chunksCreated).toBe(1);
+
+      // Should not have called embedBatch since chunks were already embedded
+      expect(mockBackend.embedBatch).not.toHaveBeenCalled();
+    });
+
+    it('should discard checkpoint when embedding backend changes', async () => {
+      const { glob } = await import('glob');
+      vi.mocked(glob as any).mockResolvedValue(['/project/test.ts']);
+
+      // Checkpoint was created with different backend
+      const checkpoint = {
+        phase: 'chunking',
+        startedAt: '2024-01-01T00:00:00Z',
+        files: ['/project/test.ts'],
+        processedFiles: [],
+        pendingChunks: [
+          {
+            id: 'test.ts:1-10',
+            filepath: 'test.ts',
+            content: 'const x = 1;',
+            startLine: 1,
+            endLine: 10,
+            language: 'typescript',
+          },
+        ],
+        embeddingBackend: 'different-backend',
+        embeddingModel: 'different-model',
+      };
+
+      let checkpointCleared = false;
+      vi.mocked(fsPromises.readFile).mockImplementation(async (path) => {
+        if (path === '/project/.lance-context/checkpoint.json') {
+          if (checkpointCleared) {
+            throw new Error('ENOENT');
+          }
+          return JSON.stringify(checkpoint);
+        }
+        return 'const x = 1;';
+      });
+      vi.mocked(fsPromises.stat).mockResolvedValue({ mtimeMs: Date.now() } as any);
+      vi.mocked(fsPromises.unlink).mockImplementation(async (path) => {
+        if (path === '/project/.lance-context/checkpoint.json') {
+          checkpointCleared = true;
+        }
+      });
+      mockConnection.tableNames.mockResolvedValue([]);
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      await indexer.indexCodebase();
+
+      // Should have cleared the incompatible checkpoint
+      expect(fsPromises.unlink).toHaveBeenCalledWith('/project/.lance-context/checkpoint.json');
+
+      // Should have re-embedded since backend changed
+      expect(mockBackend.embedBatch).toHaveBeenCalled();
+    });
+
+    it('should clear checkpoint when clearIndex is called', async () => {
+      mockConnection.tableNames.mockResolvedValue(['code_chunks']);
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      await indexer.clearIndex();
+
+      // Should have tried to unlink the checkpoint file
+      expect(fsPromises.unlink).toHaveBeenCalledWith('/project/.lance-context/checkpoint.json');
+    });
+
+    it('should handle invalid checkpoint gracefully', async () => {
+      const { glob } = await import('glob');
+      vi.mocked(glob as any).mockResolvedValue(['/project/test.ts']);
+
+      // Invalid checkpoint (missing required fields)
+      let checkpointCleared = false;
+      vi.mocked(fsPromises.readFile).mockImplementation(async (path) => {
+        if (path === '/project/.lance-context/checkpoint.json') {
+          if (checkpointCleared) {
+            throw new Error('ENOENT');
+          }
+          return JSON.stringify({ phase: 'chunking' }); // Missing files and processedFiles
+        }
+        return 'const x = 1;';
+      });
+      vi.mocked(fsPromises.stat).mockResolvedValue({ mtimeMs: Date.now() } as any);
+      vi.mocked(fsPromises.unlink).mockImplementation(async (path) => {
+        if (path === '/project/.lance-context/checkpoint.json') {
+          checkpointCleared = true;
+        }
+      });
+      mockConnection.tableNames.mockResolvedValue([]);
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      // Should not throw and should do full indexing
+      const result = await indexer.indexCodebase();
+      expect(result.filesIndexed).toBe(1);
     });
   });
 });
