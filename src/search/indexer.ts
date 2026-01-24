@@ -112,6 +112,29 @@ interface IndexMetadata {
   checksum?: string;
 }
 
+/**
+ * Checkpoint for resuming interrupted indexing operations.
+ * Saved after each phase completes to allow recovery from crashes or interruptions.
+ */
+interface IndexCheckpoint {
+  /** Current phase of indexing when checkpoint was saved */
+  phase: 'chunking' | 'embedding' | 'storing' | 'complete';
+  /** ISO timestamp when indexing started */
+  startedAt: string;
+  /** All files to be indexed */
+  files: string[];
+  /** Files that have been fully processed (chunked + embedded + stored) */
+  processedFiles: string[];
+  /** Chunks ready for embedding (only present during chunking phase) */
+  pendingChunks?: CodeChunk[];
+  /** Chunks with embeddings ready for storage (only present during embedding phase) */
+  embeddedChunks?: CodeChunk[];
+  /** Embedding backend name (for detecting backend changes) */
+  embeddingBackend: string;
+  /** Embedding model (for detecting model changes) */
+  embeddingModel?: string;
+}
+
 // Note: FileMetadata is used for LanceDB schema and is implicitly typed
 // interface FileMetadata {
 //   filepath: string;
@@ -268,6 +291,56 @@ export class CodeIndexer {
 
   private get metadataPath(): string {
     return path.join(this.indexPath, 'index-metadata.json');
+  }
+
+  private get checkpointPath(): string {
+    return path.join(this.indexPath, 'checkpoint.json');
+  }
+
+  /**
+   * Save indexing checkpoint to disk for crash recovery.
+   */
+  private async saveCheckpoint(checkpoint: IndexCheckpoint): Promise<void> {
+    await fs.mkdir(this.indexPath, { recursive: true });
+    await fs.writeFile(this.checkpointPath, JSON.stringify(checkpoint, null, 2));
+  }
+
+  /**
+   * Load indexing checkpoint from disk.
+   * Returns null if no checkpoint exists or if it's invalid.
+   */
+  private async loadCheckpoint(): Promise<IndexCheckpoint | null> {
+    try {
+      const content = await fs.readFile(this.checkpointPath, 'utf-8');
+      const checkpoint = JSON.parse(content) as IndexCheckpoint;
+
+      // Validate checkpoint has required fields
+      if (
+        !checkpoint.phase ||
+        !checkpoint.startedAt ||
+        !Array.isArray(checkpoint.files) ||
+        !Array.isArray(checkpoint.processedFiles)
+      ) {
+        console.error('[lance-context] Invalid checkpoint file, ignoring');
+        await this.clearCheckpoint();
+        return null;
+      }
+
+      return checkpoint;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Clear the indexing checkpoint file.
+   */
+  private async clearCheckpoint(): Promise<void> {
+    try {
+      await fs.unlink(this.checkpointPath);
+    } catch {
+      // Ignore errors if file doesn't exist
+    }
   }
 
   /**
@@ -563,6 +636,33 @@ export class CodeIndexer {
       }
     }
 
+    // Check for incomplete checkpoint (resume interrupted indexing)
+    if (!forceReindex) {
+      const checkpoint = await this.loadCheckpoint();
+      if (checkpoint && checkpoint.phase !== 'complete') {
+        // Validate checkpoint is compatible with current backend
+        const currentBackend = this.embeddingBackend.name;
+        const currentModel = this.embeddingBackend.getModel();
+
+        if (
+          checkpoint.embeddingBackend !== currentBackend ||
+          checkpoint.embeddingModel !== currentModel
+        ) {
+          console.error(
+            `[lance-context] Checkpoint uses different embedding backend/model ` +
+              `(${checkpoint.embeddingBackend}/${checkpoint.embeddingModel} vs ${currentBackend}/${currentModel}), ` +
+              `discarding checkpoint`
+          );
+          await this.clearCheckpoint();
+        } else {
+          console.error(
+            `[lance-context] Found incomplete checkpoint from ${checkpoint.startedAt}, resuming...`
+          );
+          return this.resumeFromCheckpoint(checkpoint, onProgress);
+        }
+      }
+    }
+
     // Use provided patterns or fall back to config/defaults
     const effectivePatterns = patterns || this.config?.patterns || getDefaultPatterns();
     const effectiveExcludePatterns =
@@ -640,6 +740,8 @@ export class CodeIndexer {
       onProgress?.(progress);
     };
 
+    const startedAt = new Date().toISOString();
+
     // Process files into chunks (parallelized for I/O efficiency)
     report({ phase: 'chunking', current: 0, total: files.length, message: 'Chunking files...' });
 
@@ -666,8 +768,30 @@ export class CodeIndexer {
       message: `Created ${allChunks.length} chunks`,
     });
 
+    // Save checkpoint after chunking (before expensive embedding phase)
+    await this.saveCheckpoint({
+      phase: 'chunking',
+      startedAt,
+      files,
+      processedFiles: [],
+      pendingChunks: allChunks,
+      embeddingBackend: this.embeddingBackend.name,
+      embeddingModel: this.embeddingBackend.getModel(),
+    });
+
     // Generate embeddings in batches
     await this.embedChunks(allChunks, onProgress);
+
+    // Save checkpoint after embedding (before storage)
+    await this.saveCheckpoint({
+      phase: 'embedding',
+      startedAt,
+      files,
+      processedFiles: [],
+      embeddedChunks: allChunks,
+      embeddingBackend: this.embeddingBackend.name,
+      embeddingModel: this.embeddingBackend.getModel(),
+    });
 
     // Store in LanceDB
     const data = allChunks.map((chunk) => ({
@@ -693,6 +817,9 @@ export class CodeIndexer {
 
     // Save index metadata with checksum
     await this.saveIndexMetadata(files.length, allChunks.length, files);
+
+    // Clear checkpoint on successful completion
+    await this.clearCheckpoint();
 
     return {
       filesIndexed: files.length,
@@ -819,6 +946,137 @@ export class CodeIndexer {
       filesIndexed: filesToProcess.length,
       chunksCreated: totalChunks,
       incremental: true,
+    };
+  }
+
+  /**
+   * Resume indexing from a saved checkpoint.
+   * Handles each checkpoint phase appropriately.
+   */
+  private async resumeFromCheckpoint(
+    checkpoint: IndexCheckpoint,
+    onProgress?: ProgressCallback
+  ): Promise<{ filesIndexed: number; chunksCreated: number; incremental: boolean }> {
+    const report = (progress: IndexProgress) => {
+      console.error(`[lance-context] ${progress.message}`);
+      onProgress?.(progress);
+    };
+
+    report({
+      phase: checkpoint.phase,
+      current: 0,
+      total: checkpoint.files.length,
+      message: `Resuming from ${checkpoint.phase} phase (started ${checkpoint.startedAt})`,
+    });
+
+    let allChunks: CodeChunk[];
+
+    switch (checkpoint.phase) {
+      case 'chunking': {
+        // Resume from chunking phase - chunks are ready but not embedded
+        if (!checkpoint.pendingChunks || checkpoint.pendingChunks.length === 0) {
+          console.error('[lance-context] Checkpoint has no pending chunks, restarting full index');
+          await this.clearCheckpoint();
+          return this.indexFull(checkpoint.files, onProgress);
+        }
+
+        allChunks = checkpoint.pendingChunks;
+        report({
+          phase: 'chunking',
+          current: checkpoint.files.length,
+          total: checkpoint.files.length,
+          message: `Resumed with ${allChunks.length} chunks ready for embedding`,
+        });
+
+        // Continue with embedding
+        await this.embedChunks(allChunks, onProgress);
+
+        // Save checkpoint after embedding
+        await this.saveCheckpoint({
+          phase: 'embedding',
+          startedAt: checkpoint.startedAt,
+          files: checkpoint.files,
+          processedFiles: [],
+          embeddedChunks: allChunks,
+          embeddingBackend: this.embeddingBackend.name,
+          embeddingModel: this.embeddingBackend.getModel(),
+        });
+
+        break;
+      }
+
+      case 'embedding': {
+        // Resume from embedding phase - chunks are embedded but not stored
+        if (!checkpoint.embeddedChunks || checkpoint.embeddedChunks.length === 0) {
+          console.error('[lance-context] Checkpoint has no embedded chunks, restarting full index');
+          await this.clearCheckpoint();
+          return this.indexFull(checkpoint.files, onProgress);
+        }
+
+        allChunks = checkpoint.embeddedChunks;
+        report({
+          phase: 'embedding',
+          current: allChunks.length,
+          total: allChunks.length,
+          message: `Resumed with ${allChunks.length} embedded chunks ready for storage`,
+        });
+
+        break;
+      }
+
+      default:
+        // Unknown phase, restart full index
+        console.error(`[lance-context] Unknown checkpoint phase: ${checkpoint.phase}, restarting`);
+        await this.clearCheckpoint();
+        return this.indexFull(checkpoint.files, onProgress);
+    }
+
+    // Store in LanceDB
+    report({
+      phase: 'storing',
+      current: 0,
+      total: allChunks.length,
+      message: 'Storing chunks in database...',
+    });
+
+    const data = allChunks.map((chunk) => ({
+      id: chunk.id,
+      filepath: chunk.filepath,
+      content: chunk.content,
+      startLine: chunk.startLine,
+      endLine: chunk.endLine,
+      language: chunk.language,
+      vector: chunk.embedding,
+    }));
+
+    // Drop existing table if exists
+    const tableNames = await this.db!.tableNames();
+    if (tableNames.includes('code_chunks')) {
+      await this.db!.dropTable('code_chunks');
+    }
+
+    this.table = await this.db!.createTable('code_chunks', data);
+
+    // Save file metadata for future incremental indexing
+    await this.saveFileMetadata(checkpoint.files);
+
+    // Save index metadata with checksum
+    await this.saveIndexMetadata(checkpoint.files.length, allChunks.length, checkpoint.files);
+
+    // Clear checkpoint on successful completion
+    await this.clearCheckpoint();
+
+    report({
+      phase: 'complete',
+      current: allChunks.length,
+      total: allChunks.length,
+      message: `Resumed indexing complete: ${checkpoint.files.length} files, ${allChunks.length} chunks`,
+    });
+
+    return {
+      filesIndexed: checkpoint.files.length,
+      chunksCreated: allChunks.length,
+      incremental: false,
     };
   }
 
@@ -1269,6 +1527,8 @@ export class CodeIndexer {
     this.queryEmbeddingCache.clear();
     // Clear clustering metadata
     await this.clearClusteringMetadata();
+    // Clear any incomplete checkpoint
+    await this.clearCheckpoint();
   }
 
   private get clusteringMetadataPath(): string {
