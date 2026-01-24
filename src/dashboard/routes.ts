@@ -55,6 +55,7 @@ async function handleStatus(_req: IncomingMessage, res: ServerResponse): Promise
     sendJSON(res, {
       ...status,
       isIndexing: dashboardState.isIndexingInProgress(),
+      version: dashboardState.getVersion(),
     });
   } catch (error) {
     sendJSON(res, { error: String(error) }, 500);

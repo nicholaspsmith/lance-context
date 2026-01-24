@@ -105,6 +105,7 @@ export class DashboardStateManager extends EventEmitter {
   private indexer: CodeIndexer | null = null;
   private config: LanceContextConfig | null = null;
   private projectPath: string | null = null;
+  private version: string | null = null;
   private isIndexing = false;
   private lastProgress: IndexProgress | null = null;
   private commandUsage: Map<CommandName, number> = new Map();
@@ -177,6 +178,20 @@ export class DashboardStateManager extends EventEmitter {
   setProjectPath(projectPath: string): void {
     this.projectPath = projectPath;
     this.loadUsageFromDisk();
+  }
+
+  /**
+   * Set the package version
+   */
+  setVersion(version: string): void {
+    this.version = version;
+  }
+
+  /**
+   * Get the package version
+   */
+  getVersion(): string | null {
+    return this.version;
   }
 
   /**

@@ -2232,6 +2232,7 @@ async function main() {
           port: dashboardPort,
           config,
           projectPath: PROJECT_PATH,
+          version: PACKAGE_VERSION,
         });
         console.error(`[lance-context] Dashboard started at ${dashboard.url}`);
 

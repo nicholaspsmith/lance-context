@@ -164,6 +164,13 @@ export function getDashboardHTML(): string {
       height: 40px;
     }
 
+    .version-badge {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-left: 4px;
+    }
+
     .theme-toggle {
       display: flex;
       align-items: center;
@@ -746,6 +753,7 @@ export function getDashboardHTML(): string {
         <h1>
           <div class="logo">${LOGO_SVG}</div>
           lance-context
+          <span class="version-badge" id="versionBadge"></span>
         </h1>
       </div>
       <div class="header-right">
@@ -978,6 +986,7 @@ export function getDashboardHTML(): string {
     // DOM elements
     const connectionDot = document.getElementById('connectionDot');
     const connectionText = document.getElementById('connectionText');
+    const versionBadge = document.getElementById('versionBadge');
     const indexBadge = document.getElementById('indexBadge');
     const fileCount = document.getElementById('fileCount');
     const chunkCount = document.getElementById('chunkCount');
@@ -1116,6 +1125,11 @@ export function getDashboardHTML(): string {
       lastUpdated.textContent = formatDate(status.lastUpdated);
       embeddingBackend.textContent = status.embeddingBackend || 'Not configured';
       indexPath.textContent = status.indexPath || '-';
+
+      // Update version badge
+      if (status.version) {
+        versionBadge.textContent = 'v' + status.version;
+      }
     }
 
     // Update config display

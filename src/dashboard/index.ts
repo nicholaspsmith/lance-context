@@ -18,6 +18,8 @@ export interface DashboardOptions {
   config?: LanceContextConfig;
   /** The project path */
   projectPath?: string;
+  /** Package version to display */
+  version?: string;
 }
 
 /**
@@ -47,6 +49,9 @@ export class DashboardManager {
     }
     if (options.projectPath) {
       dashboardState.setProjectPath(options.projectPath);
+    }
+    if (options.version) {
+      dashboardState.setVersion(options.version);
     }
 
     this.serverInstance = await startServer(options.port);
