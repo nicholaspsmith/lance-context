@@ -43,7 +43,7 @@
     "ai-coding"
   ],
   "author": "Nicholas Smith",
-  "license": "GPL-3.0",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/nicholaspsmith/lance-context/issues"
   },
