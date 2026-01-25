@@ -1,12 +1,16 @@
 import type { ServerResponse } from 'http';
 import { dashboardState } from './state.js';
 
+/** Maximum number of concurrent SSE connections */
+const MAX_SSE_CLIENTS = 100;
+
 /**
  * Manages Server-Sent Events (SSE) connections for real-time updates.
  */
 export class SSEManager {
   private clients = new Set<ServerResponse>();
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private readonly maxClients = MAX_SSE_CLIENTS;
 
   constructor() {
     // Set up event listeners on dashboard state
@@ -60,9 +64,17 @@ export class SSEManager {
   }
 
   /**
-   * Add a new SSE client connection
+   * Add a new SSE client connection.
+   * Returns false if max clients reached.
    */
-  addClient(res: ServerResponse): void {
+  addClient(res: ServerResponse): boolean {
+    // Reject if at capacity
+    if (this.clients.size >= this.maxClients) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Too many SSE connections' }));
+      return false;
+    }
+
     // Set SSE headers
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -92,6 +104,8 @@ export class SSEManager {
     res.on('close', () => {
       this.clients.delete(res);
     });
+
+    return true;
   }
 
   /**

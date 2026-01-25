@@ -101,6 +101,9 @@ const COMMAND_LABELS: Record<CommandName, string> = {
   summarize_codebase: 'Summarize Codebase',
 };
 
+/** Maximum number of event listeners to prevent memory leaks */
+const MAX_LISTENERS = 20;
+
 export class DashboardStateManager extends EventEmitter {
   private indexer: CodeIndexer | null = null;
   private config: LanceContextConfig | null = null;
@@ -109,6 +112,12 @@ export class DashboardStateManager extends EventEmitter {
   private isIndexing = false;
   private lastProgress: IndexProgress | null = null;
   private commandUsage: Map<CommandName, number> = new Map();
+
+  constructor() {
+    super();
+    // Set max listeners to prevent memory leak warnings and enforce bounds
+    this.setMaxListeners(MAX_LISTENERS);
+  }
 
   /**
    * Get the path to the usage file
