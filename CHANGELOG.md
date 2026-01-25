@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/nicholaspsmith/lance-context/compare/v1.6.0...v1.7.0) (2026-01-25)
+
+
+### Features
+
+* add configurable rate limiting for embedding batches ([#53](https://github.com/nicholaspsmith/lance-context/issues/53)) ([0775b5f](https://github.com/nicholaspsmith/lance-context/commit/0775b5fb9ef79d6366b8c1bf2e52ec509ebad757))
+
 # [1.6.0](https://github.com/nicholaspsmith/lance-context/compare/v1.5.0...v1.6.0) (2026-01-25)
 
 
