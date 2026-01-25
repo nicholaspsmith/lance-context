@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/nicholaspsmith/lance-context/compare/v1.10.1...v1.11.0) (2026-01-25)
+
+
+### Features
+
+* add auto-reindex on stale detection during search ([#65](https://github.com/nicholaspsmith/lance-context/issues/65)) ([6203e81](https://github.com/nicholaspsmith/lance-context/commit/6203e81cfb6236be4097fa25a556217866a65527))
+
 ## [1.10.1](https://github.com/nicholaspsmith/lance-context/compare/v1.10.0...v1.10.1) (2026-01-25)
 
 
