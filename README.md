@@ -26,18 +26,30 @@ An MCP plugin that adds semantic code search to Claude Code and other AI coding 
 
 ### Quick Install (Recommended)
 
+Add lance-context to Claude Code with automatic updates:
+
+```bash
+claude mcp add --scope user --transport stdio lance-context -- npx -y lance-context@latest
+```
+
+This ensures you always run the latest version. Restart Claude Code to start using semantic search.
+
+### Global Install (Alternative)
+
+For faster startup (no npm check on each run):
+
 ```bash
 npm install -g lance-context
 ```
 
-This automatically registers lance-context with Claude Code. Restart Claude Code to start using semantic search.
+This automatically registers lance-context with Claude Code. Update manually with `npm update -g lance-context`.
 
 ### Manual Registration
 
 If automatic registration didn't work, manually add to Claude Code:
 
 ```bash
-claude mcp add --scope user --transport stdio lance-context -- npx -y lance-context
+claude mcp add --scope user --transport stdio lance-context -- npx -y lance-context@latest
 ```
 
 ### Verify Installation
@@ -53,7 +65,7 @@ For project-specific MCP configuration, add a `.mcp.json` to your project root:
   "mcpServers": {
     "lance-context": {
       "command": "npx",
-      "args": ["-y", "lance-context"]
+      "args": ["-y", "lance-context@latest"]
     }
   }
 }

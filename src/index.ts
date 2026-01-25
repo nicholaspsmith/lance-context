@@ -72,6 +72,7 @@ import { createEmbeddingBackend } from './embeddings/index.js';
 import { CodeIndexer } from './search/indexer.js';
 import { isStringArray, isString, isNumber, isBoolean } from './utils/type-guards.js';
 import { logError, formatErrorResponse, wrapError, LanceContextError } from './utils/errors.js';
+import { logger } from './utils/logger.js';
 import { loadConfig, loadSecrets, getInstructions, getDashboardConfig } from './config.js';
 import {
   startDashboard,
@@ -303,8 +304,8 @@ async function checkForUpdates(): Promise<void> {
         (latest[0] === current[0] && latest[1] === current[1] && latest[2] > current[2]);
 
       if (isOutdated) {
-        console.error(`[lance-context] Update available: ${PACKAGE_VERSION} → ${latestVersion}`);
-        console.error('[lance-context] Run: npm install -g lance-context@latest');
+        logger.warn(`Update available: ${PACKAGE_VERSION} → ${latestVersion}`, 'version');
+        logger.warn('Run: npx lance-context@latest (or npm update -g lance-context)', 'version');
       }
     }
   } catch {
