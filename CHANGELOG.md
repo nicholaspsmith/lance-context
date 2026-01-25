@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/nicholaspsmith/lance-context/compare/v1.12.0...v1.13.0) (2026-01-25)
+
+
+### Features
+
+* extract symbol, commit, and instructions tool handlers ([#67](https://github.com/nicholaspsmith/lance-context/issues/67)) ([82b88d5](https://github.com/nicholaspsmith/lance-context/commit/82b88d5c673e87daa44f148904c680457117c3de))
+
 # [1.12.0](https://github.com/nicholaspsmith/lance-context/compare/v1.11.0...v1.12.0) (2026-01-25)
 
 
