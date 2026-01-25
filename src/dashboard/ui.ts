@@ -536,6 +536,16 @@ export function getDashboardHTML(): string {
       opacity: 1;
     }
 
+    /* Bar hover highlighting for legend */
+    #chartLegend.bar-hover li {
+      opacity: 0.3;
+      transition: opacity 0.15s ease;
+    }
+
+    #chartLegend.bar-hover li.highlight {
+      opacity: 1;
+    }
+
     .usage-total {
       display: flex;
       justify-content: space-between;
@@ -1229,12 +1239,14 @@ export function getDashboardHTML(): string {
       chartLegend.style.display = 'flex';
       usageTotal.style.display = 'flex';
 
-      const maxCount = Math.max(...usage.map(u => u.count));
+      // Sort by count descending (most used first)
+      const sortedUsage = usage.slice().sort(function(a, b) { return b.count - a.count; });
+      const maxCount = Math.max(...sortedUsage.map(u => u.count));
 
       let chartHtml = '';
       let legendHtml = '';
       let idx = 0;
-      for (const item of usage) {
+      for (const item of sortedUsage) {
         if (item.count === 0) continue;
 
         const percent = maxCount > 0 ? (item.count / maxCount) : 0;
@@ -1265,6 +1277,22 @@ export function getDashboardHTML(): string {
           usageChartEl.classList.remove('legend-hover');
           usageChartBody.querySelectorAll('tr').forEach(function(tr) {
             tr.classList.remove('highlight');
+          });
+        });
+      });
+
+      // Bar hover highlighting (reverse - highlight legend item)
+      usageChartBody.querySelectorAll('td').forEach(function(td) {
+        td.addEventListener('mouseenter', function() {
+          var idx = this.parentElement.getAttribute('data-idx');
+          chartLegend.classList.add('bar-hover');
+          var legendItem = chartLegend.querySelector('li[data-idx="' + idx + '"]');
+          if (legendItem) legendItem.classList.add('highlight');
+        });
+        td.addEventListener('mouseleave', function() {
+          chartLegend.classList.remove('bar-hover');
+          chartLegend.querySelectorAll('li').forEach(function(li) {
+            li.classList.remove('highlight');
           });
         });
       });
