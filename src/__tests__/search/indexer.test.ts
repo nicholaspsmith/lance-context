@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CodeIndexer } from '../../search/indexer.js';
+import { CodeIndexer, type IndexProgress } from '../../search/indexer.js';
 import { createMockEmbeddingBackend } from '../mocks/embedding-backend.mock.js';
 import { createMockConnection, createMockTable } from '../mocks/lancedb.mock.js';
 
@@ -876,7 +876,7 @@ describe('CodeIndexer', () => {
       const indexer = new CodeIndexer('/project', mockBackend);
       await indexer.initialize();
 
-      const progressUpdates: any[] = [];
+      const progressUpdates: IndexProgress[] = [];
       await indexer.indexCodebase(undefined, undefined, false, (progress) => {
         progressUpdates.push(progress);
       });
