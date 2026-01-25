@@ -1,3 +1,10 @@
+## [1.9.1](https://github.com/nicholaspsmith/lance-context/compare/v1.9.0...v1.9.1) (2026-01-25)
+
+
+### Bug Fixes
+
+* type progressUpdates array in indexer test ([#59](https://github.com/nicholaspsmith/lance-context/issues/59)) ([59b3335](https://github.com/nicholaspsmith/lance-context/commit/59b3335555be8d1699c440011963ad52beabd083))
+
 # [1.9.0](https://github.com/nicholaspsmith/lance-context/compare/v1.8.1...v1.9.0) (2026-01-25)
 
 
