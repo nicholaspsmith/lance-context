@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/nicholaspsmith/lance-context/compare/v1.8.1...v1.9.0) (2026-01-25)
+
+
+### Features
+
+* validate checkpoint freshness before resuming ([#56](https://github.com/nicholaspsmith/lance-context/issues/56)) ([1252bf0](https://github.com/nicholaspsmith/lance-context/commit/1252bf06c16b824cb651dd5115866116aec52e20))
+
 ## [1.8.1](https://github.com/nicholaspsmith/lance-context/compare/v1.8.0...v1.8.1) (2026-01-25)
 
 
