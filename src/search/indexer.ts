@@ -13,6 +13,7 @@ import {
   getSearchConfig,
   type LanceContextConfig,
 } from '../config.js';
+import { TTLCache } from '../utils/cache.js';
 import { minimatch } from 'minimatch';
 import { mapInBatches } from '../utils/concurrency.js';
 import {
@@ -285,17 +286,6 @@ function sanitizeForFilter(value: string): string {
  * const results = await indexer.search('authentication middleware');
  * ```
  */
-/** Maximum number of query embeddings to cache */
-const QUERY_CACHE_MAX_SIZE = 100;
-/** TTL for cached query embeddings (1 hour in milliseconds) */
-const QUERY_CACHE_TTL_MS = 60 * 60 * 1000;
-
-/** Cached query embedding with timestamp for TTL */
-interface CachedEmbedding {
-  embedding: number[];
-  timestamp: number;
-}
-
 export class CodeIndexer {
   private db: lancedb.Connection | null = null;
   private table: lancedb.Table | null = null;
@@ -305,7 +295,7 @@ export class CodeIndexer {
   private projectPath: string;
   private config: LanceContextConfig | null = null;
   /** LRU cache for query embeddings with TTL to avoid recomputing identical queries */
-  private queryEmbeddingCache: Map<string, CachedEmbedding> = new Map();
+  private queryEmbeddingCache = new TTLCache<number[]>({ maxSize: 100, ttlMs: 60 * 60 * 1000 });
   /** Tracks chunking method usage during current indexing operation */
   private currentChunkingStats: ChunkingStats = this.createEmptyChunkingStats();
 
@@ -1346,45 +1336,18 @@ export class CodeIndexer {
 
   /**
    * Get query embedding from cache or compute it.
-   * Uses LRU eviction when cache is full and TTL-based expiration.
+   * Uses TTLCache for LRU eviction and TTL-based expiration.
    */
   private async getQueryEmbedding(query: string): Promise<number[]> {
-    const now = Date.now();
-
     // Check cache first
     const cached = this.queryEmbeddingCache.get(query);
     if (cached) {
-      // Check if entry has expired
-      if (now - cached.timestamp > QUERY_CACHE_TTL_MS) {
-        this.queryEmbeddingCache.delete(query);
-      } else {
-        // Move to end for LRU (delete and re-insert with updated timestamp)
-        this.queryEmbeddingCache.delete(query);
-        this.queryEmbeddingCache.set(query, { embedding: cached.embedding, timestamp: now });
-        return cached.embedding;
-      }
+      return cached;
     }
 
-    // Compute embedding
+    // Compute embedding and cache it
     const embedding = await this.embeddingBackend.embed(query);
-
-    // Evict expired entries first, then oldest if still full
-    for (const [key, value] of this.queryEmbeddingCache) {
-      if (now - value.timestamp > QUERY_CACHE_TTL_MS) {
-        this.queryEmbeddingCache.delete(key);
-      }
-    }
-
-    // Evict oldest entry if cache is still full (first entry in Map)
-    if (this.queryEmbeddingCache.size >= QUERY_CACHE_MAX_SIZE) {
-      const oldestKey = this.queryEmbeddingCache.keys().next().value;
-      if (oldestKey !== undefined) {
-        this.queryEmbeddingCache.delete(oldestKey);
-      }
-    }
-
-    // Store in cache with timestamp
-    this.queryEmbeddingCache.set(query, { embedding, timestamp: now });
+    this.queryEmbeddingCache.set(query, embedding);
     return embedding;
   }
 
