@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/nicholaspsmith/lance-context/compare/v1.3.0...v1.4.0) (2026-01-25)
+
+
+### Features
+
+* **dashboard:** add bidirectional hover and sort chart by usage ([#47](https://github.com/nicholaspsmith/lance-context/issues/47)) ([8851982](https://github.com/nicholaspsmith/lance-context/commit/88519821b7d4079159910e621ea827cbdeb0c165))
+
 # [1.3.0](https://github.com/nicholaspsmith/lance-context/compare/v1.2.1...v1.3.0) (2026-01-25)
 
 
