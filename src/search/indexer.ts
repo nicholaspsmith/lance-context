@@ -265,6 +265,14 @@ function sanitizePathForFilter(filepath: string): string {
  */
 /** Maximum number of query embeddings to cache */
 const QUERY_CACHE_MAX_SIZE = 100;
+/** TTL for cached query embeddings (1 hour in milliseconds) */
+const QUERY_CACHE_TTL_MS = 60 * 60 * 1000;
+
+/** Cached query embedding with timestamp for TTL */
+interface CachedEmbedding {
+  embedding: number[];
+  timestamp: number;
+}
 
 export class CodeIndexer {
   private db: lancedb.Connection | null = null;
@@ -274,8 +282,8 @@ export class CodeIndexer {
   private indexPath: string;
   private projectPath: string;
   private config: LanceContextConfig | null = null;
-  /** LRU cache for query embeddings to avoid recomputing identical queries */
-  private queryEmbeddingCache: Map<string, number[]> = new Map();
+  /** LRU cache for query embeddings with TTL to avoid recomputing identical queries */
+  private queryEmbeddingCache: Map<string, CachedEmbedding> = new Map();
 
   constructor(projectPath: string, embeddingBackend: EmbeddingBackend) {
     this.projectPath = projectPath;
@@ -1249,22 +1257,36 @@ export class CodeIndexer {
 
   /**
    * Get query embedding from cache or compute it.
-   * Uses LRU eviction when cache is full.
+   * Uses LRU eviction when cache is full and TTL-based expiration.
    */
   private async getQueryEmbedding(query: string): Promise<number[]> {
+    const now = Date.now();
+
     // Check cache first
     const cached = this.queryEmbeddingCache.get(query);
     if (cached) {
-      // Move to end for LRU (delete and re-insert)
-      this.queryEmbeddingCache.delete(query);
-      this.queryEmbeddingCache.set(query, cached);
-      return cached;
+      // Check if entry has expired
+      if (now - cached.timestamp > QUERY_CACHE_TTL_MS) {
+        this.queryEmbeddingCache.delete(query);
+      } else {
+        // Move to end for LRU (delete and re-insert with updated timestamp)
+        this.queryEmbeddingCache.delete(query);
+        this.queryEmbeddingCache.set(query, { embedding: cached.embedding, timestamp: now });
+        return cached.embedding;
+      }
     }
 
     // Compute embedding
     const embedding = await this.embeddingBackend.embed(query);
 
-    // Evict oldest entry if cache is full (first entry in Map)
+    // Evict expired entries first, then oldest if still full
+    for (const [key, value] of this.queryEmbeddingCache) {
+      if (now - value.timestamp > QUERY_CACHE_TTL_MS) {
+        this.queryEmbeddingCache.delete(key);
+      }
+    }
+
+    // Evict oldest entry if cache is still full (first entry in Map)
     if (this.queryEmbeddingCache.size >= QUERY_CACHE_MAX_SIZE) {
       const oldestKey = this.queryEmbeddingCache.keys().next().value;
       if (oldestKey !== undefined) {
@@ -1272,8 +1294,8 @@ export class CodeIndexer {
       }
     }
 
-    // Store in cache
-    this.queryEmbeddingCache.set(query, embedding);
+    // Store in cache with timestamp
+    this.queryEmbeddingCache.set(query, { embedding, timestamp: now });
     return embedding;
   }
 
