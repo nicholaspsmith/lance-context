@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/nicholaspsmith/lance-context/compare/v1.5.0...v1.6.0) (2026-01-25)
+
+
+### Features
+
+* add reusable TTLCache utility class ([#52](https://github.com/nicholaspsmith/lance-context/issues/52)) ([45c34f0](https://github.com/nicholaspsmith/lance-context/commit/45c34f0e5a912eab323e6eb797e97fa16be3914c))
+
 # [1.5.0](https://github.com/nicholaspsmith/lance-context/compare/v1.4.2...v1.5.0) (2026-01-25)
 
 
