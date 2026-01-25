@@ -1384,47 +1384,64 @@ export function getDashboardHTML(): string {
 
     // Fetch initial data
     async function fetchData() {
-      try {
-        const [statusRes, configRes, usageRes, beadsRes] = await Promise.all([
-          fetch('/api/status'),
-          fetch('/api/config'),
-          fetch('/api/usage'),
-          fetch('/api/beads')
-        ]);
+      // Use Promise.allSettled to handle partial failures gracefully
+      const results = await Promise.allSettled([
+        fetch('/api/status'),
+        fetch('/api/config'),
+        fetch('/api/usage'),
+        fetch('/api/beads')
+      ]);
 
-        let currentStatus = null;
-        let currentConfig = null;
+      let currentStatus = null;
+      let currentConfig = null;
 
-        if (statusRes.ok) {
-          currentStatus = await statusRes.json();
+      // Process status result
+      if (results[0].status === 'fulfilled' && results[0].value.ok) {
+        try {
+          currentStatus = await results[0].value.json();
           updateStatus(currentStatus);
+        } catch (e) {
+          console.error('Failed to parse status:', e);
         }
+      }
 
-        if (configRes.ok) {
-          currentConfig = await configRes.json();
+      // Process config result
+      if (results[1].status === 'fulfilled' && results[1].value.ok) {
+        try {
+          currentConfig = await results[1].value.json();
           updateConfig(currentConfig);
+        } catch (e) {
+          console.error('Failed to parse config:', e);
         }
+      }
 
-        // Check if configured backend differs from running backend
-        if (currentStatus && currentConfig) {
-          const runningBackend = currentStatus.embeddingBackend;
-          const configuredBackend = currentConfig.embedding?.backend;
-          if (configuredBackend && runningBackend && configuredBackend !== runningBackend) {
-            embeddingBackend.innerHTML = runningBackend + ' <span class="badge warning" title="Restart required to use ' + configuredBackend + '">\u26a0 restart needed</span>';
-          }
+      // Check if configured backend differs from running backend
+      if (currentStatus && currentConfig) {
+        const runningBackend = currentStatus.embeddingBackend;
+        const configuredBackend = currentConfig.embedding?.backend;
+        if (configuredBackend && runningBackend && configuredBackend !== runningBackend) {
+          embeddingBackend.innerHTML = runningBackend + ' <span class="badge warning" title="Restart required to use ' + configuredBackend + '">\u26a0 restart needed</span>';
         }
+      }
 
-        if (usageRes.ok) {
-          const usage = await usageRes.json();
+      // Process usage result
+      if (results[2].status === 'fulfilled' && results[2].value.ok) {
+        try {
+          const usage = await results[2].value.json();
           updateUsage(usage);
+        } catch (e) {
+          console.error('Failed to parse usage:', e);
         }
+      }
 
-        if (beadsRes.ok) {
-          const beads = await beadsRes.json();
+      // Process beads result
+      if (results[3].status === 'fulfilled' && results[3].value.ok) {
+        try {
+          const beads = await results[3].value.json();
           updateBeads(beads);
+        } catch (e) {
+          console.error('Failed to parse beads:', e);
         }
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
       }
     }
 
