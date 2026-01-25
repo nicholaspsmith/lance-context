@@ -71,6 +71,23 @@ export interface CodeChunk {
 }
 
 /**
+ * Statistics about chunking method usage during indexing.
+ * Tracks how many files used AST-aware vs line-based chunking.
+ */
+export interface ChunkingStats {
+  /** Number of files chunked with AST parsing (TypeScript/JavaScript) */
+  astChunked: number;
+  /** Number of files chunked with tree-sitter parsing (Python, Go, etc.) */
+  treeSitterChunked: number;
+  /** Number of files that fell back to line-based chunking */
+  lineBasedChunked: number;
+  /** Files where AST parsing failed and fell back to line-based */
+  astFallbacks: string[];
+  /** Files where tree-sitter parsing failed and fell back to line-based */
+  treeSitterFallbacks: string[];
+}
+
+/**
  * Status information about the code index.
  */
 export interface IndexStatus {
@@ -98,6 +115,8 @@ export interface IndexStatus {
   backendMismatchReason?: string;
   /** Whether the index is currently being rebuilt due to backend change */
   isIndexing?: boolean;
+  /** Statistics about chunking methods used during indexing */
+  chunkingStats?: ChunkingStats;
 }
 
 interface IndexMetadata {
@@ -110,6 +129,8 @@ interface IndexMetadata {
   version: string;
   /** Checksum of indexed files (sorted file list hash) for corruption detection */
   checksum?: string;
+  /** Statistics about chunking methods used */
+  chunkingStats?: ChunkingStats;
 }
 
 /**
@@ -285,6 +306,19 @@ export class CodeIndexer {
   private config: LanceContextConfig | null = null;
   /** LRU cache for query embeddings with TTL to avoid recomputing identical queries */
   private queryEmbeddingCache: Map<string, CachedEmbedding> = new Map();
+  /** Tracks chunking method usage during current indexing operation */
+  private currentChunkingStats: ChunkingStats = this.createEmptyChunkingStats();
+
+  /** Create empty chunking stats */
+  private createEmptyChunkingStats(): ChunkingStats {
+    return {
+      astChunked: 0,
+      treeSitterChunked: 0,
+      lineBasedChunked: 0,
+      astFallbacks: [],
+      treeSitterFallbacks: [],
+    };
+  }
 
   constructor(projectPath: string, embeddingBackend: EmbeddingBackend) {
     this.projectPath = projectPath;
@@ -374,6 +408,7 @@ export class CodeIndexer {
       embeddingDimensions: this.embeddingBackend.getDimensions(),
       version: '1.0.0',
       checksum: computeIndexChecksum(relativePaths, chunkCount),
+      chunkingStats: this.currentChunkingStats,
     };
 
     await fs.writeFile(this.metadataPath, JSON.stringify(metadata, null, 2));
@@ -521,6 +556,7 @@ export class CodeIndexer {
       corruptionReason: corruptionCheck.reason,
       backendMismatch: backendMismatch.mismatch,
       backendMismatchReason: backendMismatch.reason,
+      chunkingStats: metadata?.chunkingStats,
     };
   }
 
@@ -631,6 +667,9 @@ export class CodeIndexer {
       console.error(`[lance-context] ${progress.message}`);
       onProgress?.(progress);
     };
+
+    // Reset chunking stats for this indexing run
+    this.currentChunkingStats = this.createEmptyChunkingStats();
 
     // Check for corruption if autoRepair is enabled
     if (autoRepair) {
@@ -827,6 +866,9 @@ export class CodeIndexer {
     // Save index metadata with checksum
     await this.saveIndexMetadata(files.length, allChunks.length, files);
 
+    // Log chunking statistics
+    this.logChunkingStats();
+
     // Clear checkpoint on successful completion
     await this.clearCheckpoint();
 
@@ -835,6 +877,42 @@ export class CodeIndexer {
       chunksCreated: allChunks.length,
       incremental: false,
     };
+  }
+
+  /**
+   * Log chunking statistics summary, with warnings for fallbacks
+   */
+  private logChunkingStats(): void {
+    const stats = this.currentChunkingStats;
+    const totalFallbacks = stats.astFallbacks.length + stats.treeSitterFallbacks.length;
+    const totalFiles = stats.astChunked + stats.treeSitterChunked + stats.lineBasedChunked;
+
+    console.error(
+      `[lance-context] Chunking: ${stats.astChunked} AST, ${stats.treeSitterChunked} tree-sitter, ${stats.lineBasedChunked} line-based`
+    );
+
+    if (totalFallbacks > 0) {
+      const fallbackPct = ((totalFallbacks / totalFiles) * 100).toFixed(1);
+      console.error(
+        `[lance-context] Warning: ${totalFallbacks} files (${fallbackPct}%) fell back to line-based chunking`
+      );
+      if (stats.astFallbacks.length > 0 && stats.astFallbacks.length <= 5) {
+        console.error(`[lance-context]   AST fallbacks: ${stats.astFallbacks.join(', ')}`);
+      } else if (stats.astFallbacks.length > 5) {
+        console.error(
+          `[lance-context]   AST fallbacks: ${stats.astFallbacks.slice(0, 5).join(', ')} (+${stats.astFallbacks.length - 5} more)`
+        );
+      }
+      if (stats.treeSitterFallbacks.length > 0 && stats.treeSitterFallbacks.length <= 5) {
+        console.error(
+          `[lance-context]   Tree-sitter fallbacks: ${stats.treeSitterFallbacks.join(', ')}`
+        );
+      } else if (stats.treeSitterFallbacks.length > 5) {
+        console.error(
+          `[lance-context]   Tree-sitter fallbacks: ${stats.treeSitterFallbacks.slice(0, 5).join(', ')} (+${stats.treeSitterFallbacks.length - 5} more)`
+        );
+      }
+    }
   }
 
   /**
@@ -950,6 +1028,9 @@ export class CodeIndexer {
 
     // Save index metadata with checksum
     await this.saveIndexMetadata(allCurrentFiles.length, totalChunks, allCurrentFiles);
+
+    // Log chunking statistics
+    this.logChunkingStats();
 
     return {
       filesIndexed: filesToProcess.length,
@@ -1123,29 +1204,36 @@ export class CodeIndexer {
     // Try AST-aware chunking for TypeScript/JavaScript
     if (ASTChunker.canParse(filepath)) {
       try {
-        return await this.chunkFileWithAST(filepath, relativePath, language);
+        const chunks = await this.chunkFileWithAST(filepath, relativePath, language);
+        this.currentChunkingStats.astChunked++;
+        return chunks;
       } catch {
         // Fall back to line-based chunking if AST parsing fails
         console.error(
           `[lance-context] AST parsing failed for ${relativePath}, falling back to line-based chunking`
         );
+        this.currentChunkingStats.astFallbacks.push(relativePath);
       }
     }
 
     // Try tree-sitter chunking for other languages (Python, Go, Rust, Java, Kotlin)
     if (TreeSitterChunker.canParse(filepath)) {
       try {
-        return await this.chunkFileWithTreeSitter(filepath, relativePath, language);
+        const chunks = await this.chunkFileWithTreeSitter(filepath, relativePath, language);
+        this.currentChunkingStats.treeSitterChunked++;
+        return chunks;
       } catch (error) {
         // Fall back to line-based chunking if tree-sitter parsing fails
         console.error(
           `[lance-context] Tree-sitter parsing failed for ${relativePath}, falling back to line-based chunking:`,
           error
         );
+        this.currentChunkingStats.treeSitterFallbacks.push(relativePath);
       }
     }
 
     // Line-based chunking for unsupported languages or as fallback
+    this.currentChunkingStats.lineBasedChunked++;
     return this.chunkFileByLines(filepath, relativePath, language);
   }
 
