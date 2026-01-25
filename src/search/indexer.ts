@@ -229,17 +229,18 @@ export interface CodebaseSummary {
 }
 
 /**
- * Sanitize a file path for use in LanceDB filter expressions.
- * Prevents SQL injection by only allowing safe path characters.
+ * Sanitize a string for use in LanceDB filter expressions.
+ * Prevents SQL injection by escaping quotes and backslashes.
+ * Used for filepaths and chunk IDs in WHERE clauses.
  */
-function sanitizePathForFilter(filepath: string): string {
-  // Only allow safe file path characters: alphanumeric, /, ., -, _, space
+function sanitizeForFilter(value: string): string {
+  // Safe characters: alphanumeric, /, ., -, _, space, : (for chunk IDs like "path:1-10")
   // This is more restrictive than escaping and prevents injection attacks
-  if (!/^[\w\s./-]+$/.test(filepath)) {
-    // If path contains unusual characters, escape single quotes and backslashes
-    return filepath.replace(/\\/g, '\\\\').replace(/'/g, "''");
+  if (!/^[\w\s./:_-]+$/.test(value)) {
+    // If value contains unusual characters, escape single quotes and backslashes
+    return value.replace(/\\/g, '\\\\').replace(/'/g, "''");
   }
-  return filepath.replace(/'/g, "''");
+  return value.replace(/'/g, "''");
 }
 
 /**
@@ -878,7 +879,7 @@ export class CodeIndexer {
     ];
     if (filesToRemove.length > 0) {
       for (const relativePath of filesToRemove) {
-        const sanitizedPath = sanitizePathForFilter(relativePath);
+        const sanitizedPath = sanitizeForFilter(relativePath);
         await this.table.delete(`filepath = '${sanitizedPath}'`);
       }
       report({
@@ -1691,7 +1692,11 @@ export class CodeIndexer {
     const results: CodeChunk[] = [];
     for (const chunkId of cluster.representativeChunks.slice(0, limit)) {
       // Fetch chunk by ID - LanceDB doesn't have direct ID lookup, so we filter
-      const rows = await this.table.query().where(`id = '${chunkId}'`).limit(1).toArray();
+      const rows = await this.table
+        .query()
+        .where(`id = '${sanitizeForFilter(chunkId)}'`)
+        .limit(1)
+        .toArray();
       if (rows.length > 0) {
         const r = rows[0];
         results.push({
