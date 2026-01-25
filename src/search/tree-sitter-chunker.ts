@@ -2,6 +2,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import type { Parser as ParserType, Language, Node as SyntaxNode } from 'web-tree-sitter';
+import { splitLargeChunk, type BaseChunk } from './chunk-utils.js';
 
 // Dynamic import for ESM compatibility
 interface ParserModule {
@@ -24,13 +25,7 @@ const loadParserModule = async (): Promise<ParserModule> => {
 /**
  * Chunk from tree-sitter AST parsing
  */
-export interface TreeSitterChunk {
-  content: string;
-  startLine: number;
-  endLine: number;
-  type: 'function' | 'class' | 'method' | 'interface' | 'type' | 'variable' | 'import' | 'other';
-  name?: string;
-}
+export type TreeSitterChunk = BaseChunk;
 
 // Maximum lines per chunk before splitting
 const MAX_CHUNK_LINES = 100;
@@ -521,34 +516,6 @@ export class TreeSitterChunker {
    * Split a large chunk into smaller pieces
    */
   private splitLargeChunk(chunk: TreeSitterChunk, _allLines: string[]): TreeSitterChunk[] {
-    const chunkLines = chunk.content.split('\n');
-    const totalLines = chunkLines.length;
-    const chunks: TreeSitterChunk[] = [];
-
-    const numParts = Math.ceil(totalLines / MAX_CHUNK_LINES);
-    const linesPerPart = Math.ceil(totalLines / numParts);
-
-    for (let i = 0; i < numParts; i++) {
-      const startIdx = i * linesPerPart;
-      const endIdx = Math.min((i + 1) * linesPerPart, totalLines);
-      const partLines = chunkLines.slice(startIdx, endIdx);
-
-      if (partLines.length < MIN_CHUNK_LINES && chunks.length > 0) {
-        // Merge with previous chunk if too small
-        const lastChunk = chunks[chunks.length - 1];
-        lastChunk.content += '\n' + partLines.join('\n');
-        lastChunk.endLine = chunk.startLine + endIdx - 1;
-      } else {
-        chunks.push({
-          content: partLines.join('\n'),
-          startLine: chunk.startLine + startIdx,
-          endLine: chunk.startLine + endIdx - 1,
-          type: chunk.type,
-          name: chunk.name ? `${chunk.name} (part ${i + 1})` : undefined,
-        });
-      }
-    }
-
-    return chunks;
+    return splitLargeChunk(chunk, MAX_CHUNK_LINES, MIN_CHUNK_LINES);
   }
 }

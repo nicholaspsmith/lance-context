@@ -1,14 +1,9 @@
 import * as ts from 'typescript';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { splitLargeChunk, type BaseChunk } from './chunk-utils.js';
 
-export interface ASTChunk {
-  content: string;
-  startLine: number;
-  endLine: number;
-  type: 'function' | 'class' | 'method' | 'interface' | 'type' | 'variable' | 'import' | 'other';
-  name?: string;
-}
+export type ASTChunk = BaseChunk;
 
 const MAX_CHUNK_LINES = 150;
 const MIN_CHUNK_LINES = 10;
@@ -270,35 +265,6 @@ export class ASTChunker {
    * Split a large chunk into smaller pieces
    */
   private splitLargeChunk(chunk: ASTChunk, _allLines: string[]): ASTChunk[] {
-    const chunkLines = chunk.content.split('\n');
-    const totalLines = chunkLines.length;
-    const chunks: ASTChunk[] = [];
-
-    // Split into roughly equal parts, each under MAX_CHUNK_LINES
-    const numParts = Math.ceil(totalLines / MAX_CHUNK_LINES);
-    const linesPerPart = Math.ceil(totalLines / numParts);
-
-    for (let i = 0; i < numParts; i++) {
-      const startIdx = i * linesPerPart;
-      const endIdx = Math.min((i + 1) * linesPerPart, totalLines);
-      const partLines = chunkLines.slice(startIdx, endIdx);
-
-      if (partLines.length < MIN_CHUNK_LINES && chunks.length > 0) {
-        // Merge with previous chunk if too small
-        const lastChunk = chunks[chunks.length - 1];
-        lastChunk.content += '\n' + partLines.join('\n');
-        lastChunk.endLine = chunk.startLine + endIdx - 1;
-      } else {
-        chunks.push({
-          content: partLines.join('\n'),
-          startLine: chunk.startLine + startIdx,
-          endLine: chunk.startLine + endIdx - 1,
-          type: chunk.type,
-          name: chunk.name ? `${chunk.name} (part ${i + 1})` : undefined,
-        });
-      }
-    }
-
-    return chunks;
+    return splitLargeChunk(chunk, MAX_CHUNK_LINES, MIN_CHUNK_LINES);
   }
 }
