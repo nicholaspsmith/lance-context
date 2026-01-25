@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/nicholaspsmith/lance-context/compare/v1.7.0...v1.8.0) (2026-01-25)
+
+
+### Features
+
+* add checksum-based cache invalidation for clustering ([#54](https://github.com/nicholaspsmith/lance-context/issues/54)) ([c6e6e33](https://github.com/nicholaspsmith/lance-context/commit/c6e6e33a910bb73d4c23c95f6fb1e10a852a355e))
+
 # [1.7.0](https://github.com/nicholaspsmith/lance-context/compare/v1.6.0...v1.7.0) (2026-01-25)
 
 
