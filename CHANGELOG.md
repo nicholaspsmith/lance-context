@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/nicholaspsmith/lance-context/compare/v1.2.1...v1.3.0) (2026-01-25)
+
+
+### Features
+
+* **dashboard:** improve usage chart with dynamic legend ([#46](https://github.com/nicholaspsmith/lance-context/issues/46)) ([46b183d](https://github.com/nicholaspsmith/lance-context/commit/46b183db77e5352b5abbd642703a105005f4b936))
+
 ## [1.2.1](https://github.com/nicholaspsmith/lance-context/compare/v1.2.0...v1.2.1) (2026-01-24)
 
 
