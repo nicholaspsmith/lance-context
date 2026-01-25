@@ -484,31 +484,14 @@ export function getDashboardHTML(): string {
       animation: pulse 2s ease-in-out infinite;
     }
 
-    /* Charts.css Customization */
-    .charts-css {
-      --color-1: #58a6ff;
-      --color-2: #3fb950;
-      --color-3: #a371f7;
-      --color-4: #f85149;
-      --color-5: #d29922;
-    }
-
+    /* Charts.css Customization - use aspect-ratio per docs */
     #chartWrapper {
       width: 100%;
       max-width: 100%;
-      overflow: hidden;
     }
 
-    #chartWrapper #usage-chart {
-      --aspect-ratio: 21 / 9;
-      width: 100%;
-      max-width: 100%;
-      margin: 0 auto;
-    }
-
-    #usage-chart th {
-      font-size: 11px;
-      color: var(--text-secondary);
+    #chartWrapper .column {
+      --aspect-ratio: 16 / 4;
     }
 
     #usage-chart td {
@@ -527,6 +510,30 @@ export function getDashboardHTML(): string {
     #usageChartContainer .legend li {
       font-size: 12px;
       color: var(--text-secondary);
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+
+    /* Apply --color variable to legend squares - override charts.css defaults */
+    #chartLegend.legend.legend-square li::before {
+      background: var(--color) !important;
+      border-color: var(--color) !important;
+    }
+
+    #usageChartContainer .legend li:hover {
+      opacity: 1;
+    }
+
+    #usage-chart tr {
+      transition: opacity 0.15s ease;
+    }
+
+    #usage-chart.legend-hover tr {
+      opacity: 0.3;
+    }
+
+    #usage-chart.legend-hover tr.highlight {
+      opacity: 1;
     }
 
     .usage-total {
@@ -852,21 +859,14 @@ export function getDashboardHTML(): string {
           <div class="stat-label">Search Weights</div>
           <div class="stat-value small" id="searchWeights">-</div>
         </div>
-      </div>
-
-      <!-- Patterns Card -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">File Patterns</span>
-        </div>
         <div class="stat">
-          <div class="stat-label">Include</div>
+          <div class="stat-label">Include Patterns</div>
           <div class="patterns-list" id="includePatterns">
             <span class="pattern-tag">Loading...</span>
           </div>
         </div>
-        <div class="stat" style="margin-top: 12px;">
-          <div class="stat-label">Exclude</div>
+        <div class="stat">
+          <div class="stat-label">Exclude Patterns</div>
           <div class="patterns-list" id="excludePatterns">
             <span class="pattern-tag exclude">Loading...</span>
           </div>
@@ -874,7 +874,7 @@ export function getDashboardHTML(): string {
       </div>
 
       <!-- Command Usage Card -->
-      <div class="card double-width">
+      <div class="card full-width">
         <div class="card-header">
           <span class="card-title">Command Usage</span>
           <span class="badge" id="sessionBadge">This Session</span>
@@ -882,17 +882,11 @@ export function getDashboardHTML(): string {
         <div id="usageChartContainer">
           <div class="usage-empty" id="usageEmpty">No commands executed yet</div>
           <div id="chartWrapper">
-            <table class="charts-css column show-primary-axis show-data data-spacing-20" id="usage-chart" style="display: none;">
+            <table class="charts-css column show-primary-axis data-spacing-5" id="usage-chart" style="display: none;">
               <tbody id="usageChartBody"></tbody>
             </table>
           </div>
-          <ul class="charts-css legend legend-inline legend-square" id="chartLegend" style="display: none;">
-            <li style="--color: #58a6ff;">Search Code</li>
-            <li style="--color: #3fb950;">Index Codebase</li>
-            <li style="--color: #a371f7;">Get Status</li>
-            <li style="--color: #f85149;">Clear Index</li>
-            <li style="--color: #d29922;">Get Instructions</li>
-          </ul>
+          <ul class="charts-css legend legend-inline legend-square" id="chartLegend" style="display: none;"></ul>
           <div class="usage-total" id="usageTotal" style="display: none;">
             <span class="usage-total-label">Total Commands</span>
             <span class="usage-total-count" id="totalCount">0</span>
@@ -1173,15 +1167,42 @@ export function getDashboardHTML(): string {
       progressText.textContent = progress.message;
     }
 
-    // Charts.css color mapping
+    // Charts.css color mapping - distinct colors for all commands
     const commandColors = {
-      'search_code': '#58a6ff',
-      'search_similar': '#79c0ff',
-      'index_codebase': '#3fb950',
-      'get_index_status': '#a371f7',
-      'clear_index': '#f85149',
-      'get_project_instructions': '#d29922',
-      'commit': '#56d364'
+      // Core search
+      'search_code': '#58a6ff',        // blue
+      'search_similar': '#39c5cf',     // cyan
+      // Indexing
+      'index_codebase': '#3fb950',     // green
+      'get_index_status': '#a371f7',   // purple
+      'clear_index': '#f85149',        // red
+      'get_project_instructions': '#d29922',  // orange
+      // Git
+      'commit': '#f778ba',             // pink
+      // Symbol analysis
+      'get_symbols_overview': '#79c0ff',  // light blue
+      'find_symbol': '#56d364',        // bright green
+      'find_referencing_symbols': '#bc8cff', // light purple
+      'search_for_pattern': '#ff9f43', // bright orange
+      'replace_symbol_body': '#ff6b6b', // coral
+      'insert_before_symbol': '#feca57', // yellow
+      'insert_after_symbol': '#48dbfb', // sky blue
+      'rename_symbol': '#ff9ff3',      // light pink
+      // Memory
+      'write_memory': '#1dd1a1',       // teal
+      'read_memory': '#5f27cd',        // deep purple
+      'list_memories': '#ee5a24',      // burnt orange
+      'delete_memory': '#c23616',      // dark red
+      'edit_memory': '#009432',        // forest green
+      // Worktree
+      'create_worktree': '#12CBC4',    // turquoise
+      'list_worktrees': '#B53471',     // magenta
+      'remove_worktree': '#ED4C67',    // watermelon
+      'worktree_status': '#F79F1F',    // golden
+      // Clustering
+      'list_concepts': '#A3CB38',      // lime
+      'search_by_concept': '#1289A7',  // cerulean
+      'summarize_codebase': '#D980FA'  // lavender
     };
 
     // Update usage chart using charts.css
@@ -1204,27 +1225,49 @@ export function getDashboardHTML(): string {
       }
 
       usageEmpty.style.display = 'none';
-      usageChartEl.style.display = 'block';
+      usageChartEl.style.display = '';
       chartLegend.style.display = 'flex';
       usageTotal.style.display = 'flex';
 
       const maxCount = Math.max(...usage.map(u => u.count));
 
-      let html = '';
+      let chartHtml = '';
+      let legendHtml = '';
+      let idx = 0;
       for (const item of usage) {
         if (item.count === 0) continue;
 
         const percent = maxCount > 0 ? (item.count / maxCount) : 0;
         const color = commandColors[item.command] || '#58a6ff';
 
-        html += '<tr>';
-        html += '<th scope="row">' + escapeHtml(item.label) + '</th>';
-        html += '<td style="--size: ' + percent + '; --color: ' + color + ';"><span class="data">' + item.count + '</span></td>';
-        html += '</tr>';
+        chartHtml += '<tr data-idx="' + idx + '">';
+        chartHtml += '<th scope="row"></th>';
+        chartHtml += '<td style="--size: ' + percent + '; --color: ' + color + ';"></td>';
+        chartHtml += '</tr>';
+
+        legendHtml += '<li data-idx="' + idx + '" style="--color: ' + color + ';">' + escapeHtml(item.label) + ' (' + item.count + ')</li>';
+        idx++;
       }
 
-      usageChartBody.innerHTML = html;
+      usageChartBody.innerHTML = chartHtml;
+      chartLegend.innerHTML = legendHtml;
       totalCount.textContent = total;
+
+      // Legend hover highlighting
+      chartLegend.querySelectorAll('li').forEach(function(li) {
+        li.addEventListener('mouseenter', function() {
+          var idx = this.getAttribute('data-idx');
+          usageChartEl.classList.add('legend-hover');
+          var row = usageChartBody.querySelector('tr[data-idx="' + idx + '"]');
+          if (row) row.classList.add('highlight');
+        });
+        li.addEventListener('mouseleave', function() {
+          usageChartEl.classList.remove('legend-hover');
+          usageChartBody.querySelectorAll('tr').forEach(function(tr) {
+            tr.classList.remove('highlight');
+          });
+        });
+      });
     }
 
     // Beads section elements
