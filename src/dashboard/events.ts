@@ -18,27 +18,48 @@ export class SSEManager {
   }
 
   /**
-   * Set up listeners for dashboard state events
+   * Set up listeners for dashboard state events.
+   * Each listener is wrapped in try-catch to prevent unhandled rejections.
    */
   private setupEventListeners(): void {
     dashboardState.on('progress', (progress) => {
-      this.broadcast('indexing:progress', progress);
+      try {
+        this.broadcast('indexing:progress', progress);
+      } catch {
+        // Ignore broadcast failures - clients will reconnect
+      }
     });
 
     dashboardState.on('indexing:start', () => {
-      this.broadcast('indexing:start', { timestamp: new Date().toISOString() });
+      try {
+        this.broadcast('indexing:start', { timestamp: new Date().toISOString() });
+      } catch {
+        // Ignore broadcast failures
+      }
     });
 
     dashboardState.on('indexing:complete', (result) => {
-      this.broadcast('indexing:complete', result);
+      try {
+        this.broadcast('indexing:complete', result);
+      } catch {
+        // Ignore broadcast failures
+      }
     });
 
     dashboardState.on('status:change', (status) => {
-      this.broadcast('status:change', status);
+      try {
+        this.broadcast('status:change', status);
+      } catch {
+        // Ignore broadcast failures
+      }
     });
 
     dashboardState.on('usage:update', (usage) => {
-      this.broadcast('usage:update', usage);
+      try {
+        this.broadcast('usage:update', usage);
+      } catch {
+        // Ignore broadcast failures
+      }
     });
   }
 
