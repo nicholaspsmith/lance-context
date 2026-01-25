@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/nicholaspsmith/lance-context/compare/v1.8.0...v1.8.1) (2026-01-25)
+
+
+### Bug Fixes
+
+* add bounds to dashboard state and SSE connections ([#55](https://github.com/nicholaspsmith/lance-context/issues/55)) ([9fb3750](https://github.com/nicholaspsmith/lance-context/commit/9fb3750525baa3d602855e58c2b151a0a3b9665b))
+
 # [1.8.0](https://github.com/nicholaspsmith/lance-context/compare/v1.7.0...v1.8.0) (2026-01-25)
 
 
