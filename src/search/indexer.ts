@@ -1633,27 +1633,46 @@ export class CodeIndexer {
   }
 
   /**
-   * Save clustering result to metadata file
+   * Save clustering result to metadata file.
+   * Includes index checksum for cache invalidation.
    */
   private async saveClusteringMetadata(result: ClusteringResult): Promise<void> {
     await fs.mkdir(this.indexPath, { recursive: true });
+
+    // Get current index checksum for cache validation
+    const indexMetadata = await this.loadIndexMetadata();
+
     const data = {
       clusterCount: result.clusterCount,
       clusters: result.clusters,
       // Convert Map to object for JSON serialization
       assignments: Object.fromEntries(result.assignments),
       generatedAt: new Date().toISOString(),
+      // Store index checksum for cache invalidation
+      indexChecksum: indexMetadata?.checksum ?? null,
     };
     await fs.writeFile(this.clusteringMetadataPath, JSON.stringify(data, null, 2));
   }
 
   /**
-   * Load clustering result from metadata file
+   * Load clustering result from metadata file.
+   * Validates that the cached clustering matches the current index checksum.
+   * Returns null if cache is stale or missing.
    */
   private async loadClusteringMetadata(): Promise<ClusteringResult | null> {
     try {
       const content = await fs.readFile(this.clusteringMetadataPath, 'utf-8');
       const data = JSON.parse(content);
+
+      // Validate cache against current index checksum
+      if (data.indexChecksum) {
+        const indexMetadata = await this.loadIndexMetadata();
+        if (indexMetadata?.checksum && indexMetadata.checksum !== data.indexChecksum) {
+          // Cache is stale - index has changed since clustering was generated
+          return null;
+        }
+      }
+
       return {
         clusterCount: data.clusterCount,
         clusters: data.clusters,
