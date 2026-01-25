@@ -27,6 +27,7 @@ vi.mock('../../config.js', async (_importOriginal) => {
     getDefaultExcludePatterns: vi.fn().mockReturnValue(['**/node_modules/**']),
     getChunkingConfig: vi.fn().mockReturnValue({ maxLines: 100, overlap: 20 }),
     getSearchConfig: vi.fn().mockReturnValue({ semanticWeight: 0.7, keywordWeight: 0.3 }),
+    getIndexingConfig: vi.fn().mockReturnValue({ batchSize: 32, batchDelayMs: 0 }),
   };
 });
 
@@ -60,6 +61,7 @@ describe('CodeIndexer', () => {
       semanticWeight: 0.7,
       keywordWeight: 0.3,
     });
+    vi.mocked(configModule.getIndexingConfig).mockReturnValue({ batchSize: 32, batchDelayMs: 0 });
   });
 
   afterEach(() => {

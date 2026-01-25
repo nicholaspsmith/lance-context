@@ -26,6 +26,13 @@ const DashboardConfigSchema = z.object({
   openBrowser: z.boolean().optional(),
 });
 
+const IndexingConfigSchema = z.object({
+  /** Delay in milliseconds between embedding batches (default: 0) */
+  batchDelayMs: z.number().min(0).max(10000).optional(),
+  /** Number of chunks to embed per batch (default: 32) */
+  batchSize: z.number().min(1).max(100).optional(),
+});
+
 const ConfigSchema = z.object({
   patterns: z.array(z.string()).optional(),
   excludePatterns: z.array(z.string()).optional(),
@@ -33,6 +40,7 @@ const ConfigSchema = z.object({
   chunking: ChunkingConfigSchema.optional(),
   search: SearchConfigSchema.optional(),
   dashboard: DashboardConfigSchema.optional(),
+  indexing: IndexingConfigSchema.optional(),
   instructions: z.string().optional(),
 });
 
@@ -40,6 +48,7 @@ export type LanceContextConfig = z.infer<typeof ConfigSchema>;
 export type ChunkingConfig = z.infer<typeof ChunkingConfigSchema>;
 export type SearchConfig = z.infer<typeof SearchConfigSchema>;
 export type DashboardConfig = z.infer<typeof DashboardConfigSchema>;
+export type IndexingConfig = z.infer<typeof IndexingConfigSchema>;
 
 const DEFAULT_PATTERNS = [
   '**/*.ts',
@@ -100,12 +109,21 @@ export const DEFAULT_DASHBOARD: Required<DashboardConfig> = {
   openBrowser: true,
 };
 
+/**
+ * Default indexing configuration
+ */
+export const DEFAULT_INDEXING: Required<IndexingConfig> = {
+  batchDelayMs: 0,
+  batchSize: 32,
+};
+
 export const DEFAULT_CONFIG: LanceContextConfig = {
   patterns: DEFAULT_PATTERNS,
   excludePatterns: DEFAULT_EXCLUDE_PATTERNS,
   chunking: DEFAULT_CHUNKING,
   search: DEFAULT_SEARCH,
   dashboard: DEFAULT_DASHBOARD,
+  indexing: DEFAULT_INDEXING,
 };
 
 const CONFIG_FILENAMES = ['.lance-context.json', 'lance-context.config.json'];
@@ -296,6 +314,14 @@ function extractValidConfig(rawConfig: unknown): Partial<z.infer<typeof ConfigSc
     }
   }
 
+  if (config.indexing !== undefined) {
+    // Try to extract valid individual fields from indexing
+    const indexingResult = extractValidIndexing(config.indexing);
+    if (Object.keys(indexingResult).length > 0) {
+      result.indexing = indexingResult;
+    }
+  }
+
   return result;
 }
 
@@ -392,6 +418,34 @@ function extractValidDashboard(
   return result;
 }
 
+/**
+ * Extract valid indexing config fields
+ */
+function extractValidIndexing(rawIndexing: unknown): Partial<z.infer<typeof IndexingConfigSchema>> {
+  if (typeof rawIndexing !== 'object' || rawIndexing === null) {
+    return {};
+  }
+
+  const indexing = rawIndexing as Record<string, unknown>;
+  const result: Partial<z.infer<typeof IndexingConfigSchema>> = {};
+
+  if (indexing.batchDelayMs !== undefined) {
+    const batchDelayResult = z.number().min(0).max(10000).safeParse(indexing.batchDelayMs);
+    if (batchDelayResult.success) {
+      result.batchDelayMs = batchDelayResult.data;
+    }
+  }
+
+  if (indexing.batchSize !== undefined) {
+    const batchSizeResult = z.number().min(1).max(100).safeParse(indexing.batchSize);
+    if (batchSizeResult.success) {
+      result.batchSize = batchSizeResult.data;
+    }
+  }
+
+  return result;
+}
+
 export async function loadConfig(projectPath: string): Promise<LanceContextConfig> {
   for (const filename of CONFIG_FILENAMES) {
     const configPath = path.join(projectPath, filename);
@@ -424,6 +478,10 @@ export async function loadConfig(projectPath: string): Promise<LanceContextConfi
             ...DEFAULT_DASHBOARD,
             ...validConfig.dashboard,
           },
+          indexing: {
+            ...DEFAULT_INDEXING,
+            ...validConfig.indexing,
+          },
           instructions: validConfig.instructions,
         };
       }
@@ -445,6 +503,10 @@ export async function loadConfig(projectPath: string): Promise<LanceContextConfi
         dashboard: {
           ...DEFAULT_DASHBOARD,
           ...userConfig.dashboard,
+        },
+        indexing: {
+          ...DEFAULT_INDEXING,
+          ...userConfig.indexing,
         },
         instructions: userConfig.instructions,
       };
@@ -506,6 +568,16 @@ export function getDashboardConfig(config: LanceContextConfig): Required<Dashboa
   return {
     ...DEFAULT_DASHBOARD,
     ...config.dashboard,
+  };
+}
+
+/**
+ * Get indexing config with defaults
+ */
+export function getIndexingConfig(config: LanceContextConfig): Required<IndexingConfig> {
+  return {
+    ...DEFAULT_INDEXING,
+    ...config.indexing,
   };
 }
 

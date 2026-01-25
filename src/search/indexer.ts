@@ -11,6 +11,7 @@ import {
   getDefaultExcludePatterns,
   getChunkingConfig,
   getSearchConfig,
+  getIndexingConfig,
   type LanceContextConfig,
 } from '../config.js';
 import { TTLCache } from '../utils/cache.js';
@@ -1161,7 +1162,8 @@ export class CodeIndexer {
   }
 
   /**
-   * Generate embeddings for chunks in batches
+   * Generate embeddings for chunks in batches.
+   * Supports configurable batch size and delay between batches for rate limiting.
    */
   private async embedChunks(chunks: CodeChunk[], onProgress?: ProgressCallback): Promise<void> {
     const report = (progress: IndexProgress) => {
@@ -1169,7 +1171,12 @@ export class CodeIndexer {
       onProgress?.(progress);
     };
 
-    const batchSize = 32;
+    // Get indexing config for batch size and rate limiting
+    const indexingConfig = this.config
+      ? getIndexingConfig(this.config)
+      : { batchSize: 32, batchDelayMs: 0 };
+    const { batchSize, batchDelayMs } = indexingConfig;
+
     for (let i = 0; i < chunks.length; i += batchSize) {
       const batch = chunks.slice(i, i + batchSize);
       const texts = batch.map((c) => c.content);
@@ -1183,6 +1190,11 @@ export class CodeIndexer {
         total: chunks.length,
         message: `Embedded ${i + batch.length}/${chunks.length} chunks`,
       });
+
+      // Apply rate limiting delay between batches (if configured and not the last batch)
+      if (batchDelayMs > 0 && i + batchSize < chunks.length) {
+        await new Promise((resolve) => setTimeout(resolve, batchDelayMs));
+      }
     }
   }
 
