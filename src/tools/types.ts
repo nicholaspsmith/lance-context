@@ -12,6 +12,8 @@ export interface ToolResponse {
     type: 'text';
     text: string;
   }>;
+  /** Indicates an error response */
+  isError?: boolean;
 }
 
 /**

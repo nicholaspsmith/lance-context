@@ -271,6 +271,7 @@ describe('search-handlers', () => {
           startLine: 1,
           endLine: 10,
           language: 'typescript',
+          similarity: 0.85,
         },
       ]);
 
