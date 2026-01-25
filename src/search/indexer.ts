@@ -156,6 +156,8 @@ interface IndexCheckpoint {
   embeddingBackend: string;
   /** Embedding model (for detecting model changes) */
   embeddingModel?: string;
+  /** File modification times at checkpoint creation for freshness validation */
+  fileMtimes?: Record<string, number>;
 }
 
 // Note: FileMetadata is used for LanceDB schema and is implicitly typed
@@ -423,6 +425,54 @@ export class CodeIndexer {
   private async getFileMtime(filepath: string): Promise<number> {
     const stats = await fs.stat(filepath);
     return stats.mtimeMs;
+  }
+
+  /**
+   * Collect modification times for multiple files.
+   * Used for checkpoint freshness validation.
+   */
+  private async collectFileMtimes(files: string[]): Promise<Record<string, number>> {
+    const mtimes: Record<string, number> = {};
+    for (const filepath of files) {
+      try {
+        const relativePath = path.relative(this.projectPath, filepath);
+        mtimes[relativePath] = await this.getFileMtime(filepath);
+      } catch {
+        // Skip files that can't be stat'd
+      }
+    }
+    return mtimes;
+  }
+
+  /**
+   * Validate that checkpoint files haven't been modified since checkpoint creation.
+   * Returns true if checkpoint is fresh, false if files have changed.
+   */
+  private async validateCheckpointFreshness(checkpoint: IndexCheckpoint): Promise<boolean> {
+    if (!checkpoint.fileMtimes) {
+      // Legacy checkpoint without mtimes - can't validate, assume stale for safety
+      return false;
+    }
+
+    for (const [relativePath, savedMtime] of Object.entries(checkpoint.fileMtimes)) {
+      try {
+        const filepath = path.join(this.projectPath, relativePath);
+        const currentMtime = await this.getFileMtime(filepath);
+        if (currentMtime > savedMtime) {
+          console.error(
+            `[lance-context] File ${relativePath} modified since checkpoint, invalidating`
+          );
+          return false;
+        }
+      } catch {
+        // File was deleted or can't be accessed - checkpoint is stale
+        console.error(
+          `[lance-context] File ${relativePath} no longer accessible, invalidating checkpoint`
+        );
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
@@ -694,10 +744,19 @@ export class CodeIndexer {
           );
           await this.clearCheckpoint();
         } else {
-          console.error(
-            `[lance-context] Found incomplete checkpoint from ${checkpoint.startedAt}, resuming...`
-          );
-          return this.resumeFromCheckpoint(checkpoint, onProgress);
+          // Validate checkpoint freshness - ensure files haven't changed
+          const isFresh = await this.validateCheckpointFreshness(checkpoint);
+          if (!isFresh) {
+            console.error(
+              `[lance-context] Checkpoint is stale (files modified since ${checkpoint.startedAt}), discarding`
+            );
+            await this.clearCheckpoint();
+          } else {
+            console.error(
+              `[lance-context] Found incomplete checkpoint from ${checkpoint.startedAt}, resuming...`
+            );
+            return this.resumeFromCheckpoint(checkpoint, onProgress);
+          }
         }
       }
     }
@@ -807,6 +866,9 @@ export class CodeIndexer {
       message: `Created ${allChunks.length} chunks`,
     });
 
+    // Collect file modification times for checkpoint freshness validation
+    const fileMtimes = await this.collectFileMtimes(files);
+
     // Save checkpoint after chunking (before expensive embedding phase)
     await this.saveCheckpoint({
       phase: 'chunking',
@@ -816,6 +878,7 @@ export class CodeIndexer {
       pendingChunks: allChunks,
       embeddingBackend: this.embeddingBackend.name,
       embeddingModel: this.embeddingBackend.getModel(),
+      fileMtimes,
     });
 
     // Generate embeddings in batches
@@ -830,6 +893,7 @@ export class CodeIndexer {
       embeddedChunks: allChunks,
       embeddingBackend: this.embeddingBackend.name,
       embeddingModel: this.embeddingBackend.getModel(),
+      fileMtimes,
     });
 
     // Store in LanceDB
@@ -1072,7 +1136,7 @@ export class CodeIndexer {
         // Continue with embedding
         await this.embedChunks(allChunks, onProgress);
 
-        // Save checkpoint after embedding
+        // Save checkpoint after embedding (preserve fileMtimes from original checkpoint)
         await this.saveCheckpoint({
           phase: 'embedding',
           startedAt: checkpoint.startedAt,
@@ -1081,6 +1145,7 @@ export class CodeIndexer {
           embeddedChunks: allChunks,
           embeddingBackend: this.embeddingBackend.name,
           embeddingModel: this.embeddingBackend.getModel(),
+          fileMtimes: checkpoint.fileMtimes,
         });
 
         break;

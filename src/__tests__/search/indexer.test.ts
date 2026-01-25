@@ -1082,6 +1082,9 @@ describe('CodeIndexer', () => {
     });
 
     it('should resume from checkpoint with embedded chunks', async () => {
+      // Use a fixed mtime for checkpoint freshness validation
+      const checkpointMtime = Date.now() - 1000; // 1 second ago
+
       // Create a checkpoint file with embedded chunks
       const checkpoint = {
         phase: 'embedding',
@@ -1101,6 +1104,7 @@ describe('CodeIndexer', () => {
         ],
         embeddingBackend: 'mock',
         embeddingModel: 'mock-model',
+        fileMtimes: { 'test.ts': checkpointMtime },
       };
 
       let checkpointCleared = false;
@@ -1113,7 +1117,8 @@ describe('CodeIndexer', () => {
         }
         return 'const x = 1;';
       });
-      vi.mocked(fsPromises.stat).mockResolvedValue({ mtimeMs: Date.now() } as any);
+      // Return same mtime as checkpoint to indicate file hasn't changed
+      vi.mocked(fsPromises.stat).mockResolvedValue({ mtimeMs: checkpointMtime } as any);
       vi.mocked(fsPromises.unlink).mockImplementation(async (path) => {
         if (path === '/project/.lance-context/checkpoint.json') {
           checkpointCleared = true;
