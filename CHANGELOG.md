@@ -1,3 +1,10 @@
+## [1.13.1](https://github.com/nicholaspsmith/lance-context/compare/v1.13.0...v1.13.1) (2026-01-26)
+
+
+### Bug Fixes
+
+* move typescript to dependencies ([3467013](https://github.com/nicholaspsmith/lance-context/commit/34670137ccf50fd73411cd9c9670d5fce2465aed))
+
 # [1.13.0](https://github.com/nicholaspsmith/lance-context/compare/v1.12.0...v1.13.0) (2026-01-25)
 
 
