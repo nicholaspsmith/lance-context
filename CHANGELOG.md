@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/nicholaspsmith/lance-context/compare/v1.15.3...v1.16.0) (2026-01-27)
+
+
+### Features
+
+* use Ollama batch embedding API for faster indexing ([#74](https://github.com/nicholaspsmith/lance-context/issues/74)) ([6d114dd](https://github.com/nicholaspsmith/lance-context/commit/6d114ddff637290c9cc1f55c536be06165678908))
+
 ## [1.15.3](https://github.com/nicholaspsmith/lance-context/compare/v1.15.2...v1.15.3) (2026-01-27)
 
 
