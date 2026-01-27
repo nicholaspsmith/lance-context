@@ -35,6 +35,7 @@ export async function createEmbeddingBackend(
   const ollamaUrl = config?.baseUrl || process.env.OLLAMA_URL || 'http://localhost:11434';
   const ollamaModel = config?.model || DEFAULT_OLLAMA_MODEL;
   const ollamaBatchSize = config?.batchSize;
+  const ollamaConcurrency = config?.concurrency;
 
   // If explicit backend is specified, use only that backend
   if (config?.backend && config.backend !== 'local') {
@@ -54,6 +55,7 @@ export async function createEmbeddingBackend(
         baseUrl: ollamaUrl,
         model: ollamaModel,
         batchSize: ollamaBatchSize,
+        concurrency: ollamaConcurrency,
       });
       await backend.initialize();
       console.error(`[lance-context] Using ollama embedding backend (explicitly configured)`);
@@ -77,6 +79,7 @@ export async function createEmbeddingBackend(
         baseUrl: ollamaUrl,
         model: ollamaModel,
         batchSize: ollamaBatchSize,
+        concurrency: ollamaConcurrency,
       })
   );
 

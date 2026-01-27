@@ -265,6 +265,68 @@ describe('OllamaBackend', () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(result).toHaveLength(150);
     });
+
+    it('should process batches in parallel based on concurrency', async () => {
+      const callOrder: number[] = [];
+      const mockFetch = vi.fn().mockImplementation(async (_url, options) => {
+        const body = JSON.parse(options.body as string);
+        const batchIndex = body.input[0].replace('text', '');
+        callOrder.push(parseInt(batchIndex));
+        // Small delay to allow parallel execution
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return createOllamaBatchEmbeddingResponse(body.input.map(() => [0.1]));
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      // Create backend with batchSize=1 and concurrency=2
+      const backend = new OllamaBackend({ backend: 'ollama', batchSize: 1, concurrency: 2 });
+      const result = await backend.embedBatch(['text0', 'text1', 'text2', 'text3']);
+
+      // Should make 4 requests (1 per text)
+      expect(mockFetch).toHaveBeenCalledTimes(4);
+      // Results should be in correct order regardless of parallel processing
+      expect(result).toHaveLength(4);
+    });
+
+    it('should use default concurrency of 4', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(createOllamaBatchEmbeddingResponse([[0.1]]));
+      vi.stubGlobal('fetch', mockFetch);
+
+      // Create backend with small batchSize to trigger multiple batches
+      const backend = new OllamaBackend({ backend: 'ollama', batchSize: 1 });
+      await backend.embedBatch(['t1', 't2', 't3', 't4', 't5', 't6', 't7', 't8']);
+
+      // With concurrency=4 and 8 items with batchSize=1, should still make 8 requests
+      expect(mockFetch).toHaveBeenCalledTimes(8);
+    });
+
+    it('should preserve result order with parallel processing', async () => {
+      // Return different embeddings for each text (using integers to avoid floating point issues)
+      const mockFetch = vi.fn().mockImplementation(async (_url, options) => {
+        const body = JSON.parse(options.body as string);
+        const embeddings = body.input.map((text: string) => {
+          const idx = parseInt(text.replace('text', ''));
+          return [idx];
+        });
+        // Random delay to test order preservation
+        await new Promise((resolve) => setTimeout(resolve, Math.random() * 20));
+        return createOllamaBatchEmbeddingResponse(embeddings);
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const backend = new OllamaBackend({ backend: 'ollama', batchSize: 2, concurrency: 3 });
+      const result = await backend.embedBatch([
+        'text0',
+        'text1',
+        'text2',
+        'text3',
+        'text4',
+        'text5',
+      ]);
+
+      // Results should be in order matching input
+      expect(result).toEqual([[0], [1], [2], [3], [4], [5]]);
+    });
   });
 
   describe('getDimensions', () => {

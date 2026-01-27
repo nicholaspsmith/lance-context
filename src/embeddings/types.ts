@@ -66,9 +66,16 @@ export interface EmbeddingConfig {
    * Maximum number of texts to process in a single batch request.
    * Large batches are automatically split into smaller chunks to prevent
    * timeouts, memory issues, and API rate limit errors.
-   * Default: 100 for Jina, 10 for Ollama (parallel requests)
+   * Default: 100 for Jina, 100 for Ollama
    */
   batchSize?: number;
+
+  /**
+   * Maximum number of concurrent batch requests (Ollama only).
+   * Controls how many batch requests are sent in parallel.
+   * Default: 4 for Ollama
+   */
+  concurrency?: number;
 }
 
 /**

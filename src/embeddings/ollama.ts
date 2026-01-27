@@ -2,8 +2,11 @@ import type { EmbeddingBackend, EmbeddingConfig } from './types.js';
 import { chunkArray } from './types.js';
 import { fetchWithRetry } from './retry.js';
 
-/** Default parallel batch size for Ollama (concurrent requests) */
+/** Default batch size for Ollama (texts per batch request) */
 const DEFAULT_BATCH_SIZE = 100;
+
+/** Default concurrency for Ollama (parallel batch requests) */
+const DEFAULT_CONCURRENCY = 4;
 
 /** Default Ollama model optimized for code search */
 export const DEFAULT_OLLAMA_MODEL = 'qwen3-embedding:0.6b';
@@ -28,11 +31,13 @@ export class OllamaBackend implements EmbeddingBackend {
   private baseUrl: string;
   private dimensions: number;
   private batchSize: number;
+  private concurrency: number;
 
   constructor(config: EmbeddingConfig) {
     this.model = config.model || DEFAULT_OLLAMA_MODEL;
     this.baseUrl = config.baseUrl || 'http://localhost:11434';
     this.batchSize = config.batchSize ?? DEFAULT_BATCH_SIZE;
+    this.concurrency = config.concurrency ?? DEFAULT_CONCURRENCY;
     // Set dimensions based on known models, default to 1024 for unknown models
     this.dimensions = MODEL_DIMENSIONS[this.model] ?? 1024;
   }
@@ -84,26 +89,40 @@ export class OllamaBackend implements EmbeddingBackend {
 
   async embedBatch(texts: string[]): Promise<number[][]> {
     // Use Ollama's batch API (/api/embed) which accepts an array of texts
-    // This is much faster than making individual requests
-    const chunks = chunkArray(texts, this.batchSize);
-    const results: number[][] = [];
+    // Process multiple batches in parallel for faster indexing
+    const batches = chunkArray(texts, this.batchSize);
+    const results: number[][] = new Array(texts.length);
 
-    for (const chunk of chunks) {
-      const response = await fetchWithRetry(`${this.baseUrl}/api/embed`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: this.model,
-          input: chunk,
-        }),
+    // Process batches in parallel groups controlled by concurrency
+    for (let i = 0; i < batches.length; i += this.concurrency) {
+      const batchGroup = batches.slice(i, i + this.concurrency);
+      const batchPromises = batchGroup.map(async (batch, groupIndex) => {
+        const response = await fetchWithRetry(`${this.baseUrl}/api/embed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: this.model,
+            input: batch,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Ollama embedding failed: ${response.status}`);
+        }
+
+        const data = (await response.json()) as { embeddings: number[][] };
+        return { batchIndex: i + groupIndex, embeddings: data.embeddings };
       });
 
-      if (!response.ok) {
-        throw new Error(`Ollama embedding failed: ${response.status}`);
-      }
+      const batchResults = await Promise.all(batchPromises);
 
-      const data = (await response.json()) as { embeddings: number[][] };
-      results.push(...data.embeddings);
+      // Place results in correct positions
+      for (const { batchIndex, embeddings } of batchResults) {
+        const startIndex = batchIndex * this.batchSize;
+        for (let j = 0; j < embeddings.length; j++) {
+          results[startIndex + j] = embeddings[j];
+        }
+      }
     }
 
     return results;
