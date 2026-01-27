@@ -1,3 +1,10 @@
+## [1.15.3](https://github.com/nicholaspsmith/lance-context/compare/v1.15.2...v1.15.3) (2026-01-27)
+
+
+### Bug Fixes
+
+* reduce concurrency limits to prevent Ollama overload ([#73](https://github.com/nicholaspsmith/lance-context/issues/73)) ([53139c8](https://github.com/nicholaspsmith/lance-context/commit/53139c84a8ff232ea6cc6376515c5463a94e378f))
+
 ## [1.15.2](https://github.com/nicholaspsmith/lance-context/compare/v1.15.1...v1.15.2) (2026-01-27)
 
 
