@@ -851,9 +851,8 @@ export function getDashboardHTML(): string {
               <option value="1000">1000 (high-end)</option>
               <option value="2000">2000 (maximum)</option>
             </select>
-            <div class="form-hint">Concurrent embedding requests to Ollama</div>
           </div>
-          <div class="form-group">
+          <div class="form-group" id="batchSizeGroup">
             <label for="batchSizeSelect">Batch Size</label>
             <select id="batchSizeSelect" class="form-select">
               <option value="32">32 (conservative)</option>
@@ -863,7 +862,6 @@ export function getDashboardHTML(): string {
               <option value="500">500</option>
               <option value="1000">1000 (maximum)</option>
             </select>
-            <div class="form-hint">Chunks per embedding batch</div>
           </div>
           <div class="form-group" id="apiKeyGroup" style="display: none;">
             <label for="apiKeyInput">Jina API Key</label>
