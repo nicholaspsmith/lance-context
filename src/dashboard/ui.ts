@@ -133,8 +133,26 @@ export function getDashboardHTML(): string {
 
     .header-left {
       display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .header-left h1 {
+      display: flex;
       align-items: center;
       gap: 12px;
+    }
+
+    .project-name {
+      font-size: 14px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      padding-left: 52px; /* Align with text after logo */
+    }
+
+    .project-name:empty {
+      display: none;
     }
 
     .header-right {
@@ -772,6 +790,7 @@ export function getDashboardHTML(): string {
           lance-context
           <span class="version-badge" id="versionBadge"></span>
         </h1>
+        <div class="project-name" id="projectName"></div>
       </div>
       <div class="header-right">
         <button class="theme-toggle" id="themeToggle" title="Toggle theme">
@@ -1041,6 +1060,7 @@ export function getDashboardHTML(): string {
     const connectionDot = document.getElementById('connectionDot');
     const connectionText = document.getElementById('connectionText');
     const versionBadge = document.getElementById('versionBadge');
+    const projectNameHeader = document.getElementById('projectName');
     const indexBadge = document.getElementById('indexBadge');
     const fileCount = document.getElementById('fileCount');
     const chunkCount = document.getElementById('chunkCount');
@@ -1313,6 +1333,12 @@ export function getDashboardHTML(): string {
     // Update config display
     function updateConfig(config) {
       projectPath.textContent = config.projectPath || '-';
+
+      // Update project name in header (extract directory name from path)
+      if (config.projectPath) {
+        const projectName = config.projectPath.split('/').pop() || config.projectPath;
+        projectNameHeader.textContent = projectName;
+      }
 
       if (config.chunking) {
         chunkSize.textContent = config.chunking.maxLines + ' lines (overlap: ' + config.chunking.overlap + ')';
