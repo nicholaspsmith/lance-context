@@ -1,3 +1,10 @@
+## [1.18.5](https://github.com/nicholaspsmith/lance-context/compare/v1.18.4...v1.18.5) (2026-01-27)
+
+
+### Bug Fixes
+
+* use conservative Ollama settings for reliability ([#83](https://github.com/nicholaspsmith/lance-context/issues/83)) ([455d0f4](https://github.com/nicholaspsmith/lance-context/commit/455d0f44bf7ef0c9e37753a423cbe579e504984c))
+
 ## [1.18.4](https://github.com/nicholaspsmith/lance-context/compare/v1.18.3...v1.18.4) (2026-01-27)
 
 
