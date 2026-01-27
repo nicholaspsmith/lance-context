@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { OllamaBackend } from '../../embeddings/ollama.js';
+import { OllamaBackend, DEFAULT_OLLAMA_MODEL } from '../../embeddings/ollama.js';
 import {
   createOllamaEmbeddingResponse,
   createSuccessFetch,
   createErrorFetch,
 } from '../mocks/fetch.mock.js';
+
+/** Helper to create a mock /api/tags response with the default model available */
+function createTagsResponseWithDefaultModel() {
+  return { models: [{ name: DEFAULT_OLLAMA_MODEL }] };
+}
 
 describe('OllamaBackend', () => {
   beforeEach(() => {
@@ -29,9 +34,10 @@ describe('OllamaBackend', () => {
       expect(backend.name).toBe('ollama');
     });
 
-    it('should use default model nomic-embed-text', () => {
+    it('should use default model qwen3-embedding:0.6b with 1024 dimensions', () => {
       const backend = new OllamaBackend({ backend: 'ollama' });
-      expect(backend.getDimensions()).toBe(768);
+      expect(backend.getModel()).toBe(DEFAULT_OLLAMA_MODEL);
+      expect(backend.getDimensions()).toBe(1024);
     });
 
     it('should accept custom model', () => {
@@ -41,11 +47,27 @@ describe('OllamaBackend', () => {
       });
       expect(backend.name).toBe('ollama');
     });
+
+    it('should use correct dimensions for known models', () => {
+      const nomicBackend = new OllamaBackend({ backend: 'ollama', model: 'nomic-embed-text' });
+      expect(nomicBackend.getDimensions()).toBe(768);
+
+      const minilmBackend = new OllamaBackend({ backend: 'ollama', model: 'all-minilm' });
+      expect(minilmBackend.getDimensions()).toBe(384);
+
+      const mxbaiBackend = new OllamaBackend({ backend: 'ollama', model: 'mxbai-embed-large' });
+      expect(mxbaiBackend.getDimensions()).toBe(1024);
+    });
+
+    it('should default to 1024 dimensions for unknown models', () => {
+      const backend = new OllamaBackend({ backend: 'ollama', model: 'unknown-model' });
+      expect(backend.getDimensions()).toBe(1024);
+    });
   });
 
   describe('initialize', () => {
     it('should test connection by calling /api/tags', async () => {
-      const mockFetch = createSuccessFetch({ models: [] });
+      const mockFetch = createSuccessFetch(createTagsResponseWithDefaultModel());
       vi.stubGlobal('fetch', mockFetch);
 
       const backend = new OllamaBackend({ backend: 'ollama' });
@@ -55,7 +77,7 @@ describe('OllamaBackend', () => {
     });
 
     it('should use custom baseUrl for initialization', async () => {
-      const mockFetch = createSuccessFetch({ models: [] });
+      const mockFetch = createSuccessFetch(createTagsResponseWithDefaultModel());
       vi.stubGlobal('fetch', mockFetch);
 
       const backend = new OllamaBackend({
@@ -86,6 +108,24 @@ describe('OllamaBackend', () => {
         'Failed to connect to Ollama at http://localhost:11434'
       );
     });
+
+    it('should throw helpful error when model is not available', async () => {
+      const mockFetch = createSuccessFetch({ models: [{ name: 'other-model' }] });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const backend = new OllamaBackend({ backend: 'ollama' });
+      await expect(backend.initialize()).rejects.toThrow(
+        `Model '${DEFAULT_OLLAMA_MODEL}' not found in Ollama`
+      );
+    });
+
+    it('should succeed when model is available', async () => {
+      const mockFetch = createSuccessFetch(createTagsResponseWithDefaultModel());
+      vi.stubGlobal('fetch', mockFetch);
+
+      const backend = new OllamaBackend({ backend: 'ollama' });
+      await expect(backend.initialize()).resolves.toBeUndefined();
+    });
   });
 
   describe('embed', () => {
@@ -102,7 +142,7 @@ describe('OllamaBackend', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'nomic-embed-text',
+            model: DEFAULT_OLLAMA_MODEL,
             prompt: 'test text',
           }),
         })
@@ -217,9 +257,19 @@ describe('OllamaBackend', () => {
   });
 
   describe('getDimensions', () => {
-    it('should return 768 for default nomic-embed-text model', () => {
+    it('should return 1024 for default qwen3-embedding model', () => {
       const backend = new OllamaBackend({ backend: 'ollama' });
-      expect(backend.getDimensions()).toBe(768);
+      expect(backend.getDimensions()).toBe(1024);
+    });
+  });
+
+  describe('getModel', () => {
+    it('should return the configured model', () => {
+      const backend = new OllamaBackend({ backend: 'ollama' });
+      expect(backend.getModel()).toBe(DEFAULT_OLLAMA_MODEL);
+
+      const customBackend = new OllamaBackend({ backend: 'ollama', model: 'custom-model' });
+      expect(customBackend.getModel()).toBe('custom-model');
     });
   });
 });

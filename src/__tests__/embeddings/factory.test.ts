@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createSuccessFetch } from '../mocks/fetch.mock.js';
+import { DEFAULT_OLLAMA_MODEL } from '../../embeddings/ollama.js';
+
+/** Helper to create a mock /api/tags response with the default model available */
+function createTagsResponseWithDefaultModel() {
+  return { models: [{ name: DEFAULT_OLLAMA_MODEL }] };
+}
 
 // We need to dynamically import createEmbeddingBackend after setting env vars
 async function getCreateEmbeddingBackend() {
@@ -49,8 +55,12 @@ describe('createEmbeddingBackend', () => {
         .fn()
         // Jina fails (called during initialize embed test)
         .mockResolvedValueOnce({ ok: false, status: 401, text: async () => 'Unauthorized' })
-        // Ollama succeeds
-        .mockResolvedValue({ ok: true, status: 200, json: async () => ({ models: [] }) });
+        // Ollama succeeds (with default model available)
+        .mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => createTagsResponseWithDefaultModel(),
+        });
       vi.stubGlobal('fetch', mockFetch);
 
       const createEmbeddingBackend = await getCreateEmbeddingBackend();
@@ -60,7 +70,7 @@ describe('createEmbeddingBackend', () => {
     });
 
     it('should use Ollama when no API keys are set', async () => {
-      vi.stubGlobal('fetch', createSuccessFetch({ models: [] }));
+      vi.stubGlobal('fetch', createSuccessFetch(createTagsResponseWithDefaultModel()));
 
       const createEmbeddingBackend = await getCreateEmbeddingBackend();
       const backend = await createEmbeddingBackend();
@@ -99,7 +109,7 @@ describe('createEmbeddingBackend', () => {
 
       const mockFetch = vi.fn().mockImplementation(async (url: string) => {
         expect(url).toContain('remote-ollama');
-        return { ok: true, status: 200, json: async () => ({ models: [] }) };
+        return { ok: true, status: 200, json: async () => createTagsResponseWithDefaultModel() };
       });
       vi.stubGlobal('fetch', mockFetch);
 
@@ -114,7 +124,7 @@ describe('createEmbeddingBackend', () => {
 
       const mockFetch = vi.fn().mockImplementation(async (url: string) => {
         expect(url).toContain('config-ollama');
-        return { ok: true, status: 200, json: async () => ({ models: [] }) };
+        return { ok: true, status: 200, json: async () => createTagsResponseWithDefaultModel() };
       });
       vi.stubGlobal('fetch', mockFetch);
 

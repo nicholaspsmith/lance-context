@@ -1,10 +1,10 @@
 import type { EmbeddingBackend, EmbeddingConfig } from './types.js';
-import { OllamaBackend } from './ollama.js';
+import { OllamaBackend, DEFAULT_OLLAMA_MODEL } from './ollama.js';
 import { JinaBackend } from './jina.js';
 
 export * from './types.js';
 export { chunkArray } from './types.js';
-export { OllamaBackend } from './ollama.js';
+export { OllamaBackend, DEFAULT_OLLAMA_MODEL } from './ollama.js';
 export { JinaBackend } from './jina.js';
 export { RateLimiter, type RateLimiterConfig } from './rate-limiter.js';
 
@@ -33,7 +33,7 @@ export async function createEmbeddingBackend(
 ): Promise<EmbeddingBackend> {
   const jinaKey = config?.apiKey || process.env.JINA_API_KEY;
   const ollamaUrl = config?.baseUrl || process.env.OLLAMA_URL || 'http://localhost:11434';
-  const ollamaModel = config?.model || 'nomic-embed-text';
+  const ollamaModel = config?.model || DEFAULT_OLLAMA_MODEL;
 
   // If explicit backend is specified, use only that backend
   if (config?.backend && config.backend !== 'local') {

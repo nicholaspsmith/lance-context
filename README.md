@@ -135,7 +135,7 @@ Without a `.lance-context.json` file, lance-context will:
 
 - Index common source code files (TypeScript, JavaScript, Python, Go, Rust, Java, Ruby, PHP, C/C++, C#, Swift, Kotlin)
 - Exclude build artifacts, dependencies, and generated files
-- Use Jina embeddings if `JINA_API_KEY` is set, otherwise fall back to local Ollama
+- Use Jina embeddings if `JINA_API_KEY` is set, otherwise use local Ollama with `qwen3-embedding:0.6b`
 - Split code into 100-line chunks with 20-line overlap
 - Use hybrid search with 70% semantic / 30% keyword weighting
 - Start the dashboard on port 24300
@@ -186,16 +186,48 @@ Set these environment variables to configure embedding backends:
 
 lance-context automatically selects the best available backend (in priority order):
 
-1. **Jina v3** (if `JINA_API_KEY` is set, free tier available)
+1. **Jina v3** (if `JINA_API_KEY` is set, free tier available but rate-limited)
    ```bash
    export JINA_API_KEY=jina_...
    ```
 
-2. **Ollama** (local fallback, privacy-preserving)
+2. **Ollama** (recommended for most users - free, local, no rate limits)
+
+### Ollama Setup (Recommended)
+
+Ollama provides free, local embeddings with no API rate limits. Perfect for indexing large codebases.
+
+1. **Install Ollama** from [ollama.com](https://ollama.com)
+
+2. **Pull the embedding model:**
    ```bash
-   # Make sure Ollama is running with nomic-embed-text
-   ollama pull nomic-embed-text
+   ollama pull qwen3-embedding:0.6b
    ```
+
+3. **Verify it's working:**
+   ```bash
+   ollama run qwen3-embedding:0.6b "test"
+   ```
+
+That's it! lance-context will automatically use Ollama when no Jina API key is set.
+
+#### Model Options
+
+| Model | Size | Quality | Best For |
+|-------|------|---------|----------|
+| `qwen3-embedding:0.6b` | 639MB | Good | Most users (default) |
+| `qwen3-embedding:4b` | 2.5GB | Better | Users with 16GB+ RAM |
+| `qwen3-embedding:8b` | 4.7GB | Best | Users with 32GB+ RAM |
+
+To use a different model, add to your `.lance-context.json`:
+```json
+{
+  "embedding": {
+    "backend": "ollama",
+    "model": "qwen3-embedding:4b"
+  }
+}
+```
 
 See [Project Configuration](#project-configuration) for all configuration options including how to specify a backend.
 
@@ -306,8 +338,12 @@ TypeScript, JavaScript, Python, Go, Rust, Java, Ruby, PHP, C/C++, C#, Swift, Kot
 This error means no API keys are set and Ollama is not running/accessible.
 
 **Solutions:**
-1. Set an API key: `export JINA_API_KEY=jina_...`
-2. Or start Ollama: `ollama serve` and ensure `nomic-embed-text` model is pulled
+1. Set up Ollama (recommended):
+   ```bash
+   # Install from https://ollama.com, then:
+   ollama pull qwen3-embedding:0.6b
+   ```
+2. Or set a Jina API key: `export JINA_API_KEY=jina_...`
 
 ### "Embedding dimension mismatch"
 
