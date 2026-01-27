@@ -119,7 +119,7 @@ export const DEFAULT_DASHBOARD: Required<DashboardConfig> = {
  */
 export const DEFAULT_INDEXING: Required<IndexingConfig> = {
   batchDelayMs: 0,
-  batchSize: 32,
+  batchSize: 200,
 };
 
 export const DEFAULT_CONFIG: LanceContextConfig = {
