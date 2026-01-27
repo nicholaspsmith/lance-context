@@ -1170,11 +1170,29 @@ export function getDashboardHTML(): string {
       }
     }
 
+    // Format seconds into human-readable time
+    function formatEta(seconds) {
+      if (seconds === undefined || seconds === null || seconds < 0) return '';
+      if (seconds < 60) return seconds + 's';
+      if (seconds < 3600) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return mins + 'm ' + secs + 's';
+      }
+      const hours = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      return hours + 'h ' + mins + 'm';
+    }
+
     // Update progress
     function updateProgress(progress) {
       const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
       progressFill.style.width = percent + '%';
-      progressText.textContent = progress.message;
+      let text = progress.message;
+      if (progress.etaSeconds !== undefined && progress.etaSeconds > 0) {
+        text += ' (ETA: ' + formatEta(progress.etaSeconds) + ')';
+      }
+      progressText.textContent = text;
     }
 
     // Charts.css color mapping - distinct colors for all commands

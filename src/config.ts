@@ -21,7 +21,7 @@ const EmbeddingConfigSchema = z.object({
   backend: z.enum(['jina', 'ollama']).optional(),
   model: z.string().optional(),
   /** Number of concurrent requests to Ollama (default: 10). Increase if your system has capacity. */
-  ollamaConcurrency: z.number().min(1).max(100).optional(),
+  ollamaConcurrency: z.number().min(1).max(2000).optional(),
 });
 
 const DashboardConfigSchema = z.object({
@@ -33,8 +33,8 @@ const DashboardConfigSchema = z.object({
 const IndexingConfigSchema = z.object({
   /** Delay in milliseconds between embedding batches (default: 0) */
   batchDelayMs: z.number().min(0).max(10000).optional(),
-  /** Number of chunks to embed per batch (default: 32) */
-  batchSize: z.number().min(1).max(100).optional(),
+  /** Number of chunks to embed per batch (default: 32). Higher values reduce overhead but use more memory. */
+  batchSize: z.number().min(1).max(1000).optional(),
 });
 
 const ConfigSchema = z.object({
