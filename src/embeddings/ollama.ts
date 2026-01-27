@@ -6,7 +6,7 @@ import { fetchWithRetry } from './retry.js';
 const DEFAULT_BATCH_SIZE = 100;
 
 /** Default concurrency for Ollama (parallel batch requests) */
-const DEFAULT_CONCURRENCY = 4;
+const DEFAULT_CONCURRENCY = 100;
 
 /** Default Ollama model optimized for code search */
 export const DEFAULT_OLLAMA_MODEL = 'qwen3-embedding:0.6b';

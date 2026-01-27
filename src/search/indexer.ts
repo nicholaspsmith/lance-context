@@ -435,14 +435,26 @@ export class CodeIndexer {
    */
   private async collectFileMtimes(files: string[]): Promise<Record<string, number>> {
     const mtimes: Record<string, number> = {};
-    for (const filepath of files) {
-      try {
-        const relativePath = path.relative(this.projectPath, filepath);
-        mtimes[relativePath] = await this.getFileMtime(filepath);
-      } catch {
-        // Skip files that can't be stat'd
+
+    // Parallelize stat calls for performance (thousands of files)
+    const results = await Promise.all(
+      files.map(async (filepath) => {
+        try {
+          const relativePath = path.relative(this.projectPath, filepath);
+          const mtime = await this.getFileMtime(filepath);
+          return { relativePath, mtime };
+        } catch {
+          return null; // Skip files that can't be stat'd
+        }
+      })
+    );
+
+    for (const result of results) {
+      if (result) {
+        mtimes[result.relativePath] = result.mtime;
       }
     }
+
     return mtimes;
   }
 
