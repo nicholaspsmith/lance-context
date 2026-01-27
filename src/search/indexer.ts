@@ -1419,17 +1419,21 @@ export class CodeIndexer {
       onProgress?.(progress);
     };
 
-    // Get indexing config for batch size and rate limiting
+    // Get indexing config for rate limiting
     const indexingConfig = this.config
       ? getIndexingConfig(this.config)
-      : { batchSize: 32, batchDelayMs: 0 };
-    const { batchSize, batchDelayMs } = indexingConfig;
+      : { batchSize: 200, batchDelayMs: 0 };
+    const { batchDelayMs } = indexingConfig;
+
+    // Use large batch size (10k) to maximize parallelization in embedding backend
+    // The embedding backend will split into smaller batches and process in parallel
+    const embeddingBatchSize = 10000;
 
     const startTime = Date.now();
     let processedChunks = 0;
 
-    for (let i = 0; i < chunks.length; i += batchSize) {
-      const batch = chunks.slice(i, i + batchSize);
+    for (let i = 0; i < chunks.length; i += embeddingBatchSize) {
+      const batch = chunks.slice(i, i + embeddingBatchSize);
       const texts = batch.map((c) => c.content);
       const embeddings = await this.embeddingBackend.embedBatch(texts);
       batch.forEach((chunk, idx) => {
@@ -1452,7 +1456,7 @@ export class CodeIndexer {
       });
 
       // Apply rate limiting delay between batches (if configured and not the last batch)
-      if (batchDelayMs > 0 && i + batchSize < chunks.length) {
+      if (batchDelayMs > 0 && i + embeddingBatchSize < chunks.length) {
         await new Promise((resolve) => setTimeout(resolve, batchDelayMs));
       }
     }
