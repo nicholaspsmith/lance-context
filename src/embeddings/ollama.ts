@@ -3,13 +3,13 @@ import { chunkArray } from './types.js';
 import { fetchWithRetry } from './retry.js';
 
 /** Default batch size for Ollama (texts per batch request) */
-const DEFAULT_BATCH_SIZE = 100;
+const DEFAULT_BATCH_SIZE = 10;
 
 /** Default concurrency for Ollama (parallel batch requests) */
-const DEFAULT_CONCURRENCY = 10;
+const DEFAULT_CONCURRENCY = 4;
 
-/** Default timeout for embedding requests (5 minutes) */
-const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+/** Default timeout for embedding requests (2 minutes per batch) */
+const DEFAULT_TIMEOUT_MS = 2 * 60 * 1000;
 
 /** Default Ollama model optimized for code search */
 export const DEFAULT_OLLAMA_MODEL = 'qwen3-embedding:0.6b';
@@ -92,18 +92,26 @@ export class OllamaBackend implements EmbeddingBackend {
 
   async embedBatch(texts: string[]): Promise<number[][]> {
     // Use Ollama's batch API (/api/embed) which accepts an array of texts
-    // Process multiple batches in parallel for faster indexing
+    // Process in small batches with limited concurrency for reliability
     const batches = chunkArray(texts, this.batchSize);
     const results: number[][] = new Array(texts.length);
+    const totalGroups = Math.ceil(batches.length / this.concurrency);
 
     console.error(
-      `[lance-context] Embedding ${texts.length} texts in ${batches.length} batches (concurrency: ${this.concurrency})`
+      `[lance-context] Ollama: embedding ${texts.length} texts in ${batches.length} batches ` +
+        `(${this.batchSize} texts/batch, ${this.concurrency} parallel, ${totalGroups} groups)`
     );
+    console.error(`[lance-context] Ollama: using model ${this.model} at ${this.baseUrl}`);
 
     // Process batches in parallel groups controlled by concurrency
     for (let i = 0; i < batches.length; i += this.concurrency) {
       const batchGroup = batches.slice(i, i + this.concurrency);
+      const groupNum = Math.floor(i / this.concurrency) + 1;
       const groupStart = Date.now();
+
+      console.error(
+        `[lance-context] Ollama: starting group ${groupNum}/${totalGroups} (${batchGroup.length} batches)...`
+      );
 
       const batchPromises = batchGroup.map(async (batch, groupIndex) => {
         // Create abort controller with timeout
@@ -117,6 +125,7 @@ export class OllamaBackend implements EmbeddingBackend {
             body: JSON.stringify({
               model: this.model,
               input: batch,
+              keep_alive: '10m', // Keep model loaded for 10 minutes
             }),
             signal: controller.signal,
           });
