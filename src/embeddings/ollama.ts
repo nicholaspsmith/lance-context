@@ -6,7 +6,10 @@ import { fetchWithRetry } from './retry.js';
 const DEFAULT_BATCH_SIZE = 100;
 
 /** Default concurrency for Ollama (parallel batch requests) */
-const DEFAULT_CONCURRENCY = 100;
+const DEFAULT_CONCURRENCY = 10;
+
+/** Default timeout for embedding requests (5 minutes) */
+const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 
 /** Default Ollama model optimized for code search */
 export const DEFAULT_OLLAMA_MODEL = 'qwen3-embedding:0.6b';
@@ -93,28 +96,48 @@ export class OllamaBackend implements EmbeddingBackend {
     const batches = chunkArray(texts, this.batchSize);
     const results: number[][] = new Array(texts.length);
 
+    console.error(
+      `[lance-context] Embedding ${texts.length} texts in ${batches.length} batches (concurrency: ${this.concurrency})`
+    );
+
     // Process batches in parallel groups controlled by concurrency
     for (let i = 0; i < batches.length; i += this.concurrency) {
       const batchGroup = batches.slice(i, i + this.concurrency);
+      const groupStart = Date.now();
+
       const batchPromises = batchGroup.map(async (batch, groupIndex) => {
-        const response = await fetchWithRetry(`${this.baseUrl}/api/embed`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: this.model,
-            input: batch,
-          }),
-        });
+        // Create abort controller with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 
-        if (!response.ok) {
-          throw new Error(`Ollama embedding failed: ${response.status}`);
+        try {
+          const response = await fetchWithRetry(`${this.baseUrl}/api/embed`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: this.model,
+              input: batch,
+            }),
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            throw new Error(`Ollama embedding failed: ${response.status}`);
+          }
+
+          const data = (await response.json()) as { embeddings: number[][] };
+          return { batchIndex: i + groupIndex, embeddings: data.embeddings };
+        } finally {
+          clearTimeout(timeoutId);
         }
-
-        const data = (await response.json()) as { embeddings: number[][] };
-        return { batchIndex: i + groupIndex, embeddings: data.embeddings };
       });
 
       const batchResults = await Promise.all(batchPromises);
+      const groupElapsed = ((Date.now() - groupStart) / 1000).toFixed(1);
+      const processedSoFar = Math.min((i + this.concurrency) * this.batchSize, texts.length);
+      console.error(
+        `[lance-context] Embedded batch group ${Math.floor(i / this.concurrency) + 1}/${Math.ceil(batches.length / this.concurrency)} (${processedSoFar}/${texts.length} texts) in ${groupElapsed}s`
+      );
 
       // Place results in correct positions
       for (const { batchIndex, embeddings } of batchResults) {
