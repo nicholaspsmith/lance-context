@@ -1,6 +1,6 @@
 {
   "name": "lance-context",
-  "version": "1.18.5",
+  "version": "1.18.6",
   "description": "MCP plugin for semantic code search using LanceDB - gives AI coding agents deep context from your entire codebase",
   "main": "dist/index.js",
   "type": "module",

@@ -1,3 +1,10 @@
+## [1.18.6](https://github.com/nicholaspsmith/lance-context/compare/v1.18.5...v1.18.6) (2026-01-27)
+
+
+### Performance Improvements
+
+* increase Ollama parallelism and add diagnostics ([#85](https://github.com/nicholaspsmith/lance-context/issues/85)) ([8a1aef7](https://github.com/nicholaspsmith/lance-context/commit/8a1aef7b4340f7c327d14bf9ff13257982db6e9c))
+
 ## [1.18.5](https://github.com/nicholaspsmith/lance-context/compare/v1.18.4...v1.18.5) (2026-01-27)
 
 
