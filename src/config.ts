@@ -21,7 +21,7 @@ const EmbeddingConfigSchema = z.object({
   backend: z.enum(['jina', 'ollama']).optional(),
   model: z.string().optional(),
   /** Number of concurrent requests to Ollama (default: 10). Increase if your system has capacity. */
-  ollamaConcurrency: z.number().min(1).max(2000).optional(),
+  ollamaConcurrency: z.number().min(1).max(200).optional(),
 });
 
 const DashboardConfigSchema = z.object({
@@ -718,7 +718,7 @@ export async function getEmbeddingSettings(projectPath: string): Promise<{
     backend: config.embedding?.backend || 'auto',
     hasApiKey: !!(secrets.jinaApiKey || process.env.JINA_API_KEY),
     ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-    ollamaConcurrency: config.embedding?.ollamaConcurrency || 200,
+    ollamaConcurrency: config.embedding?.ollamaConcurrency || 100,
     batchSize: config.indexing?.batchSize || DEFAULT_INDEXING.batchSize,
   };
 }

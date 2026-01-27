@@ -3,7 +3,7 @@ import { chunkArray } from './types.js';
 import { fetchWithRetry } from './retry.js';
 
 /** Default parallel batch size for Ollama (concurrent requests) */
-const DEFAULT_BATCH_SIZE = 200;
+const DEFAULT_BATCH_SIZE = 100;
 
 /** Default Ollama model optimized for code search */
 export const DEFAULT_OLLAMA_MODEL = 'qwen3-embedding:0.6b';

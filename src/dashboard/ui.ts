@@ -844,12 +844,11 @@ export function getDashboardHTML(): string {
             <label for="concurrencySelect">Ollama Concurrency</label>
             <select id="concurrencySelect" class="form-select">
               <option value="10">10 (conservative)</option>
+              <option value="25">25</option>
               <option value="50">50</option>
-              <option value="100">100</option>
-              <option value="200" selected>200 (default)</option>
-              <option value="500">500</option>
-              <option value="1000">1000 (high-end)</option>
-              <option value="2000">2000 (maximum)</option>
+              <option value="100" selected>100 (default)</option>
+              <option value="150">150</option>
+              <option value="200">200 (maximum)</option>
             </select>
           </div>
           <div class="form-group" id="batchSizeGroup">
