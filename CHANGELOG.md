@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/nicholaspsmith/lance-context/compare/v1.14.0...v1.15.0) (2026-01-27)
+
+
+### Features
+
+* add configurable Ollama concurrency and indexing ETA ([#70](https://github.com/nicholaspsmith/lance-context/issues/70)) ([c6860ed](https://github.com/nicholaspsmith/lance-context/commit/c6860eddf0b079eba8443053a82253e516f13d5f))
+
 # [1.14.0](https://github.com/nicholaspsmith/lance-context/compare/v1.13.1...v1.14.0) (2026-01-27)
 
 
