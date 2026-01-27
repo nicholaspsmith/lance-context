@@ -339,18 +339,33 @@ export class CodeIndexer {
    * Save indexing checkpoint to disk for crash recovery.
    * Strips chunk content to reduce checkpoint size - content is re-read on resume.
    */
-  private async saveCheckpoint(checkpoint: IndexCheckpoint): Promise<void> {
-    await fs.mkdir(this.indexPath, { recursive: true });
+  private async saveCheckpoint(
+    checkpoint: IndexCheckpoint,
+    options: { blocking?: boolean } = {}
+  ): Promise<void> {
+    const { blocking = false } = options;
 
-    // Strip content from chunks to reduce checkpoint size (can be 50MB+ for large codebases)
-    // Content will be re-read from files on checkpoint resume
-    const lightCheckpoint: IndexCheckpoint = {
-      ...checkpoint,
-      pendingChunks: checkpoint.pendingChunks?.map((c) => ({ ...c, content: '' })),
-      embeddedChunks: checkpoint.embeddedChunks?.map((c) => ({ ...c, content: '' })),
+    const doSave = async () => {
+      await fs.mkdir(this.indexPath, { recursive: true });
+
+      // Strip content from chunks to reduce checkpoint size (can be 50MB+ for large codebases)
+      // Content will be re-read from files on checkpoint resume
+      const lightCheckpoint: IndexCheckpoint = {
+        ...checkpoint,
+        pendingChunks: checkpoint.pendingChunks?.map((c) => ({ ...c, content: '' })),
+        embeddedChunks: checkpoint.embeddedChunks?.map((c) => ({ ...c, content: '' })),
+      };
+
+      await fs.writeFile(this.checkpointPath, JSON.stringify(lightCheckpoint));
     };
 
-    await fs.writeFile(this.checkpointPath, JSON.stringify(lightCheckpoint));
+    if (blocking) {
+      await doSave();
+    } else {
+      // Non-blocking: start write in background, don't wait
+      // If crash happens before write completes, checkpoint is lost but that's acceptable
+      doSave().catch((err) => console.error('[lance-context] Checkpoint save failed:', err));
+    }
   }
 
   /**
@@ -1011,14 +1026,8 @@ export class CodeIndexer {
     });
     const fileMtimes = await this.collectFileMtimes(files);
 
-    // Save checkpoint after chunking (before expensive embedding phase)
-    report({
-      phase: 'chunking',
-      current: files.length,
-      total: files.length,
-      message: `Saving checkpoint (${allChunks.length} chunks)...`,
-    });
-    await this.saveCheckpoint({
+    // Save checkpoint after chunking (non-blocking - embedding starts immediately)
+    this.saveCheckpoint({
       phase: 'chunking',
       startedAt,
       files,
@@ -1032,17 +1041,20 @@ export class CodeIndexer {
     // Generate embeddings in batches
     await this.embedChunks(allChunks, onProgress);
 
-    // Save checkpoint after embedding (before storage)
-    await this.saveCheckpoint({
-      phase: 'embedding',
-      startedAt,
-      files,
-      processedFiles: [],
-      embeddedChunks: allChunks,
-      embeddingBackend: this.embeddingBackend.name,
-      embeddingModel: this.embeddingBackend.getModel(),
-      fileMtimes,
-    });
+    // Save checkpoint after embedding (before storage) - blocking to ensure embeddings are saved
+    await this.saveCheckpoint(
+      {
+        phase: 'embedding',
+        startedAt,
+        files,
+        processedFiles: [],
+        embeddedChunks: allChunks,
+        embeddingBackend: this.embeddingBackend.name,
+        embeddingModel: this.embeddingBackend.getModel(),
+        fileMtimes,
+      },
+      { blocking: true }
+    );
 
     // Store in LanceDB
     const data = allChunks.map((chunk) => ({
@@ -1294,17 +1306,20 @@ export class CodeIndexer {
         // Continue with embedding
         await this.embedChunks(allChunks, onProgress);
 
-        // Save checkpoint after embedding (preserve fileMtimes from original checkpoint)
-        await this.saveCheckpoint({
-          phase: 'embedding',
-          startedAt: checkpoint.startedAt,
-          files: checkpoint.files,
-          processedFiles: [],
-          embeddedChunks: allChunks,
-          embeddingBackend: this.embeddingBackend.name,
-          embeddingModel: this.embeddingBackend.getModel(),
-          fileMtimes: checkpoint.fileMtimes,
-        });
+        // Save checkpoint after embedding (preserve fileMtimes from original checkpoint) - blocking
+        await this.saveCheckpoint(
+          {
+            phase: 'embedding',
+            startedAt: checkpoint.startedAt,
+            files: checkpoint.files,
+            processedFiles: [],
+            embeddedChunks: allChunks,
+            embeddingBackend: this.embeddingBackend.name,
+            embeddingModel: this.embeddingBackend.getModel(),
+            fileMtimes: checkpoint.fileMtimes,
+          },
+          { blocking: true }
+        );
 
         break;
       }
@@ -1404,17 +1419,21 @@ export class CodeIndexer {
       onProgress?.(progress);
     };
 
-    // Get indexing config for batch size and rate limiting
+    // Get indexing config for rate limiting
     const indexingConfig = this.config
       ? getIndexingConfig(this.config)
-      : { batchSize: 32, batchDelayMs: 0 };
-    const { batchSize, batchDelayMs } = indexingConfig;
+      : { batchSize: 200, batchDelayMs: 0 };
+    const { batchDelayMs } = indexingConfig;
+
+    // Use large batch size (10k) to maximize parallelization in embedding backend
+    // The embedding backend will split into smaller batches and process in parallel
+    const embeddingBatchSize = 10000;
 
     const startTime = Date.now();
     let processedChunks = 0;
 
-    for (let i = 0; i < chunks.length; i += batchSize) {
-      const batch = chunks.slice(i, i + batchSize);
+    for (let i = 0; i < chunks.length; i += embeddingBatchSize) {
+      const batch = chunks.slice(i, i + embeddingBatchSize);
       const texts = batch.map((c) => c.content);
       const embeddings = await this.embeddingBackend.embedBatch(texts);
       batch.forEach((chunk, idx) => {
@@ -1437,7 +1456,7 @@ export class CodeIndexer {
       });
 
       // Apply rate limiting delay between batches (if configured and not the last batch)
-      if (batchDelayMs > 0 && i + batchSize < chunks.length) {
+      if (batchDelayMs > 0 && i + embeddingBatchSize < chunks.length) {
         await new Promise((resolve) => setTimeout(resolve, batchDelayMs));
       }
     }
