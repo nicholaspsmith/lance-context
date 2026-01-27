@@ -78,33 +78,32 @@ export class OllamaBackend implements EmbeddingBackend {
   }
 
   async embed(text: string): Promise<number[]> {
-    const response = await fetchWithRetry(`${this.baseUrl}/api/embeddings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: this.model,
-        prompt: text,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Ollama embedding failed: ${response.status}`);
-    }
-
-    const data = (await response.json()) as { embedding: number[] };
-    return data.embedding;
+    const results = await this.embedBatch([text]);
+    return results[0];
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    // Ollama doesn't have native batch API, so we parallelize with controlled concurrency
-    // to avoid overwhelming the server with too many concurrent requests
+    // Use Ollama's batch API (/api/embed) which accepts an array of texts
+    // This is much faster than making individual requests
     const chunks = chunkArray(texts, this.batchSize);
     const results: number[][] = [];
 
     for (const chunk of chunks) {
-      // Process each chunk in parallel, but chunks sequentially
-      const chunkResults = await Promise.all(chunk.map((t) => this.embed(t)));
-      results.push(...chunkResults);
+      const response = await fetchWithRetry(`${this.baseUrl}/api/embed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: this.model,
+          input: chunk,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ollama embedding failed: ${response.status}`);
+      }
+
+      const data = (await response.json()) as { embeddings: number[][] };
+      results.push(...data.embeddings);
     }
 
     return results;

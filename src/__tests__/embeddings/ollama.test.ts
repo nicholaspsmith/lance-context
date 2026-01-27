@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OllamaBackend, DEFAULT_OLLAMA_MODEL } from '../../embeddings/ollama.js';
 import {
-  createOllamaEmbeddingResponse,
+  createOllamaBatchEmbeddingResponse,
   createSuccessFetch,
   createErrorFetch,
 } from '../mocks/fetch.mock.js';
@@ -129,21 +129,23 @@ describe('OllamaBackend', () => {
   });
 
   describe('embed', () => {
-    it('should use prompt instead of input', async () => {
-      const mockFetch = vi.fn().mockResolvedValue(createOllamaEmbeddingResponse([0.1, 0.2, 0.3]));
+    it('should use batch API with single text', async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue(createOllamaBatchEmbeddingResponse([[0.1, 0.2, 0.3]]));
       vi.stubGlobal('fetch', mockFetch);
 
       const backend = new OllamaBackend({ backend: 'ollama' });
       await backend.embed('test text');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:11434/api/embeddings',
+        'http://localhost:11434/api/embed',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: DEFAULT_OLLAMA_MODEL,
-            prompt: 'test text',
+            input: ['test text'],
           }),
         })
       );
@@ -151,7 +153,7 @@ describe('OllamaBackend', () => {
 
     it('should return embedding from response', async () => {
       const embedding = [0.1, 0.2, 0.3];
-      const mockFetch = vi.fn().mockResolvedValue(createOllamaEmbeddingResponse(embedding));
+      const mockFetch = vi.fn().mockResolvedValue(createOllamaBatchEmbeddingResponse([embedding]));
       vi.stubGlobal('fetch', mockFetch);
 
       const backend = new OllamaBackend({ backend: 'ollama' });
@@ -161,7 +163,7 @@ describe('OllamaBackend', () => {
     });
 
     it('should use custom model in request', async () => {
-      const mockFetch = vi.fn().mockResolvedValue(createOllamaEmbeddingResponse([0.1]));
+      const mockFetch = vi.fn().mockResolvedValue(createOllamaBatchEmbeddingResponse([[0.1]]));
       vi.stubGlobal('fetch', mockFetch);
 
       const backend = new OllamaBackend({
@@ -192,28 +194,33 @@ describe('OllamaBackend', () => {
   });
 
   describe('embedBatch', () => {
-    it('should parallelize calls since Ollama has no native batch', async () => {
+    it('should use batch API to embed all texts in one request', async () => {
       const mockFetch = vi
         .fn()
-        .mockResolvedValueOnce(createOllamaEmbeddingResponse([0.1]))
-        .mockResolvedValueOnce(createOllamaEmbeddingResponse([0.2]))
-        .mockResolvedValueOnce(createOllamaEmbeddingResponse([0.3]));
+        .mockResolvedValue(createOllamaBatchEmbeddingResponse([[0.1], [0.2], [0.3]]));
       vi.stubGlobal('fetch', mockFetch);
 
       const backend = new OllamaBackend({ backend: 'ollama' });
       const result = await backend.embedBatch(['text1', 'text2', 'text3']);
 
-      expect(mockFetch).toHaveBeenCalledTimes(3);
+      // Should make only 1 batch request
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:11434/api/embed',
+        expect.objectContaining({
+          body: JSON.stringify({
+            model: DEFAULT_OLLAMA_MODEL,
+            input: ['text1', 'text2', 'text3'],
+          }),
+        })
+      );
       expect(result).toEqual([[0.1], [0.2], [0.3]]);
     });
 
     it('should preserve order of embeddings', async () => {
-      // Simulate different response times by controlling mock order
-      const mockFetch = vi.fn().mockImplementation(async (_url, options) => {
-        const body = JSON.parse(options.body);
-        const index = ['text1', 'text2', 'text3'].indexOf(body.prompt);
-        return createOllamaEmbeddingResponse([index * 0.1]);
-      });
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue(createOllamaBatchEmbeddingResponse([[0], [0.1], [0.2]]));
       vi.stubGlobal('fetch', mockFetch);
 
       const backend = new OllamaBackend({ backend: 'ollama' });
@@ -222,37 +229,41 @@ describe('OllamaBackend', () => {
       expect(result).toEqual([[0], [0.1], [0.2]]);
     });
 
-    it('should process in chunks with controlled parallelism', async () => {
-      const callOrder: string[] = [];
-      const mockFetch = vi.fn().mockImplementation(async (_url, options) => {
-        const body = JSON.parse(options.body);
-        callOrder.push(body.prompt);
-        return createOllamaEmbeddingResponse([0.1]);
-      });
+    it('should process in chunks based on batchSize', async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(createOllamaBatchEmbeddingResponse([[0.1], [0.2]]))
+        .mockResolvedValueOnce(createOllamaBatchEmbeddingResponse([[0.3], [0.4]]))
+        .mockResolvedValueOnce(createOllamaBatchEmbeddingResponse([[0.5]]));
       vi.stubGlobal('fetch', mockFetch);
 
       // Create backend with batch size of 2
       const backend = new OllamaBackend({ backend: 'ollama', batchSize: 2 });
       const result = await backend.embedBatch(['t1', 't2', 't3', 't4', 't5']);
 
-      // Should make 5 calls total
-      expect(mockFetch).toHaveBeenCalledTimes(5);
+      // Should make 3 batch requests (2+2+1)
+      expect(mockFetch).toHaveBeenCalledTimes(3);
       // Should return 5 embeddings
       expect(result).toHaveLength(5);
+      expect(result).toEqual([[0.1], [0.2], [0.3], [0.4], [0.5]]);
     });
 
-    it('should use default batch size of 10', async () => {
-      const mockFetch = vi.fn().mockResolvedValue(createOllamaEmbeddingResponse([0.1]));
+    it('should use default batch size of 100', async () => {
+      const embeddings = Array.from({ length: 150 }, (_, i) => [i * 0.01]);
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(createOllamaBatchEmbeddingResponse(embeddings.slice(0, 100)))
+        .mockResolvedValueOnce(createOllamaBatchEmbeddingResponse(embeddings.slice(100)));
       vi.stubGlobal('fetch', mockFetch);
 
-      // Create backend without custom batchSize (should use default 10)
+      // Create backend without custom batchSize (should use default 100)
       const backend = new OllamaBackend({ backend: 'ollama' });
-      // Create 15 texts - should process in 2 chunks: 10 parallel, then 5 parallel
-      const texts = Array.from({ length: 15 }, (_, i) => `text${i}`);
-      await backend.embedBatch(texts);
+      const texts = Array.from({ length: 150 }, (_, i) => `text${i}`);
+      const result = await backend.embedBatch(texts);
 
-      // All 15 calls should complete
-      expect(mockFetch).toHaveBeenCalledTimes(15);
+      // Should make 2 batch requests (100 + 50)
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(result).toHaveLength(150);
     });
   });
 

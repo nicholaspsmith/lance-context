@@ -87,7 +87,7 @@ export function createJinaEmbeddingResponse(embeddings: number[][]): MockFetchRe
 }
 
 /**
- * Creates Ollama-style embedding response
+ * Creates Ollama-style embedding response (legacy single embedding)
  */
 export function createOllamaEmbeddingResponse(embedding: number[]): MockFetchResponse {
   return {
@@ -95,5 +95,17 @@ export function createOllamaEmbeddingResponse(embedding: number[]): MockFetchRes
     status: 200,
     json: async () => ({ embedding }),
     text: async () => JSON.stringify({ embedding }),
+  };
+}
+
+/**
+ * Creates Ollama-style batch embedding response (/api/embed)
+ */
+export function createOllamaBatchEmbeddingResponse(embeddings: number[][]): MockFetchResponse {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({ embeddings }),
+    text: async () => JSON.stringify({ embeddings }),
   };
 }
