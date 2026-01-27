@@ -228,6 +228,8 @@ export interface IndexProgress {
   total: number;
   /** Human-readable status message */
   message: string;
+  /** Estimated time remaining in seconds */
+  etaSeconds?: number;
 }
 
 /**
@@ -1320,6 +1322,9 @@ export class CodeIndexer {
       : { batchSize: 32, batchDelayMs: 0 };
     const { batchSize, batchDelayMs } = indexingConfig;
 
+    const startTime = Date.now();
+    let processedChunks = 0;
+
     for (let i = 0; i < chunks.length; i += batchSize) {
       const batch = chunks.slice(i, i + batchSize);
       const texts = batch.map((c) => c.content);
@@ -1327,11 +1332,20 @@ export class CodeIndexer {
       batch.forEach((chunk, idx) => {
         chunk.embedding = embeddings[idx];
       });
+
+      processedChunks = i + batch.length;
+      const elapsedMs = Date.now() - startTime;
+      const chunksPerMs = processedChunks / elapsedMs;
+      const remainingChunks = chunks.length - processedChunks;
+      const etaSeconds =
+        chunksPerMs > 0 ? Math.round(remainingChunks / chunksPerMs / 1000) : undefined;
+
       report({
         phase: 'embedding',
-        current: i + batch.length,
+        current: processedChunks,
         total: chunks.length,
-        message: `Embedded ${i + batch.length}/${chunks.length} chunks`,
+        message: `Embedded ${processedChunks}/${chunks.length} chunks`,
+        etaSeconds,
       });
 
       // Apply rate limiting delay between batches (if configured and not the last batch)

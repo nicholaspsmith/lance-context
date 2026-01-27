@@ -840,6 +840,31 @@ export function getDashboardHTML(): string {
               <option value="ollama">Ollama (local)</option>
             </select>
           </div>
+          <div class="form-group" id="ollamaSettingsGroup">
+            <label for="concurrencySelect">Ollama Concurrency</label>
+            <select id="concurrencySelect" class="form-select">
+              <option value="10">10 (conservative)</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="200" selected>200 (default)</option>
+              <option value="500">500</option>
+              <option value="1000">1000 (high-end)</option>
+              <option value="2000">2000 (maximum)</option>
+            </select>
+            <div class="form-hint">Concurrent embedding requests to Ollama</div>
+          </div>
+          <div class="form-group">
+            <label for="batchSizeSelect">Batch Size</label>
+            <select id="batchSizeSelect" class="form-select">
+              <option value="32">32 (conservative)</option>
+              <option value="64">64</option>
+              <option value="100">100</option>
+              <option value="200" selected>200 (default)</option>
+              <option value="500">500</option>
+              <option value="1000">1000 (maximum)</option>
+            </select>
+            <div class="form-hint">Chunks per embedding batch</div>
+          </div>
           <div class="form-group" id="apiKeyGroup" style="display: none;">
             <label for="apiKeyInput">Jina API Key</label>
             <input type="password" id="apiKeyInput" class="form-input" placeholder="jina_..." />
@@ -1009,15 +1034,21 @@ export function getDashboardHTML(): string {
 
     // Embedding settings form elements
     const backendSelect = document.getElementById('backendSelect');
+    const concurrencySelect = document.getElementById('concurrencySelect');
+    const batchSizeSelect = document.getElementById('batchSizeSelect');
+    const ollamaSettingsGroup = document.getElementById('ollamaSettingsGroup');
     const apiKeyGroup = document.getElementById('apiKeyGroup');
     const apiKeyInput = document.getElementById('apiKeyInput');
     const saveEmbeddingBtn = document.getElementById('saveEmbeddingBtn');
     const saveStatus = document.getElementById('saveStatus');
 
-    // Toggle API key input visibility based on backend selection
-    backendSelect.addEventListener('change', function() {
-      apiKeyGroup.style.display = this.value === 'jina' ? 'block' : 'none';
-    });
+    // Toggle settings visibility based on backend selection
+    function updateBackendVisibility() {
+      const isJina = backendSelect.value === 'jina';
+      apiKeyGroup.style.display = isJina ? 'block' : 'none';
+      ollamaSettingsGroup.style.display = isJina ? 'none' : 'block';
+    }
+    backendSelect.addEventListener('change', updateBackendVisibility);
 
     // Load current embedding settings
     async function loadEmbeddingSettings() {
@@ -1026,7 +1057,9 @@ export function getDashboardHTML(): string {
         if (response.ok) {
           const settings = await response.json();
           backendSelect.value = settings.backend || 'auto';
-          apiKeyGroup.style.display = settings.backend === 'jina' ? 'block' : 'none';
+          concurrencySelect.value = String(settings.ollamaConcurrency || 200);
+          batchSizeSelect.value = String(settings.batchSize || 200);
+          updateBackendVisibility();
 
           // Update status badge
           if (settings.hasApiKey) {
@@ -1066,7 +1099,9 @@ export function getDashboardHTML(): string {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             backend: backend === 'auto' ? 'ollama' : backend,
-            apiKey: backend === 'jina' ? apiKey : undefined
+            apiKey: backend === 'jina' ? apiKey : undefined,
+            ollamaConcurrency: parseInt(concurrencySelect.value, 10),
+            batchSize: parseInt(batchSizeSelect.value, 10)
           })
         });
 
@@ -1170,11 +1205,29 @@ export function getDashboardHTML(): string {
       }
     }
 
+    // Format seconds into human-readable time
+    function formatEta(seconds) {
+      if (seconds === undefined || seconds === null || seconds < 0) return '';
+      if (seconds < 60) return seconds + 's';
+      if (seconds < 3600) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return mins + 'm ' + secs + 's';
+      }
+      const hours = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      return hours + 'h ' + mins + 'm';
+    }
+
     // Update progress
     function updateProgress(progress) {
       const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
       progressFill.style.width = percent + '%';
-      progressText.textContent = progress.message;
+      let text = progress.message;
+      if (progress.etaSeconds !== undefined && progress.etaSeconds > 0) {
+        text += ' (ETA: ' + formatEta(progress.etaSeconds) + ')';
+      }
+      progressText.textContent = text;
     }
 
     // Charts.css color mapping - distinct colors for all commands

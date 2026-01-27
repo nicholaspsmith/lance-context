@@ -332,6 +332,7 @@ async function getIndexer(): Promise<CodeIndexer> {
       const backend = await createEmbeddingBackend({
         backend: config.embedding?.backend,
         apiKey: secrets.jinaApiKey,
+        batchSize: config.embedding?.ollamaConcurrency,
       });
       const idx = new CodeIndexer(PROJECT_PATH, backend);
       await idx.initialize();
