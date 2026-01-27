@@ -1,3 +1,10 @@
+## [1.18.4](https://github.com/nicholaspsmith/lance-context/compare/v1.18.3...v1.18.4) (2026-01-27)
+
+
+### Bug Fixes
+
+* add timeout and logging to Ollama embedding requests ([#82](https://github.com/nicholaspsmith/lance-context/issues/82)) ([3e06254](https://github.com/nicholaspsmith/lance-context/commit/3e06254e227531483521f8acdc61342a656b26b6))
+
 ## [1.18.3](https://github.com/nicholaspsmith/lance-context/compare/v1.18.2...v1.18.3) (2026-01-27)
 
 
