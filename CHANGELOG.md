@@ -1,3 +1,10 @@
+## [1.18.1](https://github.com/nicholaspsmith/lance-context/compare/v1.18.0...v1.18.1) (2026-01-27)
+
+
+### Performance Improvements
+
+* fix embedding batch parallelization ([#79](https://github.com/nicholaspsmith/lance-context/issues/79)) ([19a3956](https://github.com/nicholaspsmith/lance-context/commit/19a3956d1a732327a6b848ca4a8ffc2045a2408a))
+
 # [1.18.0](https://github.com/nicholaspsmith/lance-context/compare/v1.17.1...v1.18.0) (2026-01-27)
 
 
