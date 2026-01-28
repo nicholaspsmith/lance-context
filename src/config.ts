@@ -705,7 +705,7 @@ export async function saveEmbeddingSettings(
  * Get current embedding settings including secrets
  */
 export async function getEmbeddingSettings(projectPath: string): Promise<{
-  backend: 'jina' | 'ollama' | 'auto';
+  backend: 'jina' | 'ollama';
   hasApiKey: boolean;
   ollamaUrl?: string;
   ollamaConcurrency: number;
@@ -715,7 +715,7 @@ export async function getEmbeddingSettings(projectPath: string): Promise<{
   const secrets = await loadSecrets(projectPath);
 
   return {
-    backend: config.embedding?.backend || 'auto',
+    backend: config.embedding?.backend || 'jina',
     hasApiKey: !!(secrets.jinaApiKey || process.env.JINA_API_KEY),
     ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
     ollamaConcurrency: config.embedding?.ollamaConcurrency || 1,

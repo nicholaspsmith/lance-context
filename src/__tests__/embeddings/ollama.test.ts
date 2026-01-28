@@ -250,7 +250,7 @@ describe('OllamaBackend', () => {
       expect(result).toEqual([[0.1], [0.2], [0.3], [0.4], [0.5]]);
     });
 
-    it('should use default batch size of 50', async () => {
+    it('should use default batch size of 256', async () => {
       const mockFetch = vi.fn().mockImplementation(async (_url, options) => {
         const body = JSON.parse(options.body as string);
         const inputLen = body.input.length;
@@ -260,14 +260,14 @@ describe('OllamaBackend', () => {
       });
       vi.stubGlobal('fetch', mockFetch);
 
-      // Create backend without custom batchSize (should use default 50)
+      // Create backend without custom batchSize (should use default 256)
       const backend = new OllamaBackend({ backend: 'ollama' });
-      const texts = Array.from({ length: 120 }, (_, i) => `text${i}`);
+      const texts = Array.from({ length: 768 }, (_, i) => `text${i}`);
       const result = await backend.embedBatch(texts);
 
-      // Should make 3 batch requests (50+50+20)
+      // Should make 3 batch requests (256+256+256)
       expect(mockFetch).toHaveBeenCalledTimes(3);
-      expect(result).toHaveLength(120);
+      expect(result).toHaveLength(768);
     });
 
     it('should process batches in parallel based on concurrency', async () => {

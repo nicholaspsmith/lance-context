@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { JinaBackend } from '../../embeddings/jina.js';
+import { JinaBackend, DEFAULT_JINA_API_KEY } from '../../embeddings/jina.js';
 import { createJinaEmbeddingResponse, createErrorFetch } from '../mocks/fetch.mock.js';
 
 describe('JinaBackend', () => {
@@ -12,15 +12,16 @@ describe('JinaBackend', () => {
   });
 
   describe('constructor', () => {
-    it('should throw if API key is not provided', () => {
-      expect(() => new JinaBackend({ backend: 'jina' })).toThrow(
-        'Jina API key is required. Set JINA_API_KEY environment variable.'
-      );
+    it('should use default community API key when none provided', () => {
+      const backend = new JinaBackend({ backend: 'jina' });
+      expect(backend.name).toBe('jina');
+      expect(backend.isUsingDefaultKey()).toBe(true);
     });
 
-    it('should accept API key in config', () => {
-      const backend = new JinaBackend({ backend: 'jina', apiKey: 'test-key' });
+    it('should accept custom API key in config', () => {
+      const backend = new JinaBackend({ backend: 'jina', apiKey: 'custom-key' });
       expect(backend.name).toBe('jina');
+      expect(backend.isUsingDefaultKey()).toBe(false);
     });
 
     it('should use default model jina-embeddings-v3', () => {
@@ -35,6 +36,11 @@ describe('JinaBackend', () => {
         model: 'custom-model',
       });
       expect(backend.name).toBe('jina');
+    });
+
+    it('should export the default API key constant', () => {
+      expect(DEFAULT_JINA_API_KEY).toBeDefined();
+      expect(typeof DEFAULT_JINA_API_KEY).toBe('string');
     });
   });
 

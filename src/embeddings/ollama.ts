@@ -3,8 +3,8 @@ import { chunkArray } from './types.js';
 import { fetchWithRetry } from './retry.js';
 import { broadcastLog, updateProgressMessage } from '../dashboard/events.js';
 
-/** Default batch size for Ollama (texts per request) */
-const DEFAULT_BATCH_SIZE = 50;
+/** Default batch size for Ollama (texts per request) - larger batches reduce HTTP overhead */
+const DEFAULT_BATCH_SIZE = 256;
 
 /** Default concurrency for Ollama (sequential - Ollama processes one at a time anyway) */
 const DEFAULT_CONCURRENCY = 1;
