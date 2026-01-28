@@ -1089,7 +1089,7 @@ export function getDashboardHTML(): string {
     const saveStatus = document.getElementById('saveStatus');
 
     // Track saved settings to detect changes
-    let savedSettings = { backend: 'auto', ollamaConcurrency: '200', batchSize: '200' };
+    let savedSettings = { backend: 'auto', ollamaConcurrency: '1', batchSize: '200' };
 
     // Check if current form values differ from saved settings
     function hasSettingsChanged() {
@@ -1129,7 +1129,7 @@ export function getDashboardHTML(): string {
         if (response.ok) {
           const settings = await response.json();
           const backend = settings.backend || 'auto';
-          const concurrency = String(settings.ollamaConcurrency || 200);
+          const concurrency = String(settings.ollamaConcurrency || 1);
           const batchSize = String(settings.batchSize || 200);
 
           // Update saved settings

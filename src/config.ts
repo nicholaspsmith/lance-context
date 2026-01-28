@@ -718,7 +718,7 @@ export async function getEmbeddingSettings(projectPath: string): Promise<{
     backend: config.embedding?.backend || 'auto',
     hasApiKey: !!(secrets.jinaApiKey || process.env.JINA_API_KEY),
     ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-    ollamaConcurrency: config.embedding?.ollamaConcurrency || 100,
+    ollamaConcurrency: config.embedding?.ollamaConcurrency || 1,
     batchSize: config.indexing?.batchSize || DEFAULT_INDEXING.batchSize,
   };
 }
