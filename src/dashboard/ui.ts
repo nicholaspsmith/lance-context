@@ -449,6 +449,7 @@ export function getDashboardHTML(): string {
     .progress-text {
       font-size: 12px;
       color: var(--text-secondary);
+      white-space: pre-line;
     }
 
     .patterns-list {
