@@ -157,10 +157,12 @@ function openBrowser(url: string, projectPath: string): void {
       command = `xdg-open "${url}"`;
   }
 
+  console.error(`[lance-context] Opening browser with command: ${command}`);
   exec(command, (error) => {
     if (error) {
       console.error('[lance-context] Failed to open browser:', error.message);
     } else {
+      console.error('[lance-context] Browser opened successfully');
       recordBrowserOpened(projectPath);
     }
   });
@@ -2343,6 +2345,9 @@ async function main() {
   }
 
   // Start dashboard if enabled
+  console.error(
+    `[lance-context] Dashboard config: enabled=${dashboardConfig.enabled}, openBrowser=${dashboardConfig.openBrowser}, port=${dashboardConfig.port}`
+  );
   if (dashboardConfig.enabled) {
     const configuredPort = dashboardConfig.port || 24300;
     try {
@@ -2363,11 +2368,15 @@ async function main() {
       // Open dashboard in user's default browser if configured
       if (dashboardConfig.openBrowser) {
         openBrowser(dashboard.url, PROJECT_PATH);
+      } else {
+        console.error('[lance-context] Browser auto-open disabled in config');
       }
     } catch (error) {
       // findAvailablePort throws if no port found in range, or startDashboard may fail
       console.error('[lance-context] Failed to start dashboard:', error);
     }
+  } else {
+    console.error('[lance-context] Dashboard disabled in config');
   }
 
   const transport = new StdioServerTransport();
