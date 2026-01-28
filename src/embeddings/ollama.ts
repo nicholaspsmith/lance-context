@@ -115,12 +115,11 @@ export class OllamaBackend implements EmbeddingBackend {
       const batchStatuses = new Map<number, string>();
 
       const updateBatchProgress = () => {
-        const statusParts: string[] = [];
+        const statusLines: string[] = [`Group ${groupNum}/${totalGroups}`];
         for (const [batchNum, status] of batchStatuses) {
-          statusParts.push(`#${batchNum}: ${status}`);
+          statusLines.push(`  Batch ${batchNum}/${batches.length}: ${status}`);
         }
-        const progressMsg = `Group ${groupNum}/${totalGroups} | ${statusParts.join(' | ')}`;
-        updateProgressMessage(progressMsg);
+        updateProgressMessage(statusLines.join('\n'));
       };
 
       const groupStartMsg = `Embedding group ${groupNum}/${totalGroups} (${batchGroup.length} batches)...`;
