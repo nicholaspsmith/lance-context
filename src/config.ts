@@ -715,7 +715,7 @@ export async function getEmbeddingSettings(projectPath: string): Promise<{
   const secrets = await loadSecrets(projectPath);
 
   return {
-    backend: config.embedding?.backend || 'jina',
+    backend: config.embedding?.backend || 'ollama',
     hasApiKey: !!(secrets.jinaApiKey || process.env.JINA_API_KEY),
     ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
     ollamaConcurrency: config.embedding?.ollamaConcurrency || 1,

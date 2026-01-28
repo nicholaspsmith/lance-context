@@ -855,8 +855,8 @@ export function getDashboardHTML(): string {
           <div class="form-group">
             <label for="backendSelect">Select Backend</label>
             <select id="backendSelect" class="form-select">
-              <option value="jina" selected>Jina AI (default - no setup required)</option>
-              <option value="ollama">Ollama (local - requires install)</option>
+              <option value="ollama" selected>Ollama (local)</option>
+              <option value="jina">Jina AI (cloud - requires API key)</option>
             </select>
           </div>
           <div class="form-group" id="ollamaSettingsGroup">
@@ -1097,7 +1097,7 @@ export function getDashboardHTML(): string {
     const saveStatus = document.getElementById('saveStatus');
 
     // Track saved settings to detect changes
-    let savedSettings = { backend: 'jina', ollamaConcurrency: '1', batchSize: '256' };
+    let savedSettings = { backend: 'ollama', ollamaConcurrency: '1', batchSize: '256' };
 
     // Check if current form values differ from saved settings
     function hasSettingsChanged() {
@@ -1136,7 +1136,7 @@ export function getDashboardHTML(): string {
         const response = await fetch('/api/settings/embedding');
         if (response.ok) {
           const settings = await response.json();
-          const backend = settings.backend || 'jina';
+          const backend = settings.backend || 'ollama';
           const concurrency = String(settings.ollamaConcurrency || 1);
           const batchSize = String(settings.batchSize || 256);
 
@@ -1151,15 +1151,17 @@ export function getDashboardHTML(): string {
           updateSaveButtonVisibility();
 
           // Update status badge
-          if (settings.backend === 'ollama') {
+          if (settings.backend === 'jina') {
+            if (settings.hasApiKey) {
+              embeddingStatus.textContent = 'API Key Set';
+              embeddingStatus.className = 'badge success';
+            } else {
+              embeddingStatus.textContent = 'API Key Required';
+              embeddingStatus.className = 'badge warning';
+            }
+          } else {
             embeddingStatus.textContent = 'Local';
             embeddingStatus.className = 'badge';
-          } else if (settings.hasApiKey) {
-            embeddingStatus.textContent = 'Custom Key';
-            embeddingStatus.className = 'badge success';
-          } else {
-            embeddingStatus.textContent = 'Ready';
-            embeddingStatus.className = 'badge success';
           }
         }
       } catch (error) {

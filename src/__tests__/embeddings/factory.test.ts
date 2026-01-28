@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { createSuccessFetch } from '../mocks/fetch.mock.js';
 import { DEFAULT_OLLAMA_MODEL } from '../../embeddings/ollama.js';
 
 /** Helper to create a mock /api/tags response with the default model available */
@@ -31,22 +32,8 @@ describe('createEmbeddingBackend', () => {
   });
 
   describe('priority order', () => {
-    it('should use Jina by default (has built-in community key)', async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: [{ embedding: [0.1] }] }),
-      });
-      vi.stubGlobal('fetch', mockFetch);
-
-      const createEmbeddingBackend = await getCreateEmbeddingBackend();
-      const backend = await createEmbeddingBackend();
-
-      expect(backend.name).toBe('jina');
-    });
-
-    it('should prefer custom Jina key over default when JINA_API_KEY is set', async () => {
-      process.env.JINA_API_KEY = 'custom-jina-key';
+    it('should prefer Jina when JINA_API_KEY is set', async () => {
+      process.env.JINA_API_KEY = 'test-jina-key';
 
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -59,18 +46,11 @@ describe('createEmbeddingBackend', () => {
       const backend = await createEmbeddingBackend();
 
       expect(backend.name).toBe('jina');
-      // Check that custom key was used in request
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer custom-jina-key',
-          }),
-        })
-      );
     });
 
     it('should fallback to Ollama when Jina fails', async () => {
+      process.env.JINA_API_KEY = 'invalid-key';
+
       const mockFetch = vi
         .fn()
         // Jina fails (called during initialize embed test)
@@ -82,6 +62,15 @@ describe('createEmbeddingBackend', () => {
           json: async () => createTagsResponseWithDefaultModel(),
         });
       vi.stubGlobal('fetch', mockFetch);
+
+      const createEmbeddingBackend = await getCreateEmbeddingBackend();
+      const backend = await createEmbeddingBackend();
+
+      expect(backend.name).toBe('ollama');
+    });
+
+    it('should use Ollama when no API keys are set', async () => {
+      vi.stubGlobal('fetch', createSuccessFetch(createTagsResponseWithDefaultModel()));
 
       const createEmbeddingBackend = await getCreateEmbeddingBackend();
       const backend = await createEmbeddingBackend();
