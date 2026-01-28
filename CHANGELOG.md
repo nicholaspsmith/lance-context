@@ -1,3 +1,10 @@
+## [1.24.2](https://github.com/nicholaspsmith/lance-context/compare/v1.24.1...v1.24.2) (2026-01-28)
+
+
+### Bug Fixes
+
+* change default Ollama concurrency to 1 everywhere ([#98](https://github.com/nicholaspsmith/lance-context/issues/98)) ([b02353e](https://github.com/nicholaspsmith/lance-context/commit/b02353e5f1d622d3fe5b698f1c7899d76eab0211))
+
 ## [1.24.1](https://github.com/nicholaspsmith/lance-context/compare/v1.24.0...v1.24.1) (2026-01-28)
 
 
