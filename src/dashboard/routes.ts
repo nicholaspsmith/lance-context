@@ -189,8 +189,8 @@ async function handleSaveEmbeddingSettings(
   try {
     const body = (await parseJsonBody(req)) as EmbeddingSettings;
 
-    if (!body.backend || !['jina', 'ollama'].includes(body.backend)) {
-      sendJSON(res, { error: 'Invalid backend. Must be "jina" or "ollama".' }, 400);
+    if (!body.backend || !['jina', 'ollama', 'gemini'].includes(body.backend)) {
+      sendJSON(res, { error: 'Invalid backend. Must be "jina", "ollama", or "gemini".' }, 400);
       return;
     }
 
