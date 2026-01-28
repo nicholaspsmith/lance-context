@@ -1,3 +1,15 @@
+# [1.24.0](https://github.com/nicholaspsmith/lance-context/compare/v1.23.1...v1.24.0) (2026-01-28)
+
+
+### Bug Fixes
+
+* display batch statuses on separate lines ([#94](https://github.com/nicholaspsmith/lance-context/issues/94)) ([7fd9bbb](https://github.com/nicholaspsmith/lance-context/commit/7fd9bbbef9c7e96e53dd32bca5fec0afb0d3e207))
+
+
+### Features
+
+* add status icons to batch progress display ([#95](https://github.com/nicholaspsmith/lance-context/issues/95)) ([b4d0ca8](https://github.com/nicholaspsmith/lance-context/commit/b4d0ca8f625c674d6035e671996ffd2da9eef94f))
+
 ## [1.23.1](https://github.com/nicholaspsmith/lance-context/compare/v1.23.0...v1.23.1) (2026-01-28)
 
 
