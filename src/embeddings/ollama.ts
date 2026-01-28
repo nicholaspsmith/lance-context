@@ -1,6 +1,7 @@
 import type { EmbeddingBackend, EmbeddingConfig } from './types.js';
 import { chunkArray } from './types.js';
 import { fetchWithRetry } from './retry.js';
+import { broadcastLog } from '../dashboard/events.js';
 
 /** Default batch size for Ollama (texts per request) */
 const DEFAULT_BATCH_SIZE = 50;
@@ -97,11 +98,12 @@ export class OllamaBackend implements EmbeddingBackend {
     const results: number[][] = new Array(texts.length);
     const totalGroups = Math.ceil(batches.length / this.concurrency);
 
-    console.error(
-      `[lance-context] Ollama: embedding ${texts.length} texts in ${batches.length} batches ` +
-        `(${this.batchSize} texts/batch, ${this.concurrency} parallel, ${totalGroups} groups)`
-    );
-    console.error(`[lance-context] Ollama: using model ${this.model} at ${this.baseUrl}`);
+    const initMsg = `Ollama: embedding ${texts.length} texts in ${batches.length} batches (${this.batchSize} texts/batch, ${this.concurrency} parallel, ${totalGroups} groups)`;
+    const modelMsg = `Ollama: using model ${this.model} at ${this.baseUrl}`;
+    console.error(`[lance-context] ${initMsg}`);
+    console.error(`[lance-context] ${modelMsg}`);
+    broadcastLog('info', initMsg);
+    broadcastLog('info', modelMsg);
 
     // Process batches in parallel groups controlled by concurrency
     for (let i = 0; i < batches.length; i += this.concurrency) {
@@ -109,9 +111,9 @@ export class OllamaBackend implements EmbeddingBackend {
       const groupNum = Math.floor(i / this.concurrency) + 1;
       const groupStart = Date.now();
 
-      console.error(
-        `[lance-context] Ollama: starting group ${groupNum}/${totalGroups} (${batchGroup.length} batches)...`
-      );
+      const groupStartMsg = `Ollama: starting group ${groupNum}/${totalGroups} (${batchGroup.length} batches)...`;
+      console.error(`[lance-context] ${groupStartMsg}`);
+      broadcastLog('info', groupStartMsg);
 
       const batchPromises = batchGroup.map(async (batch, groupIndex) => {
         // Create abort controller with timeout
@@ -144,9 +146,9 @@ export class OllamaBackend implements EmbeddingBackend {
       const batchResults = await Promise.all(batchPromises);
       const groupElapsed = ((Date.now() - groupStart) / 1000).toFixed(1);
       const processedSoFar = Math.min((i + this.concurrency) * this.batchSize, texts.length);
-      console.error(
-        `[lance-context] Embedded batch group ${Math.floor(i / this.concurrency) + 1}/${Math.ceil(batches.length / this.concurrency)} (${processedSoFar}/${texts.length} texts) in ${groupElapsed}s`
-      );
+      const groupCompleteMsg = `Embedded batch group ${Math.floor(i / this.concurrency) + 1}/${Math.ceil(batches.length / this.concurrency)} (${processedSoFar}/${texts.length} texts) in ${groupElapsed}s`;
+      console.error(`[lance-context] ${groupCompleteMsg}`);
+      broadcastLog('info', groupCompleteMsg);
 
       // Place results in correct positions
       for (const { batchIndex, embeddings } of batchResults) {

@@ -189,6 +189,17 @@ export class SSEManager {
 }
 
 /**
+ * Broadcast a log message to all connected dashboard clients
+ */
+export function broadcastLog(level: 'info' | 'warn' | 'error', message: string): void {
+  sseManager.broadcast('server:log', {
+    level,
+    message,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+/**
  * Singleton instance of the SSE manager
  */
 export const sseManager = new SSEManager();

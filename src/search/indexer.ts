@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { EmbeddingBackend } from '../embeddings/index.js';
+import { broadcastLog } from '../dashboard/events.js';
 import { ASTChunker } from './ast-chunker.js';
 import { TreeSitterChunker } from './tree-sitter-chunker.js';
 import {
@@ -1438,9 +1439,9 @@ export class CodeIndexer {
     for (let i = 0; i < chunks.length; i += embeddingBatchSize) {
       const batch = chunks.slice(i, i + embeddingBatchSize);
       const texts = batch.map((c) => c.content);
-      console.error(
-        `[lance-context] Sending ${texts.length} texts to embedding backend (batch ${Math.floor(i / embeddingBatchSize) + 1}/${Math.ceil(chunks.length / embeddingBatchSize)})...`
-      );
+      const batchMsg = `Sending ${texts.length} texts to embedding backend (batch ${Math.floor(i / embeddingBatchSize) + 1}/${Math.ceil(chunks.length / embeddingBatchSize)})...`;
+      console.error(`[lance-context] ${batchMsg}`);
+      broadcastLog('info', batchMsg);
       const embeddings = await this.embeddingBackend.embedBatch(texts);
       batch.forEach((chunk, idx) => {
         chunk.embedding = embeddings[idx];

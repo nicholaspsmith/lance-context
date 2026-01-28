@@ -1742,6 +1742,24 @@ export function getDashboardHTML(): string {
         // Just keep connection alive - don't log to reduce noise
       });
 
+      eventSource.addEventListener('server:log', (e) => {
+        const logData = JSON.parse(e.data);
+        const prefix = '%c[server]%c ';
+        const prefixStyle = 'color: #a371f7; font-weight: bold';
+        const msgStyle = 'color: inherit';
+
+        switch (logData.level) {
+          case 'error':
+            console.error(prefix + logData.message, prefixStyle, msgStyle);
+            break;
+          case 'warn':
+            console.warn(prefix + logData.message, prefixStyle, msgStyle);
+            break;
+          default:
+            console.log(prefix + logData.message, prefixStyle, msgStyle);
+        }
+      });
+
       eventSource.onerror = (e) => {
         log.warn('SSE connection error, will reconnect...', e);
         setConnected(false);
