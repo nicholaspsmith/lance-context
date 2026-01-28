@@ -45,7 +45,7 @@ export interface EmbeddingBackend {
  */
 export interface EmbeddingConfig {
   /** Which embedding backend to use */
-  backend: 'jina' | 'ollama' | 'local';
+  backend: 'jina' | 'ollama' | 'gemini' | 'local';
 
   /** Model name/identifier (backend-specific) */
   model?: string;

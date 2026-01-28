@@ -333,9 +333,26 @@ async function getIndexer(): Promise<CodeIndexer> {
       // Load config and secrets to configure embedding backend
       const config = await getConfig();
       const secrets = await loadSecrets(PROJECT_PATH);
+
+      // Determine API key based on configured backend
+      const configuredBackend = config.embedding?.backend;
+      let apiKey: string | undefined;
+      if (configuredBackend === 'gemini') {
+        apiKey = secrets.geminiApiKey || process.env.GEMINI_API_KEY;
+      } else if (configuredBackend === 'jina') {
+        apiKey = secrets.jinaApiKey || process.env.JINA_API_KEY;
+      } else {
+        // For auto-selection, prefer Gemini key if available, then Jina
+        apiKey =
+          secrets.geminiApiKey ||
+          process.env.GEMINI_API_KEY ||
+          secrets.jinaApiKey ||
+          process.env.JINA_API_KEY;
+      }
+
       const backend = await createEmbeddingBackend({
-        backend: config.embedding?.backend,
-        apiKey: secrets.jinaApiKey,
+        backend: configuredBackend,
+        apiKey,
         // Note: Don't pass indexing.batchSize here - that's for progress reporting batches.
         // Ollama backend has its own DEFAULT_BATCH_SIZE (100) for API request batching.
         concurrency: config.embedding?.ollamaConcurrency,

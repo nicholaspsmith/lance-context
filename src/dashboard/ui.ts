@@ -856,7 +856,8 @@ export function getDashboardHTML(): string {
             <label for="backendSelect">Select Backend</label>
             <select id="backendSelect" class="form-select">
               <option value="ollama" selected>Ollama (local)</option>
-              <option value="jina">Jina AI (cloud - requires API key)</option>
+              <option value="gemini">Google Gemini (free - requires API key)</option>
+              <option value="jina">Jina AI (paid - requires API key)</option>
             </select>
           </div>
           <div class="form-group" id="ollamaSettingsGroup">
@@ -891,9 +892,9 @@ export function getDashboardHTML(): string {
             </select>
           </div>
           <div class="form-group" id="apiKeyGroup" style="display: none;">
-            <label for="apiKeyInput">Jina API Key</label>
-            <input type="password" id="apiKeyInput" class="form-input" placeholder="jina_..." />
-            <div class="form-hint">Get your free API key at <a href="https://jina.ai/" target="_blank">jina.ai</a></div>
+            <label for="apiKeyInput" id="apiKeyLabel">API Key</label>
+            <input type="password" id="apiKeyInput" class="form-input" placeholder="" />
+            <div class="form-hint" id="apiKeyHint"></div>
           </div>
           <div class="form-actions">
             <button type="button" id="saveEmbeddingBtn" class="btn btn-primary">Save Settings</button>
@@ -1104,7 +1105,8 @@ export function getDashboardHTML(): string {
       const currentBackend = backendSelect.value;
       const currentConcurrency = concurrencySelect.value;
       const currentBatchSize = batchSizeSelect.value;
-      const hasNewApiKey = currentBackend === 'jina' && apiKeyInput.value.trim() !== '';
+      const needsApiKey = currentBackend === 'jina' || currentBackend === 'gemini';
+      const hasNewApiKey = needsApiKey && apiKeyInput.value.trim() !== '';
 
       return currentBackend !== savedSettings.backend ||
              currentConcurrency !== savedSettings.ollamaConcurrency ||
@@ -1120,9 +1122,37 @@ export function getDashboardHTML(): string {
 
     // Toggle settings visibility based on backend selection
     function updateBackendVisibility() {
-      const isJina = backendSelect.value === 'jina';
-      apiKeyGroup.style.display = isJina ? 'block' : 'none';
-      ollamaSettingsGroup.style.display = isJina ? 'none' : 'block';
+      const backend = backendSelect.value;
+      const needsApiKey = backend === 'jina' || backend === 'gemini';
+      const apiKeyLabel = document.getElementById('apiKeyLabel');
+      const apiKeyHint = document.getElementById('apiKeyHint');
+
+      apiKeyGroup.style.display = needsApiKey ? 'block' : 'none';
+      ollamaSettingsGroup.style.display = backend === 'ollama' ? 'block' : 'none';
+
+      // Update API key label and hint based on backend (static trusted content)
+      if (backend === 'gemini') {
+        apiKeyLabel.textContent = 'Gemini API Key';
+        apiKeyInput.placeholder = 'AIza...';
+        apiKeyHint.textContent = '';
+        const link = document.createElement('a');
+        link.href = 'https://aistudio.google.com/app/apikey';
+        link.target = '_blank';
+        link.textContent = 'Google AI Studio';
+        apiKeyHint.appendChild(document.createTextNode('Get your free API key at '));
+        apiKeyHint.appendChild(link);
+      } else if (backend === 'jina') {
+        apiKeyLabel.textContent = 'Jina API Key';
+        apiKeyInput.placeholder = 'jina_...';
+        apiKeyHint.textContent = '';
+        const link = document.createElement('a');
+        link.href = 'https://jina.ai/';
+        link.target = '_blank';
+        link.textContent = 'jina.ai';
+        apiKeyHint.appendChild(document.createTextNode('Get your API key at '));
+        apiKeyHint.appendChild(link);
+      }
+
       updateSaveButtonVisibility();
     }
     backendSelect.addEventListener('change', updateBackendVisibility);
@@ -1151,7 +1181,7 @@ export function getDashboardHTML(): string {
           updateSaveButtonVisibility();
 
           // Update status badge
-          if (settings.backend === 'jina') {
+          if (settings.backend === 'jina' || settings.backend === 'gemini') {
             if (settings.hasApiKey) {
               embeddingStatus.textContent = 'API Key Set';
               embeddingStatus.className = 'badge success';
@@ -1173,9 +1203,11 @@ export function getDashboardHTML(): string {
     saveEmbeddingBtn.addEventListener('click', async function() {
       const backend = backendSelect.value;
       const apiKey = apiKeyInput.value.trim();
+      const needsApiKey = backend === 'jina' || backend === 'gemini';
 
-      if (backend === 'jina' && !apiKey) {
-        saveStatus.textContent = 'API key required for Jina';
+      if (needsApiKey && !apiKey) {
+        const backendName = backend === 'gemini' ? 'Gemini' : 'Jina';
+        saveStatus.textContent = 'API key required for ' + backendName;
         saveStatus.className = 'save-status error';
         return;
       }
@@ -1190,7 +1222,7 @@ export function getDashboardHTML(): string {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             backend,
-            apiKey: backend === 'jina' ? apiKey : undefined,
+            apiKey: needsApiKey ? apiKey : undefined,
             ollamaConcurrency: parseInt(concurrencySelect.value, 10),
             batchSize: parseInt(batchSizeSelect.value, 10)
           })

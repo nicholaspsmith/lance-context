@@ -1,19 +1,22 @@
 import type { EmbeddingBackend, EmbeddingConfig } from './types.js';
 import { OllamaBackend, DEFAULT_OLLAMA_MODEL } from './ollama.js';
 import { JinaBackend } from './jina.js';
+import { GeminiBackend } from './gemini.js';
 
 export * from './types.js';
 export { chunkArray } from './types.js';
 export { OllamaBackend, DEFAULT_OLLAMA_MODEL } from './ollama.js';
 export { JinaBackend } from './jina.js';
+export { GeminiBackend } from './gemini.js';
 export { RateLimiter, type RateLimiterConfig } from './rate-limiter.js';
 
 /**
  * Create an embedding backend based on configuration and available credentials.
  *
  * Tries backends in priority order:
- * 1. Jina (if JINA_API_KEY environment variable or config.apiKey is set)
- * 2. Ollama (local fallback, requires Ollama to be running)
+ * 1. Gemini (if GEMINI_API_KEY environment variable is set) - free tier, recommended
+ * 2. Jina (if JINA_API_KEY environment variable or config.apiKey is set)
+ * 3. Ollama (local fallback, requires Ollama to be running)
  *
  * @param config - Optional configuration to customize the backend
  * @returns A promise resolving to an initialized embedding backend
@@ -31,6 +34,7 @@ export { RateLimiter, type RateLimiterConfig } from './rate-limiter.js';
 export async function createEmbeddingBackend(
   config?: Partial<EmbeddingConfig>
 ): Promise<EmbeddingBackend> {
+  const geminiKey = config?.apiKey || process.env.GEMINI_API_KEY;
   const jinaKey = config?.apiKey || process.env.JINA_API_KEY;
   const ollamaUrl = config?.baseUrl || process.env.OLLAMA_URL || 'http://localhost:11434';
   const ollamaModel = config?.model || DEFAULT_OLLAMA_MODEL;
@@ -39,7 +43,17 @@ export async function createEmbeddingBackend(
 
   // If explicit backend is specified, use only that backend
   if (config?.backend && config.backend !== 'local') {
-    if (config.backend === 'jina') {
+    if (config.backend === 'gemini') {
+      if (!geminiKey) {
+        throw new Error(
+          'Gemini backend requested but no API key available. Get a free key at https://aistudio.google.com/app/apikey and set GEMINI_API_KEY.'
+        );
+      }
+      const backend = new GeminiBackend({ backend: 'gemini', apiKey: geminiKey, ...config });
+      await backend.initialize();
+      console.error(`[lance-context] Using gemini embedding backend (explicitly configured)`);
+      return backend;
+    } else if (config.backend === 'jina') {
       if (!jinaKey) {
         throw new Error(
           'Jina backend requested but no API key available. Set JINA_API_KEY or provide apiKey in config.'
@@ -66,12 +80,17 @@ export async function createEmbeddingBackend(
   // Auto-select: try backends in priority order
   const backends: Array<() => EmbeddingBackend> = [];
 
-  // Priority 1: Jina (if API key available)
+  // Priority 1: Gemini (if API key available) - free tier, recommended
+  if (geminiKey) {
+    backends.push(() => new GeminiBackend({ backend: 'gemini', apiKey: geminiKey, ...config }));
+  }
+
+  // Priority 2: Jina (if API key available)
   if (jinaKey) {
     backends.push(() => new JinaBackend({ backend: 'jina', apiKey: jinaKey, ...config }));
   }
 
-  // Priority 2: Ollama (local fallback)
+  // Priority 3: Ollama (local fallback)
   backends.push(
     () =>
       new OllamaBackend({
@@ -95,5 +114,7 @@ export async function createEmbeddingBackend(
     }
   }
 
-  throw new Error('No embedding backend available. Set JINA_API_KEY or install Ollama.');
+  throw new Error(
+    'No embedding backend available. Set GEMINI_API_KEY (free), JINA_API_KEY, or install Ollama.'
+  );
 }

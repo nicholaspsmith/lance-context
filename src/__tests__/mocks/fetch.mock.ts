@@ -120,3 +120,29 @@ export function createOllamaBatchEmbeddingResponse(embeddings: number[][]): Mock
     text: async () => JSON.stringify({ embeddings }),
   };
 }
+
+/**
+ * Creates Gemini-style single embedding response (embedContent)
+ */
+export function createGeminiEmbeddingResponse(embedding: number[]): MockFetchResponse {
+  return {
+    ok: true,
+    status: 200,
+    headers: createMockHeaders(),
+    json: async () => ({ embedding: { values: embedding } }),
+    text: async () => JSON.stringify({ embedding: { values: embedding } }),
+  };
+}
+
+/**
+ * Creates Gemini-style batch embedding response (batchEmbedContents)
+ */
+export function createGeminiBatchEmbeddingResponse(embeddings: number[][]): MockFetchResponse {
+  return {
+    ok: true,
+    status: 200,
+    headers: createMockHeaders(),
+    json: async () => ({ embeddings: embeddings.map((values) => ({ values })) }),
+    text: async () => JSON.stringify({ embeddings: embeddings.map((values) => ({ values })) }),
+  };
+}

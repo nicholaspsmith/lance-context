@@ -18,7 +18,7 @@ const SearchConfigSchema = z.object({
 });
 
 const EmbeddingConfigSchema = z.object({
-  backend: z.enum(['jina', 'ollama']).optional(),
+  backend: z.enum(['jina', 'ollama', 'gemini']).optional(),
   model: z.string().optional(),
   /** Number of concurrent requests to Ollama (default: 10). Increase if your system has capacity. */
   ollamaConcurrency: z.number().min(1).max(200).optional(),
@@ -119,7 +119,7 @@ export const DEFAULT_DASHBOARD: Required<DashboardConfig> = {
  */
 export const DEFAULT_INDEXING: Required<IndexingConfig> = {
   batchDelayMs: 0,
-  batchSize: 200,
+  batchSize: 256,
 };
 
 export const DEFAULT_CONFIG: LanceContextConfig = {
@@ -605,6 +605,7 @@ export function getInstructions(config: LanceContextConfig): string | undefined 
  */
 export interface LanceContextSecrets {
   jinaApiKey?: string;
+  geminiApiKey?: string;
 }
 
 /**
@@ -644,7 +645,7 @@ export async function saveSecrets(
  * Embedding settings for dashboard configuration
  */
 export interface EmbeddingSettings {
-  backend: 'jina' | 'ollama';
+  backend: 'jina' | 'ollama' | 'gemini';
   apiKey?: string;
   ollamaUrl?: string;
   /** Number of concurrent requests to Ollama */
@@ -697,7 +698,11 @@ export async function saveEmbeddingSettings(
 
   // Save API key to secrets if provided
   if (settings.apiKey) {
-    await saveSecrets(projectPath, { jinaApiKey: settings.apiKey });
+    if (settings.backend === 'gemini') {
+      await saveSecrets(projectPath, { geminiApiKey: settings.apiKey });
+    } else if (settings.backend === 'jina') {
+      await saveSecrets(projectPath, { jinaApiKey: settings.apiKey });
+    }
   }
 }
 
@@ -705,7 +710,7 @@ export async function saveEmbeddingSettings(
  * Get current embedding settings including secrets
  */
 export async function getEmbeddingSettings(projectPath: string): Promise<{
-  backend: 'jina' | 'ollama';
+  backend: 'jina' | 'ollama' | 'gemini';
   hasApiKey: boolean;
   ollamaUrl?: string;
   ollamaConcurrency: number;
@@ -713,10 +718,19 @@ export async function getEmbeddingSettings(projectPath: string): Promise<{
 }> {
   const config = await loadConfig(projectPath);
   const secrets = await loadSecrets(projectPath);
+  const backend = config.embedding?.backend || 'ollama';
+
+  // Check for API key based on backend
+  let hasApiKey = false;
+  if (backend === 'jina') {
+    hasApiKey = !!(secrets.jinaApiKey || process.env.JINA_API_KEY);
+  } else if (backend === 'gemini') {
+    hasApiKey = !!(secrets.geminiApiKey || process.env.GEMINI_API_KEY);
+  }
 
   return {
-    backend: config.embedding?.backend || 'ollama',
-    hasApiKey: !!(secrets.jinaApiKey || process.env.JINA_API_KEY),
+    backend,
+    hasApiKey,
     ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
     ollamaConcurrency: config.embedding?.ollamaConcurrency || 1,
     batchSize: config.indexing?.batchSize || DEFAULT_INDEXING.batchSize,

@@ -7,6 +7,11 @@ function createTagsResponseWithDefaultModel() {
   return { models: [{ name: DEFAULT_OLLAMA_MODEL }] };
 }
 
+/** Helper to create a mock Gemini embedding response */
+function createGeminiEmbeddingResponse() {
+  return { embedding: { values: [0.1, 0.2] } };
+}
+
 // We need to dynamically import createEmbeddingBackend after setting env vars
 async function getCreateEmbeddingBackend() {
   // Reset module cache to pick up new env vars
@@ -21,6 +26,7 @@ describe('createEmbeddingBackend', () => {
   beforeEach(() => {
     // Clear relevant env vars
     delete process.env.JINA_API_KEY;
+    delete process.env.GEMINI_API_KEY;
     delete process.env.OLLAMA_URL;
   });
 
@@ -32,7 +38,62 @@ describe('createEmbeddingBackend', () => {
   });
 
   describe('priority order', () => {
-    it('should prefer Jina when JINA_API_KEY is set', async () => {
+    it('should prefer Gemini when GEMINI_API_KEY is set', async () => {
+      process.env.GEMINI_API_KEY = 'test-gemini-key';
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => createGeminiEmbeddingResponse(),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const createEmbeddingBackend = await getCreateEmbeddingBackend();
+      const backend = await createEmbeddingBackend();
+
+      expect(backend.name).toBe('gemini');
+    });
+
+    it('should prefer Gemini over Jina when both keys are set', async () => {
+      process.env.GEMINI_API_KEY = 'test-gemini-key';
+      process.env.JINA_API_KEY = 'test-jina-key';
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => createGeminiEmbeddingResponse(),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const createEmbeddingBackend = await getCreateEmbeddingBackend();
+      const backend = await createEmbeddingBackend();
+
+      expect(backend.name).toBe('gemini');
+    });
+
+    it('should fallback to Jina when Gemini fails', async () => {
+      process.env.GEMINI_API_KEY = 'invalid-gemini-key';
+      process.env.JINA_API_KEY = 'test-jina-key';
+
+      const mockFetch = vi
+        .fn()
+        // Gemini fails
+        .mockResolvedValueOnce({ ok: false, status: 401, text: async () => 'Unauthorized' })
+        // Jina succeeds
+        .mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [{ embedding: [0.1] }] }),
+        });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const createEmbeddingBackend = await getCreateEmbeddingBackend();
+      const backend = await createEmbeddingBackend();
+
+      expect(backend.name).toBe('jina');
+    });
+
+    it('should prefer Jina when only JINA_API_KEY is set', async () => {
       process.env.JINA_API_KEY = 'test-jina-key';
 
       const mockFetch = vi.fn().mockResolvedValue({
