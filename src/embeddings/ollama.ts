@@ -131,7 +131,7 @@ export class OllamaBackend implements EmbeddingBackend {
         const batchNum = i + groupIndex + 1;
 
         // Mark batch as running
-        batchStatuses.set(batchNum, 'running...');
+        batchStatuses.set(batchNum, '⏳ running...');
         updateBatchProgress();
 
         const batchStartMsg = `Batch ${batchNum}/${batches.length}: sending ${batch.length} texts...`;
@@ -144,7 +144,7 @@ export class OllamaBackend implements EmbeddingBackend {
           const timeoutMsg = `Batch ${batchNum}/${batches.length}: TIMEOUT after ${DEFAULT_TIMEOUT_MS / 1000}s`;
           console.error(`[lance-context]   ${timeoutMsg}`);
           broadcastLog('error', timeoutMsg);
-          batchStatuses.set(batchNum, 'TIMEOUT');
+          batchStatuses.set(batchNum, '⏱️ TIMEOUT');
           updateBatchProgress();
           controller.abort();
         }, DEFAULT_TIMEOUT_MS);
@@ -170,7 +170,7 @@ export class OllamaBackend implements EmbeddingBackend {
           const batchElapsed = ((Date.now() - batchStart) / 1000).toFixed(1);
 
           // Mark batch as done
-          batchStatuses.set(batchNum, `done (${batchElapsed}s)`);
+          batchStatuses.set(batchNum, `✅ done (${batchElapsed}s)`);
           updateBatchProgress();
 
           const batchDoneMsg = `Batch ${batchNum}/${batches.length}: done in ${batchElapsed}s`;
@@ -182,7 +182,7 @@ export class OllamaBackend implements EmbeddingBackend {
           const batchErrorMsg = `Batch ${batchNum}/${batches.length}: ERROR - ${errorMsg}`;
           console.error(`[lance-context]   ${batchErrorMsg}`);
           broadcastLog('error', batchErrorMsg);
-          batchStatuses.set(batchNum, 'ERROR');
+          batchStatuses.set(batchNum, '❌ ERROR');
           updateBatchProgress();
           throw error;
         } finally {
