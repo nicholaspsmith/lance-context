@@ -1,3 +1,10 @@
+## [1.23.1](https://github.com/nicholaspsmith/lance-context/compare/v1.23.0...v1.23.1) (2026-01-28)
+
+
+### Bug Fixes
+
+* sequential Ollama processing and release to alpha tag ([#93](https://github.com/nicholaspsmith/lance-context/issues/93)) ([e66f239](https://github.com/nicholaspsmith/lance-context/commit/e66f2392932e1d611618f38cb5f059349a007dcc))
+
 # [1.23.0](https://github.com/nicholaspsmith/lance-context/compare/v1.22.1...v1.23.0) (2026-01-28)
 
 
