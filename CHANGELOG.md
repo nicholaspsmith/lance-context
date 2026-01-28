@@ -1,3 +1,10 @@
+# [1.26.0](https://github.com/nicholaspsmith/lance-context/compare/v1.25.1...v1.26.0) (2026-01-28)
+
+
+### Features
+
+* add Google Gemini embedding backend ([#101](https://github.com/nicholaspsmith/lance-context/issues/101)) ([99323b0](https://github.com/nicholaspsmith/lance-context/commit/99323b0fee1cbb73d3b7704465e86446b06122a3))
+
 ## [1.25.1](https://github.com/nicholaspsmith/lance-context/compare/v1.25.0...v1.25.1) (2026-01-28)
 
 
