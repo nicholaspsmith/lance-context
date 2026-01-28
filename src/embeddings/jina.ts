@@ -7,8 +7,15 @@ import { RateLimiter } from './rate-limiter.js';
 const DEFAULT_BATCH_SIZE = 100;
 
 /**
+ * Default Jina API key for lance-context demo/community use.
+ * This key has spend limits configured in Jina's dashboard.
+ * Users can override with their own key via JINA_API_KEY env var or dashboard settings.
+ */
+const DEFAULT_JINA_API_KEY = 'jina_0adabc94b5f446b780b98bef76347d37YdXxtgUn7Qd14baAOXT3CfyU2kQo';
+
+/**
  * Jina AI embedding backend
- * Uses Jina's free API tier for high-quality embeddings
+ * Uses Jina's API for high-quality embeddings
  * Includes client-side rate limiting to prevent API throttling
  */
 export class JinaBackend implements EmbeddingBackend {
@@ -19,13 +26,12 @@ export class JinaBackend implements EmbeddingBackend {
   private dimensions = 1024; // jina-embeddings-v3 default
   private rateLimiter: RateLimiter;
   private batchSize: number;
+  private usingDefaultKey: boolean;
 
   constructor(config: EmbeddingConfig) {
     this.model = config.model || 'jina-embeddings-v3';
-    if (!config.apiKey) {
-      throw new Error('Jina API key is required. Set JINA_API_KEY environment variable.');
-    }
-    this.apiKey = config.apiKey;
+    this.apiKey = config.apiKey || DEFAULT_JINA_API_KEY;
+    this.usingDefaultKey = !config.apiKey;
     this.batchSize = config.batchSize ?? DEFAULT_BATCH_SIZE;
 
     // Initialize rate limiter with configurable or default values
@@ -124,4 +130,13 @@ export class JinaBackend implements EmbeddingBackend {
   getModel(): string {
     return this.model;
   }
+
+  /**
+   * Returns true if using the built-in community API key
+   */
+  isUsingDefaultKey(): boolean {
+    return this.usingDefaultKey;
+  }
 }
+
+export { DEFAULT_JINA_API_KEY };
