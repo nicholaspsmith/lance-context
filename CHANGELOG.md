@@ -1,3 +1,10 @@
+## [1.25.1](https://github.com/nicholaspsmith/lance-context/compare/v1.25.0...v1.25.1) (2026-01-28)
+
+
+### Bug Fixes
+
+* remove embedded Jina API key (security) ([#100](https://github.com/nicholaspsmith/lance-context/issues/100)) ([ade9b43](https://github.com/nicholaspsmith/lance-context/commit/ade9b433a7fd504530225a2e44998cf01082e246))
+
 # [1.25.0](https://github.com/nicholaspsmith/lance-context/compare/v1.24.2...v1.25.0) (2026-01-28)
 
 
