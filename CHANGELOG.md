@@ -1,3 +1,10 @@
+# [1.21.0](https://github.com/nicholaspsmith/lance-context/compare/v1.20.0...v1.21.0) (2026-01-28)
+
+
+### Features
+
+* stream server-side logs to dashboard browser console ([#89](https://github.com/nicholaspsmith/lance-context/issues/89)) ([577ec99](https://github.com/nicholaspsmith/lance-context/commit/577ec99622abea1484770ff7e9439549bc5d47e5))
+
 # [1.20.0](https://github.com/nicholaspsmith/lance-context/compare/v1.19.0...v1.20.0) (2026-01-28)
 
 
