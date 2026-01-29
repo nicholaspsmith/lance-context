@@ -93,10 +93,11 @@ export function chunkArray<T>(array: T[], size: number): T[][] {
 }
 
 /**
- * Default embedding configuration using local Ollama with nomic-embed-text model.
+ * Default embedding configuration using Google Gemini.
+ * Gemini offers a free tier with 1500 RPM.
+ * Get API key at: https://aistudio.google.com/app/apikey
  */
 export const DEFAULT_CONFIG: EmbeddingConfig = {
-  backend: 'ollama',
-  model: 'nomic-embed-text',
-  baseUrl: 'http://localhost:11434',
+  backend: 'gemini',
+  model: 'gemini-embedding-001',
 };

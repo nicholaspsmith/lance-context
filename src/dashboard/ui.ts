@@ -855,8 +855,8 @@ export function getDashboardHTML(): string {
           <div class="form-group">
             <label for="backendSelect">Select Backend</label>
             <select id="backendSelect" class="form-select">
-              <option value="ollama" selected>Ollama (local)</option>
-              <option value="gemini">Google Gemini (free - requires API key)</option>
+              <option value="ollama">Ollama (local)</option>
+              <option value="gemini" selected>Google Gemini (free - requires API key)</option>
               <option value="jina">Jina AI (paid - requires API key)</option>
             </select>
           </div>
@@ -1098,7 +1098,7 @@ export function getDashboardHTML(): string {
     const saveStatus = document.getElementById('saveStatus');
 
     // Track saved settings to detect changes
-    let savedSettings = { backend: 'ollama', ollamaConcurrency: '1', batchSize: '256' };
+    let savedSettings = { backend: 'gemini', ollamaConcurrency: '1', batchSize: '256' };
 
     // Check if current form values differ from saved settings
     function hasSettingsChanged() {
@@ -1166,7 +1166,7 @@ export function getDashboardHTML(): string {
         const response = await fetch('/api/settings/embedding');
         if (response.ok) {
           const settings = await response.json();
-          const backend = settings.backend || 'ollama';
+          const backend = settings.backend || 'gemini';
           const concurrency = String(settings.ollamaConcurrency || 1);
           const batchSize = String(settings.batchSize || 256);
 
