@@ -135,9 +135,9 @@ function recordBrowserOpened(projectPath: string): void {
 /**
  * Open a URL in the user's default browser (cross-platform)
  */
-function openBrowser(url: string, projectPath: string): void {
-  // Don't open if already opened recently
-  if (wasBrowserRecentlyOpened(projectPath)) {
+function openBrowser(url: string, projectPath: string, force: boolean = false): void {
+  // Don't open if already opened recently (unless forced)
+  if (!force && wasBrowserRecentlyOpened(projectPath)) {
     console.error('[lance-context] Dashboard was recently opened, skipping');
     return;
   }
@@ -168,7 +168,7 @@ function openBrowser(url: string, projectPath: string): void {
   });
 }
 
-const PROJECT_PATH = process.env.LANCE_CONTEXT_PROJECT || process.cwd();
+const PROJECT_PATH = path.resolve(process.env.LANCE_CONTEXT_PROJECT || process.cwd());
 
 /**
  * Brief guidance appended to tool responses to reinforce tool selection preferences.
@@ -1033,7 +1033,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           'Open the lance-context dashboard in the default browser. Starts the dashboard server if not already running. Works even when dashboard auto-start is disabled in config.',
         inputSchema: {
           type: 'object',
-          properties: {},
+          properties: {
+            force: {
+              type: 'boolean',
+              description:
+                'Force open the browser even if it was recently opened. Bypasses the 1-hour cooldown.',
+            },
+          },
         },
       },
     ],
@@ -2247,11 +2253,13 @@ ${conceptList}`;
 
       // --- Dashboard Tools ---
       case 'open_dashboard': {
+        const force = isBoolean(args?.force) ? args.force : false;
+
         // Check if dashboard is already running
         if (isDashboardRunning()) {
           const url = getDashboardUrl();
           if (url) {
-            openBrowser(url, PROJECT_PATH);
+            openBrowser(url, PROJECT_PATH, force);
             return {
               content: [
                 {
@@ -2271,7 +2279,7 @@ ${conceptList}`;
             projectPath: PROJECT_PATH,
             version: PACKAGE_VERSION,
           });
-          openBrowser(dashboard.url, PROJECT_PATH);
+          openBrowser(dashboard.url, PROJECT_PATH, force);
           return {
             content: [
               {
