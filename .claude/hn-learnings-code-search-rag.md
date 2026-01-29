@@ -137,7 +137,7 @@ Then embed **both** the code and description, or use the description as the prim
 ### Embedding Models
 - **nomic-embed-text** (Ollama) — Already using, good local option
 - **text-embedding-3-small** (OpenAI) — Already supported
-- **jina-embeddings-v3** — Already supported
+- **gemini-embedding-001** — Already supported (free tier)
 - **sentence-transformers/all-MiniLM-L6-v2** — Fast, decent quality
 
 ### Code-Specific Tools

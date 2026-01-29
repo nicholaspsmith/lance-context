@@ -78,24 +78,6 @@ export function createSequentialFetch(
 }
 
 /**
- * Creates Jina-style embedding response
- */
-export function createJinaEmbeddingResponse(embeddings: number[][]): MockFetchResponse {
-  return {
-    ok: true,
-    status: 200,
-    headers: createMockHeaders(),
-    json: async () => ({
-      data: embeddings.map((embedding) => ({ embedding })),
-    }),
-    text: async () =>
-      JSON.stringify({
-        data: embeddings.map((embedding) => ({ embedding })),
-      }),
-  };
-}
-
-/**
  * Creates Ollama-style embedding response (legacy single embedding)
  */
 export function createOllamaEmbeddingResponse(embedding: number[]): MockFetchResponse {

@@ -18,7 +18,7 @@ const SearchConfigSchema = z.object({
 });
 
 const EmbeddingConfigSchema = z.object({
-  backend: z.enum(['jina', 'ollama', 'gemini']).optional(),
+  backend: z.enum(['ollama', 'gemini']).optional(),
   model: z.string().optional(),
   /** Number of concurrent requests to Ollama (default: 10). Increase if your system has capacity. */
   ollamaConcurrency: z.number().min(1).max(200).optional(),
@@ -604,7 +604,6 @@ export function getInstructions(config: LanceContextConfig): string | undefined 
  * Secrets stored separately from main config (should be gitignored)
  */
 export interface LanceContextSecrets {
-  jinaApiKey?: string;
   geminiApiKey?: string;
 }
 
@@ -645,7 +644,7 @@ export async function saveSecrets(
  * Embedding settings for dashboard configuration
  */
 export interface EmbeddingSettings {
-  backend: 'jina' | 'ollama' | 'gemini';
+  backend: 'ollama' | 'gemini';
   apiKey?: string;
   ollamaUrl?: string;
   /** Number of concurrent requests to Ollama */
@@ -700,8 +699,6 @@ export async function saveEmbeddingSettings(
   if (settings.apiKey) {
     if (settings.backend === 'gemini') {
       await saveSecrets(projectPath, { geminiApiKey: settings.apiKey });
-    } else if (settings.backend === 'jina') {
-      await saveSecrets(projectPath, { jinaApiKey: settings.apiKey });
     }
   }
 }
@@ -710,7 +707,7 @@ export async function saveEmbeddingSettings(
  * Get current embedding settings including secrets
  */
 export async function getEmbeddingSettings(projectPath: string): Promise<{
-  backend: 'jina' | 'ollama' | 'gemini';
+  backend: 'ollama' | 'gemini';
   hasApiKey: boolean;
   ollamaUrl?: string;
   ollamaConcurrency: number;
@@ -722,9 +719,7 @@ export async function getEmbeddingSettings(projectPath: string): Promise<{
 
   // Check for API key based on backend
   let hasApiKey = false;
-  if (backend === 'jina') {
-    hasApiKey = !!(secrets.jinaApiKey || process.env.JINA_API_KEY);
-  } else if (backend === 'gemini') {
+  if (backend === 'gemini') {
     hasApiKey = !!(secrets.geminiApiKey || process.env.GEMINI_API_KEY);
   }
 

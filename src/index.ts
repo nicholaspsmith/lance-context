@@ -339,15 +339,9 @@ async function getIndexer(): Promise<CodeIndexer> {
       let apiKey: string | undefined;
       if (configuredBackend === 'gemini') {
         apiKey = secrets.geminiApiKey || process.env.GEMINI_API_KEY;
-      } else if (configuredBackend === 'jina') {
-        apiKey = secrets.jinaApiKey || process.env.JINA_API_KEY;
       } else {
-        // For auto-selection, prefer Gemini key if available, then Jina
-        apiKey =
-          secrets.geminiApiKey ||
-          process.env.GEMINI_API_KEY ||
-          secrets.jinaApiKey ||
-          process.env.JINA_API_KEY;
+        // For auto-selection, use Gemini key if available
+        apiKey = secrets.geminiApiKey || process.env.GEMINI_API_KEY;
       }
 
       const backend = await createEmbeddingBackend({

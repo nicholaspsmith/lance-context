@@ -28,7 +28,7 @@ An MCP plugin that adds semantic code search to Claude Code and other AI coding 
 ## Features
 
 - **Semantic Code Search**: Natural language queries locate relevant code across your entire codebase
-- **Multiple Embedding Backends**: Jina v3 API or Ollama (local)
+- **Multiple Embedding Backends**: Google Gemini (free) or Ollama (local)
 - **LanceDB Vector Storage**: Fast, efficient vector search with hybrid BM25 + dense matching
 - **MCP Compatible**: Works with Claude Code, Cursor, and other MCP-compatible tools
 - **Web Dashboard**: Real-time monitoring of index status, configuration, and usage statistics
@@ -107,7 +107,7 @@ For most projects, you only need to specify what to include:
   "patterns": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
   "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/*.test.ts"],
   "embedding": {
-    "backend": "jina"
+    "backend": "gemini"
   },
   "chunking": {
     "maxLines": 100,
@@ -132,7 +132,7 @@ For most projects, you only need to specify what to include:
 |--------|-------------|---------|
 | `patterns` | Glob patterns for files to index | `["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py", "**/*.go", "**/*.rs", "**/*.java", "**/*.rb", "**/*.php", "**/*.c", "**/*.cpp", "**/*.h", "**/*.hpp", "**/*.cs", "**/*.swift", "**/*.kt"]` |
 | `excludePatterns` | Glob patterns for files to exclude | `["**/node_modules/**", "**/dist/**", "**/.git/**", "**/build/**", "**/target/**", "**/__pycache__/**", "**/venv/**", "**/.venv/**", "**/vendor/**", "**/*.min.js", "**/*.min.css"]` |
-| `embedding.backend` | Embedding provider: `"jina"` or `"ollama"` | Auto-detect based on available API keys |
+| `embedding.backend` | Embedding provider: `"gemini"` or `"ollama"` | Auto-detect based on available API keys |
 | `embedding.model` | Override the default embedding model | Backend default |
 | `embedding.ollamaConcurrency` | Max concurrent Ollama requests (1-200) | `100` |
 | `indexing.batchSize` | Texts per embedding batch request (1-1000) | `200` |
@@ -151,7 +151,7 @@ Without a `.lance-context.json` file, lance-context will:
 
 - Index common source code files (TypeScript, JavaScript, Python, Go, Rust, Java, Ruby, PHP, C/C++, C#, Swift, Kotlin)
 - Exclude build artifacts, dependencies, and generated files
-- Use Jina embeddings if `JINA_API_KEY` is set, otherwise use local Ollama with `qwen3-embedding:0.6b`
+- Use Gemini embeddings if `GEMINI_API_KEY` is set, otherwise use local Ollama with `qwen3-embedding:0.6b`
 - Split code into 100-line chunks with 20-line overlap
 - Use hybrid search with 70% semantic / 30% keyword weighting
 - Start the dashboard on port 24300
@@ -162,14 +162,14 @@ Set these environment variables to configure embedding backends:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `JINA_API_KEY` | Jina AI API key for cloud embeddings ([free tier available](https://jina.ai/)) | None |
+| `GEMINI_API_KEY` | Google Gemini API key for cloud embeddings ([free tier available](https://aistudio.google.com/app/apikey)) | None |
 | `OLLAMA_URL` | Custom Ollama server URL for local embeddings | `http://localhost:11434` |
 | `LANCE_CONTEXT_PROJECT` | Override the project path to index | Current working directory |
 
 **Backend Selection Priority:**
 
 1. If `embedding.backend` is set in config, use that backend
-2. If `JINA_API_KEY` is set, use Jina
+2. If `GEMINI_API_KEY` is set, use Gemini
 3. Fall back to Ollama (must be running locally)
 
 ## Architecture
@@ -189,7 +189,7 @@ Set these environment variables to configure embedding backends:
                   │
 ┌─────────────────▼───────────────────────────────────────────┐
 │              Embedding Backends (embeddings/)               │
-│            Jina v3  │  Ollama (local)                       │
+│            Gemini  │  Ollama (local)                        │
 └─────────────────┬───────────────────────────────────────────┘
                   │
 ┌─────────────────▼───────────────────────────────────────────┐
@@ -202,9 +202,9 @@ Set these environment variables to configure embedding backends:
 
 lance-context automatically selects the best available backend (in priority order):
 
-1. **Jina v3** (if `JINA_API_KEY` is set, free tier available but rate-limited)
+1. **Google Gemini** (if `GEMINI_API_KEY` is set, free tier available)
    ```bash
-   export JINA_API_KEY=jina_...
+   export GEMINI_API_KEY=AIza...
    ```
 
 2. **Ollama** (recommended for most users - free, local, no rate limits)
@@ -232,7 +232,7 @@ Ollama provides free, local embeddings with no API rate limits. Perfect for inde
    ollama run qwen3-embedding:0.6b "test"
    ```
 
-That's it! lance-context will automatically use Ollama when no Jina API key is set.
+That's it! lance-context will automatically use Ollama when no Gemini API key is set.
 
 #### Model Options
 
@@ -366,11 +366,11 @@ This error means no API keys are set and Ollama is not running/accessible.
    # Install from https://ollama.com, then:
    ollama pull qwen3-embedding:0.6b
    ```
-2. Or set a Jina API key: `export JINA_API_KEY=jina_...`
+2. Or set a Gemini API key: `export GEMINI_API_KEY=AIza...`
 
 ### "Embedding dimension mismatch"
 
-This occurs when switching between embedding backends (e.g., from Jina to OpenAI). Each backend produces different vector dimensions.
+This occurs when switching between embedding backends (e.g., from Gemini to Ollama). Each backend produces different vector dimensions.
 
 **Solution:** Force a full reindex:
 ```
@@ -416,7 +416,7 @@ Contributions welcome! Please read our [Contributing Guide](CONTRIBUTING.md) bef
 Built with:
 - [LanceDB](https://lancedb.github.io/lancedb/) - Vector database
 - [MCP SDK](https://github.com/modelcontextprotocol/sdk) - Model Context Protocol
-- [Jina AI](https://jina.ai/) - Embedding API
+- [Google AI Studio](https://aistudio.google.com/) - Gemini Embedding API
 
 Inspired by:
 - [Serena](https://github.com/oraios/serena) by [Oraios](https://github.com/oraios) - Symbol-level code navigation and editing

@@ -1001,7 +1001,6 @@ export function getDashboardHTML(): string {
             <select id="backendSelect" class="form-select">
               <option value="ollama">Ollama (local)</option>
               <option value="gemini" selected>Google Gemini (free - requires API key)</option>
-              <option value="jina">Jina AI (paid - requires API key)</option>
             </select>
           </div>
           <div class="form-group" id="ollamaSettingsGroup">
@@ -1280,7 +1279,7 @@ export function getDashboardHTML(): string {
       const currentBackend = backendSelect.value;
       const currentConcurrency = concurrencySelect.value;
       const currentBatchSize = batchSizeSelect.value;
-      const needsApiKey = currentBackend === 'jina' || currentBackend === 'gemini';
+      const needsApiKey = currentBackend === 'gemini';
       const hasNewApiKey = needsApiKey && apiKeyInput.value.trim() !== '';
 
       return currentBackend !== savedSettings.backend ||
@@ -1298,7 +1297,7 @@ export function getDashboardHTML(): string {
     // Toggle settings visibility based on backend selection
     function updateBackendVisibility() {
       const backend = backendSelect.value;
-      const needsApiKey = backend === 'jina' || backend === 'gemini';
+      const needsApiKey = backend === 'gemini';
       const apiKeyLabel = document.getElementById('apiKeyLabel');
       const apiKeyHint = document.getElementById('apiKeyHint');
 
@@ -1315,16 +1314,6 @@ export function getDashboardHTML(): string {
         link.target = '_blank';
         link.textContent = 'Google AI Studio';
         apiKeyHint.appendChild(document.createTextNode('Get your free API key at '));
-        apiKeyHint.appendChild(link);
-      } else if (backend === 'jina') {
-        apiKeyLabel.textContent = 'Jina API Key';
-        apiKeyInput.placeholder = 'jina_...';
-        apiKeyHint.textContent = '';
-        const link = document.createElement('a');
-        link.href = 'https://jina.ai/';
-        link.target = '_blank';
-        link.textContent = 'jina.ai';
-        apiKeyHint.appendChild(document.createTextNode('Get your API key at '));
         apiKeyHint.appendChild(link);
       }
 
@@ -1356,7 +1345,7 @@ export function getDashboardHTML(): string {
           updateSaveButtonVisibility();
 
           // Update status badge
-          if (settings.backend === 'jina' || settings.backend === 'gemini') {
+          if (settings.backend === 'gemini') {
             if (settings.hasApiKey) {
               embeddingStatus.textContent = 'API Key Set';
               embeddingStatus.className = 'badge success';
@@ -1378,11 +1367,10 @@ export function getDashboardHTML(): string {
     saveEmbeddingBtn.addEventListener('click', async function() {
       const backend = backendSelect.value;
       const apiKey = apiKeyInput.value.trim();
-      const needsApiKey = backend === 'jina' || backend === 'gemini';
+      const needsApiKey = backend === 'gemini';
 
       if (needsApiKey && !apiKey) {
-        const backendName = backend === 'gemini' ? 'Gemini' : 'Jina';
-        saveStatus.textContent = 'API key required for ' + backendName;
+        saveStatus.textContent = 'API key required for Gemini';
         saveStatus.className = 'save-status error';
         return;
       }

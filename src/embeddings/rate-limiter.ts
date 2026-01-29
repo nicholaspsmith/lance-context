@@ -15,7 +15,7 @@ export interface RateLimiterConfig {
 
 /**
  * Default rate limiter configuration
- * Jina free tier allows ~500 RPM, so we use a conservative 5 RPS
+ * Conservative default suitable for most API rate limits
  */
 export const DEFAULT_RATE_LIMITER_CONFIG: Required<RateLimiterConfig> = {
   requestsPerSecond: 5,
