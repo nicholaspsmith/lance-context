@@ -3,7 +3,7 @@
  * Supports both single text and batch embedding operations.
  */
 export interface EmbeddingBackend {
-  /** Display name of the embedding backend (e.g., 'jina', 'ollama') */
+  /** Display name of the embedding backend (e.g., 'gemini', 'ollama') */
   name: string;
 
   /**
@@ -35,7 +35,7 @@ export interface EmbeddingBackend {
 
   /**
    * Get the model identifier used by this backend.
-   * @returns The model name/identifier (e.g., 'nomic-embed-text', 'jina-embeddings-v3')
+   * @returns The model name/identifier (e.g., 'nomic-embed-text', 'gemini-embedding-001')
    */
   getModel(): string;
 }
@@ -45,18 +45,18 @@ export interface EmbeddingBackend {
  */
 export interface EmbeddingConfig {
   /** Which embedding backend to use */
-  backend: 'jina' | 'ollama' | 'gemini' | 'local';
+  backend: 'ollama' | 'gemini' | 'local';
 
   /** Model name/identifier (backend-specific) */
   model?: string;
 
-  /** API key for cloud-based backends (Jina) */
+  /** API key for cloud-based backends (Gemini) */
   apiKey?: string;
 
   /** Base URL for the embedding API (useful for Ollama or custom endpoints) */
   baseUrl?: string;
 
-  /** Rate limiting: maximum requests per second (default: 5 for Jina) */
+  /** Rate limiting: maximum requests per second */
   rateLimitRps?: number;
 
   /** Rate limiting: maximum burst capacity (default: 10) */
@@ -66,7 +66,7 @@ export interface EmbeddingConfig {
    * Maximum number of texts to process in a single batch request.
    * Large batches are automatically split into smaller chunks to prevent
    * timeouts, memory issues, and API rate limit errors.
-   * Default: 100 for Jina, 100 for Ollama
+   * Default: 100 for Ollama
    */
   batchSize?: number;
 

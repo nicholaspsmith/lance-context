@@ -10,7 +10,7 @@
 - Whisper API
 - Any other OpenAI service
 
-Use Jina or Ollama for embeddings instead.
+Use Gemini or Ollama for embeddings instead.
 
 ## Semantic Code Search
 

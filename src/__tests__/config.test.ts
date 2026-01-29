@@ -233,7 +233,7 @@ describe('config', () => {
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const invalidConfig = {
         embedding: {
-          backend: 'invalid-backend', // not 'jina' or 'ollama'
+          backend: 'invalid-backend', // not 'ollama' or 'gemini'
         },
       };
       vi.mocked(fs.readFile).mockResolvedValueOnce(JSON.stringify(invalidConfig));

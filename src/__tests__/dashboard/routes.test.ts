@@ -65,7 +65,7 @@ describe('Dashboard Routes', () => {
           chunkCount: 50,
           lastUpdated: '2024-01-01T00:00:00.000Z',
           indexPath: '/test/.lance-context',
-          embeddingBackend: 'jina',
+          embeddingBackend: 'gemini',
         }),
       };
       dashboardState.setIndexer(mockIndexer as never);
