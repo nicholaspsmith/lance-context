@@ -1,3 +1,10 @@
+# [1.29.0](https://github.com/nicholaspsmith/lance-context/compare/v1.28.1...v1.29.0) (2026-01-29)
+
+
+### Features
+
+* add server log panel to dashboard ([#110](https://github.com/nicholaspsmith/lance-context/issues/110)) ([1f7d489](https://github.com/nicholaspsmith/lance-context/commit/1f7d48916df0bddb62e6e4c7b66c80c1ef36901f))
+
 ## [1.28.1](https://github.com/nicholaspsmith/lance-context/compare/v1.28.0...v1.28.1) (2026-01-29)
 
 
