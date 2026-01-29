@@ -143,25 +143,40 @@ export class GeminiBackend implements EmbeddingBackend {
    */
   private async embedBatchDirect(texts: string[]): Promise<number[][]> {
     // Acquire a rate limit token before making the request
+    console.error(`[lance-context] Gemini: acquiring rate limit token...`);
     await this.rateLimiter.acquire();
+    console.error(`[lance-context] Gemini: rate limit token acquired`);
 
     const url = `${this.baseUrl}/models/${this.model}:batchEmbedContents`;
+    const requestBody = JSON.stringify({
+      requests: texts.map((text) => ({
+        model: `models/${this.model}`,
+        content: {
+          parts: [{ text }],
+        },
+        outputDimensionality: this.dimensions,
+      })),
+    });
+
+    const payloadSizeKb = (requestBody.length / 1024).toFixed(1);
+    console.error(
+      `[lance-context] Gemini: sending batch request (${texts.length} texts, ${payloadSizeKb} KB payload)...`
+    );
+
+    const fetchStart = Date.now();
     const response = await fetchWithRetry(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-goog-api-key': this.apiKey,
       },
-      body: JSON.stringify({
-        requests: texts.map((text) => ({
-          model: `models/${this.model}`,
-          content: {
-            parts: [{ text }],
-          },
-          outputDimensionality: this.dimensions,
-        })),
-      }),
+      body: requestBody,
     });
+
+    const fetchTime = ((Date.now() - fetchStart) / 1000).toFixed(1);
+    console.error(
+      `[lance-context] Gemini: received response in ${fetchTime}s (status: ${response.status})`
+    );
 
     if (!response.ok) {
       const error = await response.text();
