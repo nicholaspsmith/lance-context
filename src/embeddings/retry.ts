@@ -21,9 +21,9 @@ const DEFAULT_MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 60000;
 
 const DEFAULT_OPTIONS: Required<RetryOptions> = {
-  maxRetries: 3,
+  maxRetries: 5,
   baseDelayMs: 1000,
-  maxDelayMs: 10000,
+  maxDelayMs: 60000,
   maxResponseSizeBytes: DEFAULT_MAX_RESPONSE_SIZE,
   timeoutMs: DEFAULT_TIMEOUT_MS,
 };
@@ -108,6 +108,57 @@ function isRetryableStatus(status: number): boolean {
 }
 
 /**
+ * Parse Retry-After header value
+ * Returns delay in milliseconds, or null if not present/parseable
+ */
+function parseRetryAfter(response: Response): number | null {
+  const retryAfter = response.headers?.get?.('retry-after');
+  if (!retryAfter) {
+    return null;
+  }
+
+  // Try parsing as number of seconds
+  const seconds = parseInt(retryAfter, 10);
+  if (!isNaN(seconds) && seconds > 0) {
+    return seconds * 1000;
+  }
+
+  // Try parsing as HTTP date
+  const date = Date.parse(retryAfter);
+  if (!isNaN(date)) {
+    const delayMs = date - Date.now();
+    return delayMs > 0 ? delayMs : null;
+  }
+
+  return null;
+}
+
+/**
+ * Calculate retry delay, respecting Retry-After header for 429 errors
+ */
+function calculateRetryDelay(
+  response: Response,
+  attempt: number,
+  opts: Required<RetryOptions>
+): number {
+  // For 429 errors, check Retry-After header first
+  if (response.status === 429) {
+    const retryAfter = parseRetryAfter(response);
+    if (retryAfter !== null) {
+      // Use Retry-After value, but cap at maxDelayMs and add small jitter
+      const jitter = Math.random() * 1000;
+      return Math.min(retryAfter + jitter, opts.maxDelayMs);
+    }
+    // No Retry-After header - use longer base delay for rate limits
+    const rateLimitBaseDelay = Math.max(opts.baseDelayMs * 2, 2000);
+    return Math.min(rateLimitBaseDelay * Math.pow(2, attempt), opts.maxDelayMs);
+  }
+
+  // Standard exponential backoff for other errors
+  return Math.min(opts.baseDelayMs * Math.pow(2, attempt), opts.maxDelayMs);
+}
+
+/**
  * Execute a fetch request with exponential backoff retry
  */
 export async function fetchWithRetry(
@@ -140,10 +191,11 @@ export async function fetchWithRetry(
 
       // Retryable status code
       if (attempt < opts.maxRetries) {
-        const delay = Math.min(opts.baseDelayMs * Math.pow(2, attempt), opts.maxDelayMs);
+        const delay = calculateRetryDelay(response, attempt, opts);
+        const retryAfterInfo = response.status === 429 ? ' (rate limited)' : '';
         logRetry(
           'warn',
-          `Request failed with status ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${opts.maxRetries})`
+          `Request failed with status ${response.status}${retryAfterInfo}, retrying in ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/${opts.maxRetries})`
         );
         await sleep(delay);
         continue;

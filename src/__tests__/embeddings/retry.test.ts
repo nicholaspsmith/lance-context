@@ -55,8 +55,8 @@ describe('fetchWithRetry', () => {
       await vi.advanceTimersByTimeAsync(0);
       expect(mockFetch).toHaveBeenCalledTimes(1);
 
-      // Wait for retry delay (1000ms base)
-      await vi.advanceTimersByTimeAsync(1000);
+      // Wait for retry delay (2000ms base for 429 rate limit errors)
+      await vi.advanceTimersByTimeAsync(2000);
 
       const response = await responsePromise;
       expect(response.ok).toBe(true);
@@ -113,12 +113,13 @@ describe('fetchWithRetry', () => {
   });
 
   describe('exponential backoff', () => {
-    it('should use exponential backoff timing', async () => {
+    it('should use exponential backoff timing for server errors', async () => {
+      // Use 500 status to test standard exponential backoff (429 has special handling)
       const mockFetch = vi
         .fn()
-        .mockResolvedValueOnce({ ok: false, status: 429 })
-        .mockResolvedValueOnce({ ok: false, status: 429 })
-        .mockResolvedValueOnce({ ok: false, status: 429 })
+        .mockResolvedValueOnce({ ok: false, status: 500 })
+        .mockResolvedValueOnce({ ok: false, status: 500 })
+        .mockResolvedValueOnce({ ok: false, status: 500 })
         .mockResolvedValueOnce({ ok: true, status: 200 });
       vi.stubGlobal('fetch', mockFetch);
 
@@ -150,12 +151,46 @@ describe('fetchWithRetry', () => {
       expect(response.ok).toBe(true);
     });
 
-    it('should respect maxDelayMs', async () => {
+    it('should use longer backoff for 429 rate limit errors', async () => {
+      // 429 errors use 2x base delay (min 2000ms) for more graceful rate limiting
       const mockFetch = vi
         .fn()
         .mockResolvedValueOnce({ ok: false, status: 429 })
         .mockResolvedValueOnce({ ok: false, status: 429 })
-        .mockResolvedValueOnce({ ok: false, status: 429 })
+        .mockResolvedValueOnce({ ok: true, status: 200 });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const responsePromise = fetchWithRetry(
+        'https://api.test.com',
+        {},
+        {
+          maxRetries: 3,
+          baseDelayMs: 1000,
+        }
+      );
+
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      // First retry: 2000ms (2x base delay for rate limits)
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      // Second retry: 4000ms (2000 * 2^1)
+      await vi.advanceTimersByTimeAsync(4000);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+
+      const response = await responsePromise;
+      expect(response.ok).toBe(true);
+    });
+
+    it('should respect maxDelayMs for server errors', async () => {
+      // Use 500 status to test standard maxDelayMs behavior
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, status: 500 })
+        .mockResolvedValueOnce({ ok: false, status: 500 })
+        .mockResolvedValueOnce({ ok: false, status: 500 })
         .mockResolvedValueOnce({ ok: true, status: 200 });
       vi.stubGlobal('fetch', mockFetch);
 
@@ -196,9 +231,9 @@ describe('fetchWithRetry', () => {
 
       const responsePromise = fetchWithRetry('https://api.test.com', {}, { maxRetries: 2 });
 
-      // Process all retries
-      await vi.advanceTimersByTimeAsync(1000); // First retry
-      await vi.advanceTimersByTimeAsync(2000); // Second retry
+      // Process all retries (429 uses 2x base delay, min 2000ms)
+      await vi.advanceTimersByTimeAsync(2000); // First retry
+      await vi.advanceTimersByTimeAsync(4000); // Second retry
 
       const response = await responsePromise;
       expect(response.ok).toBe(false);
@@ -325,19 +360,82 @@ describe('fetchWithRetry', () => {
   });
 
   describe('default options', () => {
-    it('should use default maxRetries of 3', async () => {
+    it('should use default maxRetries of 5', async () => {
       const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 429 });
       vi.stubGlobal('fetch', mockFetch);
 
       const responsePromise = fetchWithRetry('https://api.test.com', {});
 
-      // Process all retries with default baseDelayMs of 1000
-      await vi.advanceTimersByTimeAsync(1000); // Retry 1
-      await vi.advanceTimersByTimeAsync(2000); // Retry 2
-      await vi.advanceTimersByTimeAsync(4000); // Retry 3
+      // Process all retries (429 uses 2x base delay, min 2000ms for rate limits)
+      // Delays: 2s, 4s, 8s, 16s, 32s (but capped at 60s maxDelay)
+      await vi.advanceTimersByTimeAsync(2000); // Retry 1
+      await vi.advanceTimersByTimeAsync(4000); // Retry 2
+      await vi.advanceTimersByTimeAsync(8000); // Retry 3
+      await vi.advanceTimersByTimeAsync(16000); // Retry 4
+      await vi.advanceTimersByTimeAsync(32000); // Retry 5
 
       await responsePromise;
-      expect(mockFetch).toHaveBeenCalledTimes(4); // Initial + 3 retries
+      expect(mockFetch).toHaveBeenCalledTimes(6); // Initial + 5 retries
+    });
+  });
+
+  describe('Retry-After header', () => {
+    it('should respect Retry-After header in seconds', async () => {
+      const mockResponse = {
+        ok: false,
+        status: 429,
+        headers: {
+          get: (name: string) => (name.toLowerCase() === 'retry-after' ? '5' : null),
+        },
+      };
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse)
+        .mockResolvedValueOnce({ ok: true, status: 200 });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const responsePromise = fetchWithRetry('https://api.test.com', {}, { maxRetries: 3 });
+
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      // Should wait ~5 seconds (5000ms) plus small jitter (up to 1000ms)
+      await vi.advanceTimersByTimeAsync(6000);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      const response = await responsePromise;
+      expect(response.ok).toBe(true);
+    });
+
+    it('should cap Retry-After at maxDelayMs', async () => {
+      const mockResponse = {
+        ok: false,
+        status: 429,
+        headers: {
+          get: (name: string) => (name.toLowerCase() === 'retry-after' ? '120' : null),
+        },
+      };
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse)
+        .mockResolvedValueOnce({ ok: true, status: 200 });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const responsePromise = fetchWithRetry(
+        'https://api.test.com',
+        {},
+        { maxRetries: 3, maxDelayMs: 10000 }
+      );
+
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      // Should be capped at maxDelayMs (10000ms) even though Retry-After says 120s
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      const response = await responsePromise;
+      expect(response.ok).toBe(true);
     });
   });
 });
