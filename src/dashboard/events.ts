@@ -209,6 +209,14 @@ export function updateProgressMessage(message: string): void {
 }
 
 /**
+ * Update sub-progress within the current phase with percentage.
+ * Allows embedding backends to report their own progress with a working progress bar.
+ */
+export function updateSubProgress(current: number, total: number, message: string): void {
+  dashboardState.updateSubProgress(current, total, message);
+}
+
+/**
  * Singleton instance of the SSE manager
  */
 export const sseManager = new SSEManager();
