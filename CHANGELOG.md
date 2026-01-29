@@ -1,3 +1,10 @@
+## [1.27.1](https://github.com/nicholaspsmith/lance-context/compare/v1.27.0...v1.27.1) (2026-01-29)
+
+
+### Bug Fixes
+
+* enable progress bar for Gemini backend ([#105](https://github.com/nicholaspsmith/lance-context/issues/105)) ([b522f4e](https://github.com/nicholaspsmith/lance-context/commit/b522f4ecc84037717100f1909de05af811ed1fa3))
+
 # [1.27.0](https://github.com/nicholaspsmith/lance-context/compare/v1.26.2...v1.27.0) (2026-01-29)
 
 
