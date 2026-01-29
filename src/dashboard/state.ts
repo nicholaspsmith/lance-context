@@ -302,6 +302,39 @@ export class DashboardStateManager extends EventEmitter {
   }
 
   /**
+   * Trigger a reindex of the codebase.
+   * Returns a promise that resolves when indexing completes.
+   */
+  async triggerReindex(
+    forceReindex: boolean = false
+  ): Promise<{ filesIndexed: number; chunksCreated: number } | null> {
+    if (!this.indexer || !this.config) {
+      return null;
+    }
+
+    if (this.isIndexing) {
+      throw new Error('Indexing is already in progress');
+    }
+
+    this.onIndexingStart();
+
+    try {
+      const result = await this.indexer.indexCodebase(
+        this.config.patterns,
+        this.config.excludePatterns,
+        forceReindex,
+        (progress) => this.onProgress(progress)
+      );
+      this.onIndexingComplete(result);
+      return result;
+    } catch (error) {
+      this.isIndexing = false;
+      this.lastProgress = null;
+      throw error;
+    }
+  }
+
+  /**
    * Record a command usage
    */
   recordCommandUsage(command: CommandName): void {

@@ -383,6 +383,40 @@ export function getDashboardHTML(): string {
       cursor: not-allowed;
     }
 
+    .btn-secondary {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-primary);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--bg-secondary);
+      border-color: var(--accent-blue);
+    }
+
+    .btn-secondary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-danger {
+      color: var(--accent-red);
+    }
+
+    .btn-danger:hover {
+      background-color: rgba(239, 68, 68, 0.1);
+      border-color: var(--accent-red);
+    }
+
+    .reindex-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-primary);
+    }
+
     .save-status {
       font-size: 13px;
       color: var(--text-secondary);
@@ -835,6 +869,11 @@ export function getDashboardHTML(): string {
           </div>
           <div class="progress-text" id="progressText">Initializing...</div>
         </div>
+        <div class="reindex-actions">
+          <button type="button" id="reindexBtn" class="btn btn-secondary">Reindex</button>
+          <button type="button" id="forceReindexBtn" class="btn btn-secondary btn-danger">Force Reindex</button>
+          <span id="reindexStatus" class="save-status"></span>
+        </div>
       </div>
 
       <!-- Embedding Backend Card -->
@@ -1087,6 +1126,11 @@ export function getDashboardHTML(): string {
     const progressFill = document.getElementById('progressFill');
     const progressText = document.getElementById('progressText');
 
+    // Reindex button elements
+    const reindexBtn = document.getElementById('reindexBtn');
+    const forceReindexBtn = document.getElementById('forceReindexBtn');
+    const reindexStatus = document.getElementById('reindexStatus');
+
     // Embedding settings form elements
     const backendSelect = document.getElementById('backendSelect');
     const concurrencySelect = document.getElementById('concurrencySelect');
@@ -1250,6 +1294,48 @@ export function getDashboardHTML(): string {
 
     // Load embedding settings on page load
     loadEmbeddingSettings();
+
+    // Reindex button handlers
+    async function triggerReindex(force) {
+      reindexBtn.disabled = true;
+      forceReindexBtn.disabled = true;
+      reindexStatus.textContent = force ? 'Starting force reindex...' : 'Starting reindex...';
+      reindexStatus.className = 'save-status';
+
+      try {
+        const response = await fetch('/api/reindex', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ force })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          reindexStatus.textContent = result.message;
+          reindexStatus.className = 'save-status success';
+        } else {
+          reindexStatus.textContent = result.error || 'Failed to start reindex';
+          reindexStatus.className = 'save-status error';
+          reindexBtn.disabled = false;
+          forceReindexBtn.disabled = false;
+        }
+      } catch (error) {
+        reindexStatus.textContent = 'Network error';
+        reindexStatus.className = 'save-status error';
+        reindexBtn.disabled = false;
+        forceReindexBtn.disabled = false;
+      }
+    }
+
+    reindexBtn.addEventListener('click', () => triggerReindex(false));
+    forceReindexBtn.addEventListener('click', () => triggerReindex(true));
+
+    // Re-enable buttons when indexing completes (SSE event)
+    function enableReindexButtons() {
+      reindexBtn.disabled = false;
+      forceReindexBtn.disabled = false;
+    }
 
     // Dashboard settings form elements
     const dashboardBadge = document.getElementById('dashboardBadge');
@@ -1760,11 +1846,15 @@ export function getDashboardHTML(): string {
         indexBadge.className = 'badge warning pulsing';
         progressFill.style.width = '0%';
         progressText.textContent = 'Starting...';
+        reindexBtn.disabled = true;
+        forceReindexBtn.disabled = true;
       });
 
       eventSource.addEventListener('indexing:complete', () => {
         log.event('indexing:complete');
         progressContainer.className = 'progress-container';
+        enableReindexButtons();
+        reindexStatus.textContent = '';
         fetchData();
       });
 

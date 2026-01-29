@@ -226,6 +226,43 @@ async function handleGetDashboardSettings(
 }
 
 /**
+ * Handle POST /api/reindex - Trigger a reindex of the codebase
+ */
+async function handleReindex(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  try {
+    // Check if already indexing
+    if (dashboardState.isIndexingInProgress()) {
+      sendJSON(res, { error: 'Indexing is already in progress' }, 409);
+      return;
+    }
+
+    // Parse optional forceReindex flag from body
+    let forceReindex = false;
+    try {
+      const body = (await parseJsonBody(req)) as { force?: boolean };
+      forceReindex = body.force === true;
+    } catch {
+      // If no body or invalid JSON, use defaults
+    }
+
+    // Trigger reindex asynchronously - don't wait for completion
+    // The dashboard will receive progress updates via SSE
+    dashboardState.triggerReindex(forceReindex).catch((error) => {
+      console.error('[lance-context] Reindex failed:', error);
+    });
+
+    sendJSON(res, {
+      success: true,
+      message: forceReindex
+        ? 'Force reindex started. Progress will be shown in the dashboard.'
+        : 'Reindex started. Progress will be shown in the dashboard.',
+    });
+  } catch (error) {
+    sendJSON(res, { error: String(error) }, 500);
+  }
+}
+
+/**
  * Handle POST /api/settings/dashboard - Save dashboard settings
  */
 async function handleSaveDashboardSettings(
@@ -289,6 +326,9 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
           return;
         case '/api/settings/dashboard':
           await handleSaveDashboardSettings(req, res);
+          return;
+        case '/api/reindex':
+          await handleReindex(req, res);
           return;
         default:
           sendJSON(res, { error: 'Method not allowed' }, 405);
