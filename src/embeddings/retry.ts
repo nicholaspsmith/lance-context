@@ -6,6 +6,8 @@ export interface RetryOptions {
   baseDelayMs?: number;
   maxDelayMs?: number;
   maxResponseSizeBytes?: number;
+  /** Request timeout in milliseconds (default: 60000 = 60 seconds) */
+  timeoutMs?: number;
 }
 
 /**
@@ -13,11 +15,17 @@ export interface RetryOptions {
  */
 const DEFAULT_MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
 
+/**
+ * Default request timeout (60 seconds)
+ */
+const DEFAULT_TIMEOUT_MS = 60000;
+
 const DEFAULT_OPTIONS: Required<RetryOptions> = {
   maxRetries: 3,
   baseDelayMs: 1000,
   maxDelayMs: 10000,
   maxResponseSizeBytes: DEFAULT_MAX_RESPONSE_SIZE,
+  timeoutMs: DEFAULT_TIMEOUT_MS,
 };
 
 /**
@@ -41,16 +49,18 @@ function checkResponseSize(response: Response, maxSize: number): void {
 }
 
 /**
- * Check if an error is retryable (network errors, rate limits, server errors)
+ * Check if an error is retryable (network errors, rate limits, server errors, timeouts)
  */
 function isRetryableError(error: unknown): boolean {
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
-    // Retry on network errors
+    // Retry on network errors and timeouts
     if (
       message.includes('fetch') ||
       message.includes('network') ||
-      message.includes('econnrefused')
+      message.includes('econnrefused') ||
+      message.includes('timeout') ||
+      message.includes('aborted')
     ) {
       return true;
     }
@@ -78,8 +88,16 @@ export async function fetchWithRetry(
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), opts.timeoutMs);
+
     try {
-      const response = await fetch(url, options);
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
       // Check response size before processing
       checkResponseSize(response, opts.maxResponseSizeBytes);
@@ -102,7 +120,14 @@ export async function fetchWithRetry(
       // Last attempt, return the response even if it's an error
       return response;
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
+      clearTimeout(timeoutId);
+
+      // Convert abort errors to timeout errors for clarity
+      if (error instanceof Error && error.name === 'AbortError') {
+        lastError = new Error(`Request timeout after ${opts.timeoutMs}ms`);
+      } else {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
 
       if (attempt < opts.maxRetries && isRetryableError(error)) {
         const delay = Math.min(opts.baseDelayMs * Math.pow(2, attempt), opts.maxDelayMs);

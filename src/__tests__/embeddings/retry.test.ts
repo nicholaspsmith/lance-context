@@ -37,7 +37,7 @@ describe('fetchWithRetry', () => {
 
       await fetchWithRetry('https://api.test.com', options);
 
-      expect(fetch).toHaveBeenCalledWith('https://api.test.com', options);
+      expect(fetch).toHaveBeenCalledWith('https://api.test.com', expect.objectContaining(options));
     });
   });
 
