@@ -2,6 +2,7 @@ import type { EmbeddingBackend, EmbeddingConfig } from './types.js';
 import { chunkArray } from './types.js';
 import { fetchWithRetry } from './retry.js';
 import { RateLimiter } from './rate-limiter.js';
+import { broadcastLog, updateProgressMessage } from '../dashboard/events.js';
 
 /** Default batch size for Gemini API requests (max 100 per batch request) */
 const DEFAULT_BATCH_SIZE = 100;
@@ -91,14 +92,41 @@ export class GeminiBackend implements EmbeddingBackend {
       return this.embedBatchDirect(texts);
     }
 
-    // For large batches, chunk and process sequentially
+    // For large batches, chunk and process sequentially with progress logging
     const chunks = chunkArray(texts, this.batchSize);
     const results: number[][] = [];
+    const startTime = Date.now();
 
-    for (const chunk of chunks) {
+    const initMsg = `Gemini: embedding ${texts.length} texts in ${chunks.length} batches (${this.batchSize} texts/batch)`;
+    console.error(`[lance-context] ${initMsg}`);
+    broadcastLog('info', initMsg);
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const batchNum = i + 1;
+      const batchStart = Date.now();
+
+      updateProgressMessage(
+        `Batch ${batchNum}/${chunks.length}: embedding ${chunk.length} texts...`
+      );
+
       const chunkResults = await this.embedBatchDirect(chunk);
       results.push(...chunkResults);
+
+      const batchElapsed = ((Date.now() - batchStart) / 1000).toFixed(1);
+      const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      const textsProcessed = Math.min((i + 1) * this.batchSize, texts.length);
+      const progressMsg = `Batch ${batchNum}/${chunks.length}: done in ${batchElapsed}s (${textsProcessed}/${texts.length} texts, ${totalElapsed}s total)`;
+
+      console.error(`[lance-context] ${progressMsg}`);
+      broadcastLog('info', progressMsg);
+      updateProgressMessage(progressMsg);
     }
+
+    const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    const completeMsg = `Gemini: completed embedding ${texts.length} texts in ${totalElapsed}s`;
+    console.error(`[lance-context] ${completeMsg}`);
+    broadcastLog('info', completeMsg);
 
     return results;
   }
