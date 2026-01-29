@@ -1,3 +1,10 @@
+## [1.26.2](https://github.com/nicholaspsmith/lance-context/compare/v1.26.1...v1.26.2) (2026-01-29)
+
+
+### Bug Fixes
+
+* add progress logging to Gemini backend ([#103](https://github.com/nicholaspsmith/lance-context/issues/103)) ([e091781](https://github.com/nicholaspsmith/lance-context/commit/e091781ab90bb7d5268c54582a29c9746c69d263))
+
 ## [1.26.1](https://github.com/nicholaspsmith/lance-context/compare/v1.26.0...v1.26.1) (2026-01-28)
 
 
