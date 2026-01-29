@@ -36,6 +36,37 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Optional callback for logging retry attempts to external systems (e.g., dashboard)
+ */
+let retryLogCallback: ((level: 'info' | 'warn' | 'error', message: string) => void) | null = null;
+
+/**
+ * Set a callback function to receive retry log messages
+ */
+export function setRetryLogCallback(
+  callback: ((level: 'info' | 'warn' | 'error', message: string) => void) | null
+): void {
+  retryLogCallback = callback;
+}
+
+/**
+ * Log a retry message to console and optional callback
+ */
+function logRetry(level: 'info' | 'warn' | 'error', message: string): void {
+  const prefixedMsg = `[lance-context] ${message}`;
+  if (level === 'error') {
+    console.error(prefixedMsg);
+  } else if (level === 'warn') {
+    console.warn(prefixedMsg);
+  } else {
+    console.error(prefixedMsg); // Use stderr for all server logs
+  }
+  if (retryLogCallback) {
+    retryLogCallback(level, message);
+  }
+}
+
+/**
  * Check if response size exceeds the maximum allowed
  */
 function checkResponseSize(response: Response, maxSize: number): void {
@@ -110,8 +141,9 @@ export async function fetchWithRetry(
       // Retryable status code
       if (attempt < opts.maxRetries) {
         const delay = Math.min(opts.baseDelayMs * Math.pow(2, attempt), opts.maxDelayMs);
-        console.error(
-          `[lance-context] Request failed with status ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${opts.maxRetries})`
+        logRetry(
+          'warn',
+          `Request failed with status ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${opts.maxRetries})`
         );
         await sleep(delay);
         continue;
@@ -131,8 +163,9 @@ export async function fetchWithRetry(
 
       if (attempt < opts.maxRetries && isRetryableError(error)) {
         const delay = Math.min(opts.baseDelayMs * Math.pow(2, attempt), opts.maxDelayMs);
-        console.error(
-          `[lance-context] Request failed: ${lastError.message}, retrying in ${delay}ms (attempt ${attempt + 1}/${opts.maxRetries})`
+        logRetry(
+          'warn',
+          `Request failed: ${lastError.message}, retrying in ${delay}ms (attempt ${attempt + 1}/${opts.maxRetries})`
         );
         await sleep(delay);
         continue;

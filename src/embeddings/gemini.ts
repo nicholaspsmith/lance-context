@@ -1,8 +1,11 @@
 import type { EmbeddingBackend, EmbeddingConfig } from './types.js';
 import { chunkArray } from './types.js';
-import { fetchWithRetry } from './retry.js';
+import { fetchWithRetry, setRetryLogCallback } from './retry.js';
 import { RateLimiter } from './rate-limiter.js';
 import { broadcastLog, updateSubProgress } from '../dashboard/events.js';
+
+// Set up retry logging to broadcast to dashboard
+setRetryLogCallback(broadcastLog);
 
 /** Default batch size for Gemini API requests (max 100 per batch request) */
 const DEFAULT_BATCH_SIZE = 100;
