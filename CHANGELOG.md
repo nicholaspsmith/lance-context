@@ -1,3 +1,10 @@
+# [1.28.0](https://github.com/nicholaspsmith/lance-context/compare/v1.27.3...v1.28.0) (2026-01-29)
+
+
+### Features
+
+* add reindex buttons to dashboard ([#108](https://github.com/nicholaspsmith/lance-context/issues/108)) ([5299f91](https://github.com/nicholaspsmith/lance-context/commit/5299f9186d2f790f0d31bd83db8e186945c6c468))
+
 ## [1.27.3](https://github.com/nicholaspsmith/lance-context/compare/v1.27.2...v1.27.3) (2026-01-29)
 
 
