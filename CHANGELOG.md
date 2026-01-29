@@ -1,3 +1,10 @@
+# [1.27.0](https://github.com/nicholaspsmith/lance-context/compare/v1.26.2...v1.27.0) (2026-01-29)
+
+
+### Features
+
+* make Gemini the default embedding backend ([#104](https://github.com/nicholaspsmith/lance-context/issues/104)) ([57cc5b5](https://github.com/nicholaspsmith/lance-context/commit/57cc5b5166690ab6c07836d4c274929392e0e1ae))
+
 ## [1.26.2](https://github.com/nicholaspsmith/lance-context/compare/v1.26.1...v1.26.2) (2026-01-29)
 
 
