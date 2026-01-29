@@ -1,3 +1,10 @@
+## [1.29.1](https://github.com/nicholaspsmith/lance-context/compare/v1.29.0...v1.29.1) (2026-01-29)
+
+
+### Bug Fixes
+
+* show retry attempts in dashboard log panel ([#111](https://github.com/nicholaspsmith/lance-context/issues/111)) ([351afcb](https://github.com/nicholaspsmith/lance-context/commit/351afcb0df11f73a1e2c4080e7af1f9e8c5b92bf))
+
 # [1.29.0](https://github.com/nicholaspsmith/lance-context/compare/v1.28.1...v1.29.0) (2026-01-29)
 
 
