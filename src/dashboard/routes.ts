@@ -1,4 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http';
+import { readFileSync } from 'fs';
+import { join, basename } from 'path';
 import { dashboardState } from './state.js';
 import { sseManager } from './events.js';
 import { getDashboardHTML } from './ui.js';
@@ -11,6 +13,22 @@ import {
   type EmbeddingSettings,
   type DashboardSettings,
 } from '../config.js';
+
+/**
+ * Get the project name from package.json or directory name
+ */
+function getProjectName(projectPath: string): string {
+  try {
+    const packageJsonPath = join(projectPath, 'package.json');
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+    if (packageJson.name && typeof packageJson.name === 'string') {
+      return packageJson.name;
+    }
+  } catch {
+    // package.json doesn't exist or is invalid, fall back to directory name
+  }
+  return basename(projectPath) || projectPath;
+}
 
 /**
  * Send a JSON response
@@ -81,8 +99,11 @@ async function handleConfig(_req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
 
+  const projectName = projectPath ? getProjectName(projectPath) : null;
+
   sendJSON(res, {
     projectPath,
+    projectName,
     ...config,
   });
 }

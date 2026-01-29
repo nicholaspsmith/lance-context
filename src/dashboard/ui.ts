@@ -1633,10 +1633,12 @@ export function getDashboardHTML(): string {
     function updateConfig(config) {
       projectPath.textContent = config.projectPath || '-';
 
-      // Update project name in header (extract directory name from path)
-      if (config.projectPath) {
-        const projectName = config.projectPath.split('/').pop() || config.projectPath;
-        projectNameHeader.textContent = projectName;
+      // Update project name in header
+      if (config.projectName) {
+        projectNameHeader.textContent = config.projectName;
+      } else if (config.projectPath) {
+        // Fallback to extracting from path if projectName not provided
+        projectNameHeader.textContent = config.projectPath.split('/').pop() || config.projectPath;
       }
 
       if (config.chunking) {
@@ -1901,9 +1903,6 @@ export function getDashboardHTML(): string {
 
     // Fetch initial data
     async function fetchData() {
-      log.info('Fetching dashboard data...');
-      const startTime = performance.now();
-
       // Use Promise.allSettled to handle partial failures gracefully
       const results = await Promise.allSettled([
         fetch('/api/status'),
@@ -1912,9 +1911,6 @@ export function getDashboardHTML(): string {
         fetch('/api/beads')
       ]);
 
-      const elapsed = Math.round(performance.now() - startTime);
-      log.info('API requests completed in ' + elapsed + 'ms');
-
       let currentStatus = null;
       let currentConfig = null;
 
@@ -1922,26 +1918,20 @@ export function getDashboardHTML(): string {
       if (results[0].status === 'fulfilled' && results[0].value.ok) {
         try {
           currentStatus = await results[0].value.json();
-          log.info('Status loaded', currentStatus);
           updateStatus(currentStatus);
         } catch (e) {
-          log.error('Failed to parse status', e);
+          // Silently handle parse errors
         }
-      } else {
-        log.warn('Failed to fetch status', results[0]);
       }
 
       // Process config result
       if (results[1].status === 'fulfilled' && results[1].value.ok) {
         try {
           currentConfig = await results[1].value.json();
-          log.info('Config loaded', currentConfig);
           updateConfig(currentConfig);
         } catch (e) {
-          log.error('Failed to parse config', e);
+          // Silently handle parse errors
         }
-      } else {
-        log.warn('Failed to fetch config', results[1]);
       }
 
       // Check if configured backend differs from running backend
@@ -1974,15 +1964,25 @@ export function getDashboardHTML(): string {
       }
     }
 
-    // Logging utility for browser console
-    const log = {
-      info: (msg, data) => console.log('%c[lance-context]%c ' + msg, 'color: #58a6ff; font-weight: bold', 'color: inherit', data || ''),
-      warn: (msg, data) => console.warn('%c[lance-context]%c ' + msg, 'color: #d29922; font-weight: bold', 'color: inherit', data || ''),
-      error: (msg, data) => console.error('%c[lance-context]%c ' + msg, 'color: #f85149; font-weight: bold', 'color: inherit', data || ''),
-      event: (name, data) => console.log('%c[lance-context]%c SSE: %c' + name, 'color: #58a6ff; font-weight: bold', 'color: inherit', 'color: #3fb950', data || ''),
-    };
-
-    log.info('Dashboard initialized');
+    // Console greeting
+    console.log(\`
+%c     _      _                  _ _   _                  __ _
+%c _ __ (_) ___| | _____ _ __ ___ (_) |_| |__   ___  ___  / _| |___      ____ _ _ __ ___
+%c| '_ \\\\| |/ __| |/ / __| '_ \\\` _ \\\\| | __| '_ \\\\ / __|/ _ \\\\| |_| __\\\\ \\\\ /\\\\ / / _\\\` | '__/ _ \\\\
+%c| | | | | (__|   <\\\\__ \\\\ | | | | | | |_| | | |\\\\__ \\\\ (_) |  _| |_ \\\\ V  V / (_| | | |  __/
+%c|_| |_|_|\\\\___|_|\\\\_\\\\___/_| |_| |_|_|\\\\__|_| |_||___/\\\\___/|_|  \\\\__| \\\\_/\\\\_/ \\\\__,_|_|  \\\\___|
+\`,
+      'color: #58a6ff',
+      'color: #58a6ff',
+      'color: #58a6ff',
+      'color: #58a6ff',
+      'color: #58a6ff'
+    );
+    console.log(
+      '%c📧 Get in touch: %cme@nicksmith.software',
+      'color: #666; font-size: 14px;',
+      'color: #58a6ff; font-size: 14px; text-decoration: underline;'
+    );
 
     // Connect to SSE
     function connectSSE() {
@@ -1990,18 +1990,15 @@ export function getDashboardHTML(): string {
         eventSource.close();
       }
 
-      log.info('Connecting to SSE...');
       eventSource = new EventSource('/api/events');
 
       eventSource.addEventListener('connected', (e) => {
-        log.event('connected');
         setConnected(true);
         fetchData();
       });
 
       eventSource.addEventListener('indexing:progress', (e) => {
         const progress = JSON.parse(e.data);
-        log.event('indexing:progress', progress);
         progressContainer.className = 'progress-container active';
         indexBadge.textContent = 'Indexing...';
         indexBadge.className = 'badge warning pulsing';
@@ -2009,7 +2006,6 @@ export function getDashboardHTML(): string {
       });
 
       eventSource.addEventListener('indexing:start', () => {
-        log.event('indexing:start');
         progressContainer.className = 'progress-container active';
         indexBadge.textContent = 'Indexing...';
         indexBadge.className = 'badge warning pulsing';
@@ -2020,7 +2016,6 @@ export function getDashboardHTML(): string {
       });
 
       eventSource.addEventListener('indexing:complete', () => {
-        log.event('indexing:complete');
         progressContainer.className = 'progress-container';
         enableReindexButtons();
         reindexStatus.textContent = '';
@@ -2029,46 +2024,27 @@ export function getDashboardHTML(): string {
 
       eventSource.addEventListener('status:change', (e) => {
         const status = JSON.parse(e.data);
-        log.event('status:change', status);
         updateStatus(status);
       });
 
       eventSource.addEventListener('usage:update', (e) => {
         const usage = JSON.parse(e.data);
-        log.event('usage:update', { count: usage.length });
         // The event data is the usage array, need to compute total
         const total = usage.reduce((sum, u) => sum + u.count, 0);
         updateUsage({ usage, total });
       });
 
       eventSource.addEventListener('heartbeat', () => {
-        // Just keep connection alive - don't log to reduce noise
+        // Just keep connection alive
       });
 
       eventSource.addEventListener('server:log', (e) => {
         const logData = JSON.parse(e.data);
-        const prefix = '%c[server]%c ';
-        const prefixStyle = 'color: #a371f7; font-weight: bold';
-        const msgStyle = 'color: inherit';
-
-        // Log to browser console
-        switch (logData.level) {
-          case 'error':
-            console.error(prefix + logData.message, prefixStyle, msgStyle);
-            break;
-          case 'warn':
-            console.warn(prefix + logData.message, prefixStyle, msgStyle);
-            break;
-          default:
-            console.log(prefix + logData.message, prefixStyle, msgStyle);
-        }
-
-        // Add to log panel
+        // Add to log panel only (no console output)
         addLogEntry(logData.level, logData.message, logData.timestamp);
       });
 
       eventSource.onerror = (e) => {
-        log.warn('SSE connection error, will reconnect...', e);
         setConnected(false);
         // EventSource will automatically reconnect
       };
