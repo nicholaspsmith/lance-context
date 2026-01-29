@@ -628,6 +628,111 @@ export function getDashboardHTML(): string {
       font-size: 14px;
     }
 
+    /* Server Log Panel Styles */
+    .log-section {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .log-header:hover .log-title {
+      color: var(--accent-blue);
+    }
+
+    .log-toggle {
+      transition: transform 0.2s;
+    }
+
+    .log-toggle.collapsed {
+      transform: rotate(-90deg);
+    }
+
+    .log-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      transition: color 0.2s;
+    }
+
+    .log-container {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-primary);
+      border-radius: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 12px;
+    }
+
+    .log-container.collapsed {
+      display: none;
+    }
+
+    .log-entry {
+      padding: 4px 12px;
+      border-bottom: 1px solid var(--border-primary);
+      display: flex;
+      gap: 8px;
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-time {
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .log-message {
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+
+    .log-entry.log-error .log-message {
+      color: var(--accent-red);
+    }
+
+    .log-entry.log-warn .log-message {
+      color: var(--accent-yellow);
+    }
+
+    .log-empty {
+      padding: 20px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .log-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .log-actions button {
+      padding: 2px 8px;
+      font-size: 11px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .log-actions button:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
     /* Beads Section Styles */
     .beads-section {
       margin-top: 32px;
@@ -1076,6 +1181,23 @@ export function getDashboardHTML(): string {
         </div>
       </div>
     </div>
+
+    <!-- Server Log Section -->
+    <div class="log-section" id="logSection">
+      <div class="log-header" id="logHeader">
+        <svg class="log-toggle" id="logToggle" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M6 4l4 4-4 4"/>
+        </svg>
+        <span class="log-title">Server Logs</span>
+        <span class="badge" id="logCount">0</span>
+        <div class="log-actions">
+          <button type="button" id="clearLogsBtn">Clear</button>
+        </div>
+      </div>
+      <div class="log-container" id="logContainer">
+        <div class="log-empty" id="logEmpty">No logs yet. Logs will appear when indexing or other server operations occur.</div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -1130,6 +1252,15 @@ export function getDashboardHTML(): string {
     const reindexBtn = document.getElementById('reindexBtn');
     const forceReindexBtn = document.getElementById('forceReindexBtn');
     const reindexStatus = document.getElementById('reindexStatus');
+
+    // Log panel elements
+    const logHeader = document.getElementById('logHeader');
+    const logToggle = document.getElementById('logToggle');
+    const logContainer = document.getElementById('logContainer');
+    const logCount = document.getElementById('logCount');
+    const logEmpty = document.getElementById('logEmpty');
+    const clearLogsBtn = document.getElementById('clearLogsBtn');
+    let logEntryCount = 0;
 
     // Embedding settings form elements
     const backendSelect = document.getElementById('backendSelect');
@@ -1335,6 +1466,56 @@ export function getDashboardHTML(): string {
     function enableReindexButtons() {
       reindexBtn.disabled = false;
       forceReindexBtn.disabled = false;
+    }
+
+    // Log panel handlers
+    let logCollapsed = false;
+
+    logHeader.addEventListener('click', () => {
+      logCollapsed = !logCollapsed;
+      logToggle.classList.toggle('collapsed', logCollapsed);
+      logContainer.classList.toggle('collapsed', logCollapsed);
+    });
+
+    clearLogsBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // Don't toggle collapse
+      logContainer.innerHTML = '<div class="log-empty" id="logEmpty">No logs yet. Logs will appear when indexing or other server operations occur.</div>';
+      logEntryCount = 0;
+      logCount.textContent = '0';
+    });
+
+    function addLogEntry(level, message, timestamp) {
+      // Remove empty message if present
+      const emptyMsg = logContainer.querySelector('.log-empty');
+      if (emptyMsg) emptyMsg.remove();
+
+      const entry = document.createElement('div');
+      entry.className = 'log-entry log-' + level;
+
+      const time = document.createElement('span');
+      time.className = 'log-time';
+      const date = new Date(timestamp);
+      time.textContent = date.toLocaleTimeString();
+
+      const msg = document.createElement('span');
+      msg.className = 'log-message';
+      msg.textContent = message;
+
+      entry.appendChild(time);
+      entry.appendChild(msg);
+      logContainer.appendChild(entry);
+
+      // Auto-scroll to bottom
+      logContainer.scrollTop = logContainer.scrollHeight;
+
+      // Update count
+      logEntryCount++;
+      logCount.textContent = String(logEntryCount);
+
+      // Keep max 500 entries
+      while (logContainer.children.length > 500) {
+        logContainer.removeChild(logContainer.firstChild);
+      }
     }
 
     // Dashboard settings form elements
@@ -1882,6 +2063,7 @@ export function getDashboardHTML(): string {
         const prefixStyle = 'color: #a371f7; font-weight: bold';
         const msgStyle = 'color: inherit';
 
+        // Log to browser console
         switch (logData.level) {
           case 'error':
             console.error(prefix + logData.message, prefixStyle, msgStyle);
@@ -1892,6 +2074,9 @@ export function getDashboardHTML(): string {
           default:
             console.log(prefix + logData.message, prefixStyle, msgStyle);
         }
+
+        // Add to log panel
+        addLogEntry(logData.level, logData.message, logData.timestamp);
       });
 
       eventSource.onerror = (e) => {

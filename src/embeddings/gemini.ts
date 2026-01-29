@@ -143,9 +143,15 @@ export class GeminiBackend implements EmbeddingBackend {
    */
   private async embedBatchDirect(texts: string[]): Promise<number[][]> {
     // Acquire a rate limit token before making the request
-    console.error(`[lance-context] Gemini: acquiring rate limit token...`);
+    const acquireMsg = 'Gemini: acquiring rate limit token...';
+    console.error(`[lance-context] ${acquireMsg}`);
+    broadcastLog('info', acquireMsg);
+
     await this.rateLimiter.acquire();
-    console.error(`[lance-context] Gemini: rate limit token acquired`);
+
+    const acquiredMsg = 'Gemini: rate limit token acquired';
+    console.error(`[lance-context] ${acquiredMsg}`);
+    broadcastLog('info', acquiredMsg);
 
     const url = `${this.baseUrl}/models/${this.model}:batchEmbedContents`;
     const requestBody = JSON.stringify({
@@ -159,9 +165,9 @@ export class GeminiBackend implements EmbeddingBackend {
     });
 
     const payloadSizeKb = (requestBody.length / 1024).toFixed(1);
-    console.error(
-      `[lance-context] Gemini: sending batch request (${texts.length} texts, ${payloadSizeKb} KB payload)...`
-    );
+    const sendingMsg = `Gemini: sending batch request (${texts.length} texts, ${payloadSizeKb} KB payload)...`;
+    console.error(`[lance-context] ${sendingMsg}`);
+    broadcastLog('info', sendingMsg);
 
     const fetchStart = Date.now();
     const response = await fetchWithRetry(url, {
@@ -174,9 +180,9 @@ export class GeminiBackend implements EmbeddingBackend {
     });
 
     const fetchTime = ((Date.now() - fetchStart) / 1000).toFixed(1);
-    console.error(
-      `[lance-context] Gemini: received response in ${fetchTime}s (status: ${response.status})`
-    );
+    const responseMsg = `Gemini: received response in ${fetchTime}s (status: ${response.status})`;
+    console.error(`[lance-context] ${responseMsg}`);
+    broadcastLog('info', responseMsg);
 
     if (!response.ok) {
       const error = await response.text();
