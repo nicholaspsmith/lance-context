@@ -1234,7 +1234,8 @@ export function getDashboardHTML(): string {
           saveStatus.textContent = 'Saved! Restart server to apply.';
           saveStatus.className = 'save-status success';
           apiKeyInput.value = ''; // Clear the input
-          loadEmbeddingSettings(); // Reload to update status
+          // Delay reload so user sees the success message (reload clears status)
+          setTimeout(loadEmbeddingSettings, 3000);
         } else {
           saveStatus.textContent = result.error || 'Failed to save';
           saveStatus.className = 'save-status error';
