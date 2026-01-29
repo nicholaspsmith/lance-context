@@ -1,3 +1,10 @@
+## [1.29.4](https://github.com/nicholaspsmith/lance-context/compare/v1.29.3...v1.29.4) (2026-01-29)
+
+
+### Bug Fixes
+
+* resolve project name from package.json and clean console output ([#115](https://github.com/nicholaspsmith/lance-context/issues/115)) ([ac84e58](https://github.com/nicholaspsmith/lance-context/commit/ac84e581f9b23dbe8e31a10309d4403eb0d2308b))
+
 ## [1.29.3](https://github.com/nicholaspsmith/lance-context/compare/v1.29.2...v1.29.3) (2026-01-29)
 
 
