@@ -1,3 +1,10 @@
+## [1.29.2](https://github.com/nicholaspsmith/lance-context/compare/v1.29.1...v1.29.2) (2026-01-29)
+
+
+### Bug Fixes
+
+* improve rate limit handling with Retry-After support ([0da508a](https://github.com/nicholaspsmith/lance-context/commit/0da508a8433cec880011fe5b9b76b003c83f6d75))
+
 ## [1.29.1](https://github.com/nicholaspsmith/lance-context/compare/v1.29.0...v1.29.1) (2026-01-29)
 
 
