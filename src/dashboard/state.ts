@@ -274,6 +274,18 @@ export class DashboardStateManager extends EventEmitter {
   }
 
   /**
+   * Update sub-progress within the current phase.
+   * Allows embedding backends to report their own progress with percentage.
+   * The current/total values represent sub-progress within the phase.
+   */
+  updateSubProgress(current: number, total: number, message: string): void {
+    if (this.lastProgress) {
+      this.lastProgress = { ...this.lastProgress, current, total, message };
+      this.emit('progress', this.lastProgress);
+    }
+  }
+
+  /**
    * Called when indexing completes
    */
   onIndexingComplete(result: { filesIndexed: number; chunksCreated: number }): void {

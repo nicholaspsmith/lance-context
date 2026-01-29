@@ -2,7 +2,7 @@ import type { EmbeddingBackend, EmbeddingConfig } from './types.js';
 import { chunkArray } from './types.js';
 import { fetchWithRetry } from './retry.js';
 import { RateLimiter } from './rate-limiter.js';
-import { broadcastLog, updateProgressMessage } from '../dashboard/events.js';
+import { broadcastLog, updateSubProgress } from '../dashboard/events.js';
 
 /** Default batch size for Gemini API requests (max 100 per batch request) */
 const DEFAULT_BATCH_SIZE = 100;
@@ -105,9 +105,13 @@ export class GeminiBackend implements EmbeddingBackend {
       const chunk = chunks[i];
       const batchNum = i + 1;
       const batchStart = Date.now();
+      const textsProcessedBefore = i * this.batchSize;
 
-      updateProgressMessage(
-        `Batch ${batchNum}/${chunks.length}: embedding ${chunk.length} texts...`
+      // Update progress bar before starting batch
+      updateSubProgress(
+        textsProcessedBefore,
+        texts.length,
+        `Gemini batch ${batchNum}/${chunks.length}: embedding ${chunk.length} texts...`
       );
 
       const chunkResults = await this.embedBatchDirect(chunk);
@@ -116,11 +120,13 @@ export class GeminiBackend implements EmbeddingBackend {
       const batchElapsed = ((Date.now() - batchStart) / 1000).toFixed(1);
       const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       const textsProcessed = Math.min((i + 1) * this.batchSize, texts.length);
-      const progressMsg = `Batch ${batchNum}/${chunks.length}: done in ${batchElapsed}s (${textsProcessed}/${texts.length} texts, ${totalElapsed}s total)`;
+      const progressMsg = `Gemini batch ${batchNum}/${chunks.length}: done in ${batchElapsed}s (${textsProcessed}/${texts.length} texts, ${totalElapsed}s total)`;
 
       console.error(`[lance-context] ${progressMsg}`);
       broadcastLog('info', progressMsg);
-      updateProgressMessage(progressMsg);
+
+      // Update progress bar after batch completes
+      updateSubProgress(textsProcessed, texts.length, progressMsg);
     }
 
     const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
