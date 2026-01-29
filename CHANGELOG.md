@@ -1,3 +1,10 @@
+## [1.27.2](https://github.com/nicholaspsmith/lance-context/compare/v1.27.1...v1.27.2) (2026-01-29)
+
+
+### Bug Fixes
+
+* show restart message after saving embedding settings ([#106](https://github.com/nicholaspsmith/lance-context/issues/106)) ([0adbda8](https://github.com/nicholaspsmith/lance-context/commit/0adbda84306b728790f36688e62148ed855fcaea))
+
 ## [1.27.1](https://github.com/nicholaspsmith/lance-context/compare/v1.27.0...v1.27.1) (2026-01-29)
 
 
