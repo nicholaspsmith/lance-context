@@ -1,3 +1,10 @@
+# [1.30.0](https://github.com/nicholaspsmith/lance-context/compare/v1.29.5...v1.30.0) (2026-01-30)
+
+
+### Features
+
+* update logo and simplify installation instructions ([#117](https://github.com/nicholaspsmith/lance-context/issues/117)) ([da965ac](https://github.com/nicholaspsmith/lance-context/commit/da965ac376408d444db6a5626e0597aa6310b521))
+
 ## [1.29.5](https://github.com/nicholaspsmith/lance-context/compare/v1.29.4...v1.29.5) (2026-01-29)
 
 
