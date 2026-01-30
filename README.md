@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.svg" alt="lance-context logo" width="150" height="150">
+  <img src="logo.png" alt="lance-context logo" width="150" height="150">
 </p>
 
 <p align="center">
@@ -8,18 +8,6 @@
   <a href="https://github.com/nicholaspsmith/lance-context/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg" alt="Node.js version">
 </p>
-
-> [!WARNING]
-> **Versions 1.18.x have known performance issues with Ollama embedding.**
->
-> If you experience hangs during indexing, use the stable version:
-> ```bash
-> npm install lance-context@1.17.1
-> ```
-> Or with Claude Code:
-> ```bash
-> claude mcp add --scope user --transport stdio lance-context -- npx -y lance-context@1.17.1
-> ```
 
 # lance-context
 
@@ -41,12 +29,10 @@ An MCP plugin that adds semantic code search to Claude Code and other AI coding 
 Add lance-context to Claude Code:
 
 ```bash
-claude mcp add --scope user --transport stdio lance-context -- npx -y lance-context@1.17.1
+claude mcp add --scope user --transport stdio lance-context -- npx -y lance-context
 ```
 
 Restart Claude Code to start using semantic search.
-
-> **Note:** To try the latest (alpha) version: `npx -y lance-context@alpha`
 
 ### Global Install (Alternative)
 
