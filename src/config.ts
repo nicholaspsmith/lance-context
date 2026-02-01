@@ -715,7 +715,7 @@ export async function getEmbeddingSettings(projectPath: string): Promise<{
 }> {
   const config = await loadConfig(projectPath);
   const secrets = await loadSecrets(projectPath);
-  const backend = config.embedding?.backend || 'gemini';
+  const backend = config.embedding?.backend || 'ollama';
 
   // Check for API key based on backend
   let hasApiKey = false;
