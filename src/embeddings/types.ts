@@ -101,3 +101,28 @@ export const DEFAULT_CONFIG: EmbeddingConfig = {
   backend: 'gemini',
   model: 'gemini-embedding-001',
 };
+
+/**
+ * Information about a backend fallback that occurred during initialization.
+ * This is returned when the configured backend fails and we fall back to another.
+ */
+export interface BackendFallbackInfo {
+  /** Whether a fallback occurred */
+  occurred: true;
+  /** The backend that was originally configured */
+  originalBackend: string;
+  /** The backend we fell back to */
+  fallbackBackend: string;
+  /** The error message from the original backend failure */
+  reason: string;
+}
+
+/**
+ * Result of creating an embedding backend, including optional fallback info.
+ */
+export interface CreateBackendResult {
+  /** The initialized embedding backend */
+  backend: EmbeddingBackend;
+  /** Information about fallback if one occurred */
+  fallback?: BackendFallbackInfo;
+}
