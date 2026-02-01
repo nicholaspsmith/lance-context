@@ -1,4 +1,9 @@
-import type { EmbeddingBackend, EmbeddingConfig } from './types.js';
+import type {
+  EmbeddingBackend,
+  EmbeddingConfig,
+  CreateBackendResult,
+  BackendFallbackInfo,
+} from './types.js';
 import { OllamaBackend, DEFAULT_OLLAMA_MODEL } from './ollama.js';
 import { GeminiBackend } from './gemini.js';
 
@@ -15,29 +20,75 @@ export { RateLimiter, type RateLimiterConfig } from './rate-limiter.js';
  * 1. Gemini (if GEMINI_API_KEY environment variable is set) - free tier, recommended
  * 2. Ollama (local fallback, requires Ollama to be running)
  *
+ * If an explicitly configured backend fails to initialize (e.g., rate limited),
+ * automatically falls back to Ollama and returns fallback info.
+ *
  * @param config - Optional configuration to customize the backend
- * @returns A promise resolving to an initialized embedding backend
+ * @returns A promise resolving to the backend and optional fallback info
  * @throws Error if no backend is available (no API keys and Ollama not running)
  *
  * @example
  * ```typescript
  * // Use automatic backend selection
- * const backend = await createEmbeddingBackend();
+ * const { backend } = await createEmbeddingBackend();
  *
- * // Force a specific backend
- * const backend = await createEmbeddingBackend({ backend: 'ollama' });
+ * // Force a specific backend (will fallback to Ollama on failure)
+ * const { backend, fallback } = await createEmbeddingBackend({ backend: 'gemini' });
+ * if (fallback) {
+ *   console.warn(`Fell back to ${fallback.fallbackBackend}: ${fallback.reason}`);
+ * }
  * ```
  */
 export async function createEmbeddingBackend(
   config?: Partial<EmbeddingConfig>
-): Promise<EmbeddingBackend> {
+): Promise<CreateBackendResult> {
   const geminiKey = config?.apiKey || process.env.GEMINI_API_KEY;
   const ollamaUrl = config?.baseUrl || process.env.OLLAMA_URL || 'http://localhost:11434';
   const ollamaModel = config?.model || DEFAULT_OLLAMA_MODEL;
   const ollamaBatchSize = config?.batchSize;
   const ollamaConcurrency = config?.concurrency;
 
-  // If explicit backend is specified, use only that backend
+  // Helper to create Ollama backend
+  const createOllamaBackend = () =>
+    new OllamaBackend({
+      backend: 'ollama',
+      baseUrl: ollamaUrl,
+      model: ollamaModel,
+      batchSize: ollamaBatchSize,
+      concurrency: ollamaConcurrency,
+    });
+
+  // Helper to try Ollama as fallback
+  const tryOllamaFallback = async (
+    originalBackend: string,
+    reason: string
+  ): Promise<CreateBackendResult> => {
+    console.error(`[lance-context] WARN: ${originalBackend} backend failed: ${reason}`);
+    console.error(`[lance-context] WARN: Falling back to Ollama...`);
+
+    try {
+      const fallbackBackend = createOllamaBackend();
+      await fallbackBackend.initialize();
+      console.error(
+        `[lance-context] Using ollama embedding backend (fallback from ${originalBackend})`
+      );
+
+      const fallbackInfo: BackendFallbackInfo = {
+        occurred: true,
+        originalBackend,
+        fallbackBackend: 'ollama',
+        reason,
+      };
+
+      return { backend: fallbackBackend, fallback: fallbackInfo };
+    } catch (ollamaError) {
+      throw new Error(
+        `Configured ${originalBackend} backend failed (${reason}) and Ollama fallback also failed: ${ollamaError}`
+      );
+    }
+  };
+
+  // If explicit backend is specified, try it first with fallback to Ollama
   if (config?.backend && config.backend !== 'local') {
     if (config.backend === 'gemini') {
       if (!geminiKey) {
@@ -45,53 +96,49 @@ export async function createEmbeddingBackend(
           'Gemini backend requested but no API key available. Get a free key at https://aistudio.google.com/app/apikey and set GEMINI_API_KEY.'
         );
       }
-      const backend = new GeminiBackend({ backend: 'gemini', apiKey: geminiKey, ...config });
-      await backend.initialize();
-      console.error(`[lance-context] Using gemini embedding backend (explicitly configured)`);
-      return backend;
+      try {
+        const backend = new GeminiBackend({ backend: 'gemini', apiKey: geminiKey, ...config });
+        await backend.initialize();
+        console.error(`[lance-context] Using gemini embedding backend (explicitly configured)`);
+        return { backend };
+      } catch (error) {
+        return tryOllamaFallback('gemini', String(error));
+      }
     } else if (config.backend === 'ollama') {
-      const backend = new OllamaBackend({
-        backend: 'ollama',
-        baseUrl: ollamaUrl,
-        model: ollamaModel,
-        batchSize: ollamaBatchSize,
-        concurrency: ollamaConcurrency,
-      });
+      // Ollama explicitly configured - no fallback available
+      const backend = createOllamaBackend();
       await backend.initialize();
       console.error(`[lance-context] Using ollama embedding backend (explicitly configured)`);
-      return backend;
+      return { backend };
     }
   }
 
   // Auto-select: try backends in priority order
-  const backends: Array<() => EmbeddingBackend> = [];
+  const backends: Array<{ name: string; create: () => EmbeddingBackend }> = [];
 
   // Priority 1: Gemini (if API key available) - free tier, recommended
   if (geminiKey) {
-    backends.push(() => new GeminiBackend({ backend: 'gemini', apiKey: geminiKey, ...config }));
+    backends.push({
+      name: 'gemini',
+      create: () => new GeminiBackend({ backend: 'gemini', apiKey: geminiKey, ...config }),
+    });
   }
 
   // Priority 2: Ollama (local fallback)
-  backends.push(
-    () =>
-      new OllamaBackend({
-        backend: 'ollama',
-        baseUrl: ollamaUrl,
-        model: ollamaModel,
-        batchSize: ollamaBatchSize,
-        concurrency: ollamaConcurrency,
-      })
-  );
+  backends.push({
+    name: 'ollama',
+    create: createOllamaBackend,
+  });
 
   // Try each backend until one works
-  for (const createBackend of backends) {
+  for (const { name, create } of backends) {
     try {
-      const backend = createBackend();
+      const backend = create();
       await backend.initialize();
-      console.error(`[lance-context] Using ${backend.name} embedding backend`);
-      return backend;
+      console.error(`[lance-context] Using ${name} embedding backend`);
+      return { backend };
     } catch (error) {
-      console.error(`[lance-context] Backend failed: ${error}`);
+      console.error(`[lance-context] Backend ${name} failed: ${error}`);
     }
   }
 

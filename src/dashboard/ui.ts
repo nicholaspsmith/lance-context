@@ -295,6 +295,59 @@ export function getDashboardHTML(): string {
       color: var(--accent-red);
     }
 
+    /* Warning banner */
+    .warning-banner {
+      display: none;
+      background-color: rgba(210, 153, 34, 0.15);
+      border: 1px solid var(--accent-yellow);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+
+    .warning-banner.visible {
+      display: block;
+    }
+
+    .warning-banner-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: var(--accent-yellow);
+      margin-bottom: 8px;
+    }
+
+    .warning-banner-header svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .warning-banner-content {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .warning-banner-content strong {
+      color: var(--text-primary);
+    }
+
+    .warning-banner-content code {
+      background-color: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    .warning-banner-actions {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
     /* Form styles */
     .settings-form {
       margin-top: 16px;
@@ -945,6 +998,22 @@ export function getDashboardHTML(): string {
       </div>
     </header>
 
+    <!-- Backend Fallback Warning Banner -->
+    <div class="warning-banner" id="fallbackBanner">
+      <div class="warning-banner-header">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span>Using Ollama (fallback)</span>
+      </div>
+      <div class="warning-banner-content" id="fallbackContent">
+        <!-- Content populated by JavaScript -->
+      </div>
+      <div class="warning-banner-actions">
+        <strong>To resolve:</strong> Wait for rate limits to reset, check your API key, or update <code>.lance-context.json</code> to use <code>"backend": "ollama"</code> permanently.
+      </div>
+    </div>
+
     <div class="grid">
       <!-- Index Status Card -->
       <div class="card">
@@ -1234,6 +1303,8 @@ export function getDashboardHTML(): string {
     const embeddingBackend = document.getElementById('embeddingBackend');
     const embeddingStatus = document.getElementById('embeddingStatus');
     const indexPath = document.getElementById('indexPath');
+    const fallbackBanner = document.getElementById('fallbackBanner');
+    const fallbackContent = document.getElementById('fallbackContent');
     const projectPath = document.getElementById('projectPath');
     const chunkSize = document.getElementById('chunkSize');
     const searchWeights = document.getElementById('searchWeights');
@@ -1622,6 +1693,25 @@ export function getDashboardHTML(): string {
       // Update version badge
       if (status.version) {
         versionBadge.textContent = 'v' + status.version;
+      }
+
+      // Show fallback banner if a backend fallback occurred
+      if (status.backendFallback && status.backendFallback.occurred) {
+        const fb = status.backendFallback;
+        // Clear and rebuild content safely using DOM methods
+        fallbackContent.textContent = '';
+        const strong = document.createElement('strong');
+        strong.textContent = fb.originalBackend;
+        fallbackContent.appendChild(strong);
+        fallbackContent.appendChild(document.createTextNode(' failed to initialize: '));
+        const code = document.createElement('code');
+        code.textContent = fb.reason;
+        fallbackContent.appendChild(code);
+        fallbackContent.appendChild(document.createElement('br'));
+        fallbackContent.appendChild(document.createTextNode('Your index may need rebuilding if embedding dimensions differ between backends.'));
+        fallbackBanner.classList.add('visible');
+      } else {
+        fallbackBanner.classList.remove('visible');
       }
     }
 
