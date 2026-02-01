@@ -48,7 +48,7 @@ describe('createEmbeddingBackend', () => {
       vi.stubGlobal('fetch', mockFetch);
 
       const createEmbeddingBackend = await getCreateEmbeddingBackend();
-      const backend = await createEmbeddingBackend();
+      const { backend } = await createEmbeddingBackend();
 
       expect(backend.name).toBe('gemini');
     });
@@ -69,7 +69,7 @@ describe('createEmbeddingBackend', () => {
       vi.stubGlobal('fetch', mockFetch);
 
       const createEmbeddingBackend = await getCreateEmbeddingBackend();
-      const backend = await createEmbeddingBackend();
+      const { backend } = await createEmbeddingBackend();
 
       expect(backend.name).toBe('ollama');
     });
@@ -78,7 +78,7 @@ describe('createEmbeddingBackend', () => {
       vi.stubGlobal('fetch', createSuccessFetch(createTagsResponseWithDefaultModel()));
 
       const createEmbeddingBackend = await getCreateEmbeddingBackend();
-      const backend = await createEmbeddingBackend();
+      const { backend } = await createEmbeddingBackend();
 
       expect(backend.name).toBe('ollama');
     });
@@ -104,7 +104,7 @@ describe('createEmbeddingBackend', () => {
       vi.stubGlobal('fetch', mockFetch);
 
       const createEmbeddingBackend = await getCreateEmbeddingBackend();
-      const backend = await createEmbeddingBackend({ apiKey: 'config-gemini-key' });
+      const { backend } = await createEmbeddingBackend({ apiKey: 'config-gemini-key' });
 
       expect(backend.name).toBe('gemini');
     });
@@ -119,7 +119,7 @@ describe('createEmbeddingBackend', () => {
       vi.stubGlobal('fetch', mockFetch);
 
       const createEmbeddingBackend = await getCreateEmbeddingBackend();
-      const backend = await createEmbeddingBackend();
+      const { backend } = await createEmbeddingBackend();
 
       expect(backend.name).toBe('ollama');
     });
@@ -134,9 +134,66 @@ describe('createEmbeddingBackend', () => {
       vi.stubGlobal('fetch', mockFetch);
 
       const createEmbeddingBackend = await getCreateEmbeddingBackend();
-      const backend = await createEmbeddingBackend({ baseUrl: 'http://config-ollama:11434' });
+      const { backend } = await createEmbeddingBackend({ baseUrl: 'http://config-ollama:11434' });
 
       expect(backend.name).toBe('ollama');
+    });
+  });
+
+  describe('explicit backend with fallback', () => {
+    it('should fallback to Ollama when explicitly configured Gemini fails', async () => {
+      process.env.GEMINI_API_KEY = 'test-key';
+
+      const mockFetch = vi
+        .fn()
+        // Gemini initialization fails with an error
+        .mockResolvedValueOnce({ ok: false, status: 401, text: async () => 'Invalid API key' })
+        // Ollama succeeds
+        .mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => createTagsResponseWithDefaultModel(),
+        });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const createEmbeddingBackend = await getCreateEmbeddingBackend();
+      const { backend, fallback } = await createEmbeddingBackend({ backend: 'gemini' });
+
+      expect(backend.name).toBe('ollama');
+      expect(fallback).toBeDefined();
+      expect(fallback?.occurred).toBe(true);
+      expect(fallback?.originalBackend).toBe('gemini');
+      expect(fallback?.fallbackBackend).toBe('ollama');
+      expect(fallback?.reason).toContain('401');
+    });
+
+    it('should throw when explicitly configured Gemini fails and Ollama also fails', async () => {
+      process.env.GEMINI_API_KEY = 'test-key';
+
+      const mockFetch = vi.fn().mockRejectedValue(new Error('Connection refused'));
+      vi.stubGlobal('fetch', mockFetch);
+
+      const createEmbeddingBackend = await getCreateEmbeddingBackend();
+      await expect(createEmbeddingBackend({ backend: 'gemini' })).rejects.toThrow(
+        'Configured gemini backend failed'
+      );
+    });
+
+    it('should not have fallback info when explicitly configured backend succeeds', async () => {
+      process.env.GEMINI_API_KEY = 'test-key';
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => createGeminiEmbeddingResponse(),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const createEmbeddingBackend = await getCreateEmbeddingBackend();
+      const { backend, fallback } = await createEmbeddingBackend({ backend: 'gemini' });
+
+      expect(backend.name).toBe('gemini');
+      expect(fallback).toBeUndefined();
     });
   });
 });
