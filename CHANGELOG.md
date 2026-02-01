@@ -1,3 +1,10 @@
+# [1.36.0](https://github.com/nicholaspsmith/lance-context/compare/v1.35.0...v1.36.0) (2026-02-01)
+
+
+### Features
+
+* add token savings tracking and dashboard display ([#124](https://github.com/nicholaspsmith/lance-context/issues/124)) ([55207f9](https://github.com/nicholaspsmith/lance-context/commit/55207f94d468e798cab5e9eb5641b748f133a98c))
+
 # [1.35.0](https://github.com/nicholaspsmith/lance-context/compare/v1.34.0...v1.35.0) (2026-02-01)
 
 
