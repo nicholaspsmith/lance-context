@@ -1,3 +1,10 @@
+# [1.35.0](https://github.com/nicholaspsmith/lance-context/compare/v1.34.0...v1.35.0) (2026-02-01)
+
+
+### Features
+
+* improve tool discoverability and add config hot-reload ([#123](https://github.com/nicholaspsmith/lance-context/issues/123)) ([4fa8e85](https://github.com/nicholaspsmith/lance-context/commit/4fa8e85054eeae9269309ca83ac07c1e705c3b7b))
+
 # [1.34.0](https://github.com/nicholaspsmith/lance-context/compare/v1.33.1...v1.34.0) (2026-02-01)
 
 
