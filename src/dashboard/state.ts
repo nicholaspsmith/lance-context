@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { CodeIndexer, IndexStatus, IndexProgress } from '../search/indexer.js';
 import type { LanceContextConfig } from '../config.js';
+import type { BackendFallbackInfo } from '../embeddings/types.js';
 
 /**
  * Command names that can be tracked
@@ -116,6 +117,7 @@ export class DashboardStateManager extends EventEmitter {
   private isIndexing = false;
   private lastProgress: IndexProgress | null = null;
   private commandUsage: Map<CommandName, number> = new Map();
+  private backendFallback: BackendFallbackInfo | null = null;
 
   constructor() {
     super();
@@ -205,6 +207,20 @@ export class DashboardStateManager extends EventEmitter {
    */
   getVersion(): string | null {
     return this.version;
+  }
+
+  /**
+   * Set backend fallback info when a fallback occurred during initialization
+   */
+  setBackendFallback(fallback: BackendFallbackInfo): void {
+    this.backendFallback = fallback;
+  }
+
+  /**
+   * Get backend fallback info if a fallback occurred
+   */
+  getBackendFallback(): BackendFallbackInfo | null {
+    return this.backendFallback;
   }
 
   /**

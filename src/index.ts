@@ -344,7 +344,7 @@ async function getIndexer(): Promise<CodeIndexer> {
         apiKey = secrets.geminiApiKey || process.env.GEMINI_API_KEY;
       }
 
-      const backend = await createEmbeddingBackend({
+      const { backend, fallback } = await createEmbeddingBackend({
         backend: configuredBackend,
         apiKey,
         // Note: Don't pass indexing.batchSize here - that's for progress reporting batches.
@@ -358,6 +358,11 @@ async function getIndexer(): Promise<CodeIndexer> {
       dashboardState.setIndexer(idx);
       dashboardState.setConfig(config);
       dashboardState.setProjectPath(PROJECT_PATH);
+
+      // Track backend fallback if it occurred
+      if (fallback) {
+        dashboardState.setBackendFallback(fallback);
+      }
 
       return idx;
     })();
