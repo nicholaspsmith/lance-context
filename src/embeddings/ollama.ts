@@ -138,29 +138,26 @@ export class OllamaBackend implements EmbeddingBackend {
         console.error(`[lance-context]   ${batchStartMsg}`);
         broadcastLog('info', batchStartMsg);
 
-        // Create abort controller with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-          const timeoutMsg = `Batch ${batchNum}/${batches.length}: TIMEOUT after ${DEFAULT_TIMEOUT_MS / 1000}s`;
-          console.error(`[lance-context]   ${timeoutMsg}`);
-          broadcastLog('error', timeoutMsg);
-          batchStatuses.set(batchNum, '⏱️ TIMEOUT');
-          updateBatchProgress();
-          controller.abort();
-        }, DEFAULT_TIMEOUT_MS);
         const batchStart = Date.now();
 
         try {
-          const response = await fetchWithRetry(`${this.baseUrl}/api/embed`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: this.model,
-              input: batch,
-              keep_alive: '10m', // Keep model loaded for 10 minutes
-            }),
-            signal: controller.signal,
-          });
+          const response = await fetchWithRetry(
+            `${this.baseUrl}/api/embed`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: this.model,
+                input: batch,
+                keep_alive: '10m', // Keep model loaded for 10 minutes
+              }),
+            },
+            {
+              // Ollama is local and can be slow, especially on first load
+              // Use longer timeout (2 minutes per batch)
+              timeoutMs: DEFAULT_TIMEOUT_MS,
+            }
+          );
 
           if (!response.ok) {
             throw new Error(`Ollama embedding failed: ${response.status}`);
@@ -179,14 +176,16 @@ export class OllamaBackend implements EmbeddingBackend {
           return { batchIndex: i + groupIndex, embeddings: data.embeddings };
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error);
-          const batchErrorMsg = `Batch ${batchNum}/${batches.length}: ERROR - ${errorMsg}`;
+          // Add timeout context to error message
+          const isTimeout = errorMsg.includes('timeout');
+          const batchErrorMsg = isTimeout
+            ? `Batch ${batchNum}/${batches.length}: TIMEOUT after ${DEFAULT_TIMEOUT_MS / 1000}s - ${errorMsg}`
+            : `Batch ${batchNum}/${batches.length}: ERROR - ${errorMsg}`;
           console.error(`[lance-context]   ${batchErrorMsg}`);
           broadcastLog('error', batchErrorMsg);
-          batchStatuses.set(batchNum, '❌ ERROR');
+          batchStatuses.set(batchNum, isTimeout ? '⏱️ TIMEOUT' : '❌ ERROR');
           updateBatchProgress();
           throw error;
-        } finally {
-          clearTimeout(timeoutId);
         }
       });
 
