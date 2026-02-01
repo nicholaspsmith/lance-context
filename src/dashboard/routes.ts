@@ -219,7 +219,7 @@ async function handleSaveEmbeddingSettings(
     await saveEmbeddingSettings(projectPath, body);
     sendJSON(res, {
       success: true,
-      message: `Embedding backend set to ${body.backend}. Restart the MCP server for changes to take effect.`,
+      message: `Embedding backend set to ${body.backend}. Config will auto-reload.`,
     });
   } catch (error) {
     sendJSON(res, { error: String(error) }, 500);
@@ -308,8 +308,8 @@ async function handleSaveDashboardSettings(
     await saveDashboardSettings(projectPath, body);
 
     const message = body.enabled
-      ? 'Dashboard enabled. Changes take effect on next MCP server restart.'
-      : 'Dashboard disabled. Use the open_dashboard MCP tool to start manually, or re-enable and restart.';
+      ? 'Dashboard enabled. Config will auto-reload.'
+      : 'Dashboard disabled. Config will auto-reload. Use the open_dashboard MCP tool to start manually.';
 
     sendJSON(res, {
       success: true,

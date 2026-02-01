@@ -1462,11 +1462,11 @@ export function getDashboardHTML(): string {
         const result = await response.json();
 
         if (response.ok) {
-          saveStatus.textContent = 'Saved! Restart server to apply.';
+          saveStatus.textContent = 'Saved! Auto-reloading config...';
           saveStatus.className = 'save-status success';
           apiKeyInput.value = ''; // Clear the input
-          // Delay reload so user sees the success message (reload clears status)
-          setTimeout(loadEmbeddingSettings, 3000);
+          // Delay reload so user sees the success message
+          setTimeout(loadEmbeddingSettings, 2000);
         } else {
           saveStatus.textContent = result.error || 'Failed to save';
           saveStatus.className = 'save-status error';
