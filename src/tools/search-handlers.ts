@@ -7,6 +7,7 @@ import type { ToolContext, ToolResponse } from './types.js';
 import { createToolResponse } from './types.js';
 import { isString, isNumber, isStringArray } from '../utils/type-guards.js';
 import { LanceContextError } from '../utils/errors.js';
+import { dashboardState } from '../dashboard/state.js';
 
 /**
  * Arguments for search_code tool.
@@ -70,6 +71,19 @@ export async function handleSearchCode(
   });
 
   const formatted = formatSearchResults(results);
+
+  // Track token savings (optional - may not be available in tests)
+  try {
+    const status = await context.indexer.getStatus();
+    const charsReturned = formatted.length;
+    const matchedFiles = new Set(results.map((r) => r.filepath)).size;
+    dashboardState
+      .getTokenTracker()
+      .recordSearchCode(charsReturned, matchedFiles, status.fileCount ?? 0);
+  } catch {
+    // Token tracking not available, continue silently
+  }
+
   return createToolResponse(formatted, context.toolGuidance);
 }
 
@@ -130,5 +144,13 @@ export async function handleSearchSimilar(
   });
 
   const formatted = formatSearchResults(results);
+
+  // Track token savings (optional)
+  try {
+    dashboardState.getTokenTracker().recordSearchSimilar(formatted.length, results.length);
+  } catch {
+    // Token tracking not available
+  }
+
   return createToolResponse(formatted, context.toolGuidance);
 }

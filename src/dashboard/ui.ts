@@ -1171,6 +1171,33 @@ export function getDashboardHTML(): string {
         </div>
       </div>
 
+      <!-- Token Savings Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Token Savings</span>
+          <span class="badge" id="savingsBadge">This Session</span>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Estimated Tokens Saved</div>
+          <div class="stat-value" id="tokensSaved">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Efficiency</div>
+          <div class="stat-value" id="savingsEfficiency">0%</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Files Not Read</div>
+          <div class="stat-value small" id="filesAvoided">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Operations Tracked</div>
+          <div class="stat-value small" id="operationCount">0</div>
+        </div>
+        <div class="form-hint" style="margin-top: 10px;">
+          Semantic search returns only relevant code chunks instead of entire files, saving context tokens.
+        </div>
+      </div>
+
       <!-- Command Usage Card -->
       <div class="card double-width">
         <div class="card-header">
@@ -1997,7 +2024,8 @@ export function getDashboardHTML(): string {
         fetch('/api/status'),
         fetch('/api/config'),
         fetch('/api/usage'),
-        fetch('/api/beads')
+        fetch('/api/beads'),
+        fetch('/api/token-savings')
       ]);
 
       let currentStatus = null;
@@ -2050,6 +2078,37 @@ export function getDashboardHTML(): string {
         } catch (e) {
           console.error('Failed to parse beads:', e);
         }
+      }
+
+      // Process token savings result
+      if (results[4].status === 'fulfilled' && results[4].value.ok) {
+        try {
+          const savings = await results[4].value.json();
+          updateTokenSavings(savings);
+        } catch (e) {
+          console.error('Failed to parse token savings:', e);
+        }
+      }
+    }
+
+    // Update token savings display
+    function updateTokenSavings(savings) {
+      const tokensSaved = document.getElementById('tokensSaved');
+      const savingsEfficiency = document.getElementById('savingsEfficiency');
+      const filesAvoided = document.getElementById('filesAvoided');
+      const operationCount = document.getElementById('operationCount');
+
+      if (tokensSaved) {
+        tokensSaved.textContent = savings.tokensSaved.toLocaleString();
+      }
+      if (savingsEfficiency) {
+        savingsEfficiency.textContent = savings.efficiencyPercent + '%';
+      }
+      if (filesAvoided) {
+        filesAvoided.textContent = savings.filesAvoided.toLocaleString();
+      }
+      if (operationCount) {
+        operationCount.textContent = savings.operationCount.toString();
       }
     }
 

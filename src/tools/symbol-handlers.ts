@@ -26,6 +26,7 @@ import type { ToolResponse } from './types.js';
 import { createToolResponse } from './types.js';
 import { isString, isNumber, isBoolean } from '../utils/type-guards.js';
 import { LanceContextError } from '../utils/errors.js';
+import { dashboardState } from '../dashboard/state.js';
 
 /**
  * Context for symbol tools.
@@ -94,7 +95,17 @@ export async function handleGetSymbolsOverview(
 ): Promise<ToolResponse> {
   const extractor = new SymbolExtractor(context.projectPath);
   const overview = await extractor.getSymbolsOverview(args.relativePath, args.depth ?? 0);
-  return createToolResponse(formatSymbolsOverview(overview), context.toolGuidance);
+  const formatted = formatSymbolsOverview(overview);
+
+  // Track token savings (optional)
+  try {
+    const estimatedFileLines = Math.max(100, overview.totalSymbols * 15); // ~15 lines per symbol on average
+    dashboardState.getTokenTracker().recordSymbolsOverview(formatted.length, estimatedFileLines);
+  } catch {
+    // Token tracking not available
+  }
+
+  return createToolResponse(formatted, context.toolGuidance);
 }
 
 // ============================================================================

@@ -8,6 +8,7 @@ import type { ToolResponse } from './types.js';
 import { createToolResponse } from './types.js';
 import { isNumber, isBoolean, isString } from '../utils/type-guards.js';
 import { LanceContextError } from '../utils/errors.js';
+import { dashboardState } from '../dashboard/state.js';
 
 /**
  * Context for clustering tools.
@@ -76,7 +77,19 @@ export async function handleSummarizeCodebase(
   const summary = await context.indexer.summarizeCodebase(
     args.numClusters ? { numClusters: args.numClusters } : undefined
   );
-  return createToolResponse(formatCodebaseSummary(summary), context.toolGuidance);
+  const formatted = formatCodebaseSummary(summary);
+
+  // Track token savings (optional)
+  try {
+    const status = await context.indexer.getStatus();
+    dashboardState
+      .getTokenTracker()
+      .recordSummarizeCodebase(formatted.length, status.fileCount ?? 0);
+  } catch {
+    // Token tracking not available
+  }
+
+  return createToolResponse(formatted, context.toolGuidance);
 }
 
 /**
@@ -124,7 +137,16 @@ export async function handleListConcepts(
   context: ClusteringToolContext
 ): Promise<ToolResponse> {
   const concepts = await context.indexer.listConcepts(args.forceRecluster ?? false);
-  return createToolResponse(formatConceptClusters(concepts), context.toolGuidance);
+  const formatted = formatConceptClusters(concepts);
+
+  // Track token savings (optional)
+  try {
+    dashboardState.getTokenTracker().recordListConcepts(formatted.length, concepts.length);
+  } catch {
+    // Token tracking not available
+  }
+
+  return createToolResponse(formatted, context.toolGuidance);
 }
 
 /**
@@ -190,8 +212,14 @@ export async function handleSearchByConcept(
     args.query,
     args.limit ?? 10
   );
-  return createToolResponse(
-    formatConceptSearchResults(results, args.conceptId),
-    context.toolGuidance
-  );
+  const formatted = formatConceptSearchResults(results, args.conceptId);
+
+  // Track token savings (optional)
+  try {
+    dashboardState.getTokenTracker().recordSearchByConcept(formatted.length, results.length);
+  } catch {
+    // Token tracking not available
+  }
+
+  return createToolResponse(formatted, context.toolGuidance);
 }

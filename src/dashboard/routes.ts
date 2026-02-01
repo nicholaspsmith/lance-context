@@ -321,6 +321,14 @@ async function handleSaveDashboardSettings(
 }
 
 /**
+ * Handle GET /api/token-savings - Get token savings statistics
+ */
+function handleTokenSavings(_req: IncomingMessage, res: ServerResponse): void {
+  const stats = dashboardState.getTokenSavings();
+  sendJSON(res, stats);
+}
+
+/**
  * Route dispatcher
  */
 export async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -391,6 +399,9 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
         break;
       case '/api/settings/dashboard':
         await handleGetDashboardSettings(req, res);
+        break;
+      case '/api/token-savings':
+        handleTokenSavings(req, res);
         break;
       default:
         send404(res);

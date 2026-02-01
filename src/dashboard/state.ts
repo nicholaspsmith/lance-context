@@ -4,6 +4,7 @@ import * as path from 'path';
 import type { CodeIndexer, IndexStatus, IndexProgress } from '../search/indexer.js';
 import type { LanceContextConfig } from '../config.js';
 import type { BackendFallbackInfo } from '../embeddings/types.js';
+import { tokenTracker, type TokenSavingsStats } from './token-tracking.js';
 
 /**
  * Command names that can be tracked
@@ -421,6 +422,20 @@ export class DashboardStateManager extends EventEmitter {
       total += count;
     }
     return total;
+  }
+
+  /**
+   * Get token savings statistics
+   */
+  getTokenSavings(): TokenSavingsStats {
+    return tokenTracker.getStats();
+  }
+
+  /**
+   * Get the token tracker for recording savings
+   */
+  getTokenTracker() {
+    return tokenTracker;
   }
 }
 
