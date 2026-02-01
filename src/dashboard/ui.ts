@@ -222,8 +222,28 @@ export function getDashboardHTML(): string {
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 16px;
+    }
+
+    /* Tablet: 2 cards per row */
+    @media (max-width: 1024px) {
+      .grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .card.double-width {
+        grid-column: span 2;
+      }
+    }
+
+    /* Mobile: 1 card per row */
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .card.double-width {
+        grid-column: span 1;
+      }
     }
 
     .card {
@@ -1082,7 +1102,7 @@ export function getDashboardHTML(): string {
       </div>
 
       <!-- Command Usage Card -->
-      <div class="card full-width">
+      <div class="card double-width">
         <div class="card-header">
           <span class="card-title">Command Usage</span>
           <span class="badge" id="sessionBadge">This Session</span>
