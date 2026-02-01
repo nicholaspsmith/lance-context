@@ -1,3 +1,10 @@
+# [1.32.0](https://github.com/nicholaspsmith/lance-context/compare/v1.31.0...v1.32.0) (2026-02-01)
+
+
+### Features
+
+* make command usage card responsive with 3/2/1 layout ([#119](https://github.com/nicholaspsmith/lance-context/issues/119)) ([4a45497](https://github.com/nicholaspsmith/lance-context/commit/4a454978088e045e15387aacc80501abf4a243fa))
+
 # [1.31.0](https://github.com/nicholaspsmith/lance-context/compare/v1.30.0...v1.31.0) (2026-02-01)
 
 
