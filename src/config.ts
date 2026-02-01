@@ -134,6 +134,12 @@ export const DEFAULT_CONFIG: LanceContextConfig = {
 const CONFIG_FILENAMES = ['.lance-context.json', 'lance-context.config.json'];
 
 /**
+ * Local config filename for user-specific overrides (gitignored)
+ * Settings saved from the dashboard are written here instead of the main config
+ */
+const LOCAL_CONFIG_FILENAME = '.lance-context.local.json';
+
+/**
  * Load and validate configuration from project directory
  */
 
@@ -458,7 +464,67 @@ function extractValidIndexing(rawIndexing: unknown): Partial<z.infer<typeof Inde
   return result;
 }
 
+/**
+ * Load local config overrides (user-specific settings, gitignored)
+ */
+async function loadLocalConfig(projectPath: string): Promise<Partial<LanceContextConfig>> {
+  const localConfigPath = path.join(projectPath, LOCAL_CONFIG_FILENAME);
+  try {
+    const content = await fs.readFile(localConfigPath, 'utf-8');
+    const rawConfig = JSON.parse(content);
+
+    // Validate with Zod (lenient - just extract valid parts)
+    const result = ConfigSchema.safeParse(rawConfig);
+    if (result.success) {
+      return result.data;
+    }
+
+    // Try to salvage valid parts
+    return extractValidConfig(rawConfig);
+  } catch {
+    // Local config doesn't exist, return empty
+    return {};
+  }
+}
+
+/**
+ * Deep merge two config objects, with localConfig taking precedence
+ */
+function mergeConfigs(
+  baseConfig: LanceContextConfig,
+  localConfig: Partial<LanceContextConfig>
+): LanceContextConfig {
+  return {
+    patterns: localConfig.patterns || baseConfig.patterns,
+    excludePatterns: localConfig.excludePatterns || baseConfig.excludePatterns,
+    embedding: {
+      ...baseConfig.embedding,
+      ...localConfig.embedding,
+    },
+    chunking: {
+      ...baseConfig.chunking,
+      ...localConfig.chunking,
+    },
+    search: {
+      ...baseConfig.search,
+      ...localConfig.search,
+    },
+    dashboard: {
+      ...baseConfig.dashboard,
+      ...localConfig.dashboard,
+    },
+    indexing: {
+      ...baseConfig.indexing,
+      ...localConfig.indexing,
+    },
+    instructions: localConfig.instructions ?? baseConfig.instructions,
+  };
+}
+
 export async function loadConfig(projectPath: string): Promise<LanceContextConfig> {
+  let baseConfig: LanceContextConfig = DEFAULT_CONFIG;
+
+  // Load project config
   for (const filename of CONFIG_FILENAMES) {
     const configPath = path.join(projectPath, filename);
     try {
@@ -474,7 +540,7 @@ export async function loadConfig(projectPath: string): Promise<LanceContextConfi
         // Try to salvage valid parts of the config by validating each section separately
         const validConfig = extractValidConfig(rawConfig);
 
-        return {
+        baseConfig = {
           patterns: validConfig.patterns || DEFAULT_PATTERNS,
           excludePatterns: validConfig.excludePatterns || DEFAULT_EXCLUDE_PATTERNS,
           embedding: validConfig.embedding,
@@ -496,11 +562,12 @@ export async function loadConfig(projectPath: string): Promise<LanceContextConfi
           },
           instructions: validConfig.instructions,
         };
+        break;
       }
 
       const userConfig = result.data;
 
-      return {
+      baseConfig = {
         patterns: userConfig.patterns || DEFAULT_PATTERNS,
         excludePatterns: userConfig.excludePatterns || DEFAULT_EXCLUDE_PATTERNS,
         embedding: userConfig.embedding,
@@ -522,6 +589,7 @@ export async function loadConfig(projectPath: string): Promise<LanceContextConfi
         },
         instructions: userConfig.instructions,
       };
+      break;
     } catch (error) {
       // Check if it's a JSON parse error
       if (error instanceof SyntaxError) {
@@ -536,7 +604,9 @@ export async function loadConfig(projectPath: string): Promise<LanceContextConfi
     }
   }
 
-  return DEFAULT_CONFIG;
+  // Load and merge local config overrides
+  const localConfig = await loadLocalConfig(projectPath);
+  return mergeConfigs(baseConfig, localConfig);
 }
 
 /**
@@ -655,45 +725,45 @@ export interface EmbeddingSettings {
 
 /**
  * Save embedding settings from dashboard
- * - Stores backend preference in .lance-context.json
+ * - Stores backend preference in .lance-context.local.json (gitignored, user-specific)
  * - Stores API key in .lance-context/secrets.json (gitignored)
  */
 export async function saveEmbeddingSettings(
   projectPath: string,
   settings: EmbeddingSettings
 ): Promise<void> {
-  // Load existing config
-  const configPath = path.join(projectPath, '.lance-context.json');
-  let existingConfig: LanceContextConfig = {};
+  // Load existing local config (user-specific overrides)
+  const localConfigPath = path.join(projectPath, LOCAL_CONFIG_FILENAME);
+  let localConfig: Partial<LanceContextConfig> = {};
 
   try {
-    const content = await fs.readFile(configPath, 'utf-8');
-    existingConfig = JSON.parse(content);
+    const content = await fs.readFile(localConfigPath, 'utf-8');
+    localConfig = JSON.parse(content);
   } catch {
     // File doesn't exist, start fresh
   }
 
   // Update embedding config
-  existingConfig.embedding = {
-    ...existingConfig.embedding,
+  localConfig.embedding = {
+    ...localConfig.embedding,
     backend: settings.backend,
   };
 
   // Update ollamaConcurrency if provided
   if (settings.ollamaConcurrency !== undefined) {
-    existingConfig.embedding.ollamaConcurrency = settings.ollamaConcurrency;
+    localConfig.embedding.ollamaConcurrency = settings.ollamaConcurrency;
   }
 
   // Update indexing batch size if provided
   if (settings.batchSize !== undefined) {
-    existingConfig.indexing = {
-      ...existingConfig.indexing,
+    localConfig.indexing = {
+      ...localConfig.indexing,
       batchSize: settings.batchSize,
     };
   }
 
-  // Save config
-  await fs.writeFile(configPath, JSON.stringify(existingConfig, null, 2));
+  // Save to local config (gitignored, user-specific)
+  await fs.writeFile(localConfigPath, JSON.stringify(localConfig, null, 2));
 
   // Save API key to secrets if provided
   if (settings.apiKey) {
@@ -742,39 +812,39 @@ export interface DashboardSettings {
 }
 
 /**
- * Save dashboard settings to .lance-context.json
+ * Save dashboard settings to .lance-context.local.json (gitignored, user-specific)
  */
 export async function saveDashboardSettings(
   projectPath: string,
   settings: DashboardSettings
 ): Promise<void> {
-  const configPath = path.join(projectPath, '.lance-context.json');
-  let existingConfig: LanceContextConfig = {};
+  const localConfigPath = path.join(projectPath, LOCAL_CONFIG_FILENAME);
+  let localConfig: Partial<LanceContextConfig> = {};
 
   try {
-    const content = await fs.readFile(configPath, 'utf-8');
-    existingConfig = JSON.parse(content);
+    const content = await fs.readFile(localConfigPath, 'utf-8');
+    localConfig = JSON.parse(content);
   } catch {
     // File doesn't exist, start fresh
   }
 
   // Update dashboard config
-  existingConfig.dashboard = {
-    ...existingConfig.dashboard,
+  localConfig.dashboard = {
+    ...localConfig.dashboard,
     enabled: settings.enabled,
   };
 
   // Only update port if provided
   if (settings.port !== undefined) {
-    existingConfig.dashboard.port = settings.port;
+    localConfig.dashboard.port = settings.port;
   }
 
   // Only update openBrowser if provided
   if (settings.openBrowser !== undefined) {
-    existingConfig.dashboard.openBrowser = settings.openBrowser;
+    localConfig.dashboard.openBrowser = settings.openBrowser;
   }
 
-  await fs.writeFile(configPath, JSON.stringify(existingConfig, null, 2));
+  await fs.writeFile(localConfigPath, JSON.stringify(localConfig, null, 2));
 }
 
 /**

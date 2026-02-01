@@ -699,10 +699,11 @@ export function getDashboardHTML(): string {
 
     .log-toggle {
       transition: transform 0.2s;
+      transform: rotate(90deg);
     }
 
     .log-toggle.collapsed {
-      transform: rotate(-90deg);
+      transform: rotate(0deg);
     }
 
     .log-title {
@@ -1817,7 +1818,9 @@ export function getDashboardHTML(): string {
       // Clustering
       'list_concepts': '#A3CB38',      // lime
       'search_by_concept': '#1289A7',  // cerulean
-      'summarize_codebase': '#D980FA'  // lavender
+      'summarize_codebase': '#D980FA', // lavender
+      // Dashboard
+      'open_dashboard': '#e17055'      // terra cotta
     };
 
     // Update usage chart using charts.css

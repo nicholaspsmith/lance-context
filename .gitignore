@@ -18,8 +18,9 @@ Thumbs.db
 .env
 .env.local
 
-# Lance index data
+# Lance index data and user-specific config
 .lance-context/
+.lance-context.local.json
 
 # Logs
 *.log
