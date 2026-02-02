@@ -1,3 +1,10 @@
+## [1.36.1](https://github.com/nicholaspsmith/lance-context/compare/v1.36.0...v1.36.1) (2026-02-02)
+
+
+### Bug Fixes
+
+* skip retries immediately on API quota exhaustion ([#125](https://github.com/nicholaspsmith/lance-context/issues/125)) ([54d63a1](https://github.com/nicholaspsmith/lance-context/commit/54d63a1f1ffedf59921f50da715ae47ef50d0845))
+
 # [1.36.0](https://github.com/nicholaspsmith/lance-context/compare/v1.35.0...v1.36.0) (2026-02-01)
 
 
