@@ -20,6 +20,16 @@ const CHARS_PER_TOKEN = 4;
 const AVG_CHARS_PER_LINE = 60;
 
 /**
+ * Maximum number of events to keep in history (prevents unbounded growth)
+ */
+const MAX_EVENTS = 1000;
+
+/**
+ * Debounce delay for disk writes in milliseconds
+ */
+const SAVE_DEBOUNCE_MS = 1000;
+
+/**
  * Estimated lines an agent would read via grep for different operations.
  * These are conservative estimates based on typical grep + read patterns:
  * - grep returns ~5-10 lines of context per match
@@ -51,6 +61,19 @@ export type TokenSavingsEventType =
   | 'summarize_codebase'
   | 'list_concepts'
   | 'search_by_concept';
+
+/**
+ * Valid event types for validation
+ */
+const VALID_EVENT_TYPES: Set<string> = new Set([
+  'search_code',
+  'search_similar',
+  'get_symbols_overview',
+  'find_symbol',
+  'summarize_codebase',
+  'list_concepts',
+  'search_by_concept',
+]);
 
 /**
  * Record of a single token savings event
@@ -99,6 +122,22 @@ export interface TokenSavingsStats {
 }
 
 /**
+ * Validate that an object is a valid TokenSavingsEvent
+ */
+function isValidEvent(event: unknown): event is TokenSavingsEvent {
+  if (typeof event !== 'object' || event === null) return false;
+  const e = event as Record<string, unknown>;
+  return (
+    typeof e.type === 'string' &&
+    VALID_EVENT_TYPES.has(e.type) &&
+    typeof e.timestamp === 'number' &&
+    typeof e.charsReturned === 'number' &&
+    typeof e.charsAvoided === 'number' &&
+    typeof e.filesAvoided === 'number'
+  );
+}
+
+/**
  * Token savings tracker for a session
  */
 export class TokenSavingsTracker {
@@ -106,6 +145,8 @@ export class TokenSavingsTracker {
   private sessionStart: number = Date.now();
   private onUpdate: (() => void) | null = null;
   private projectPath: string | null = null;
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingSave = false;
 
   /**
    * Set the project path and load persisted data
@@ -124,7 +165,7 @@ export class TokenSavingsTracker {
   }
 
   /**
-   * Load token savings from disk
+   * Load token savings from disk with validation
    */
   private loadFromDisk(): void {
     const filePath = this.getFilePath();
@@ -134,7 +175,12 @@ export class TokenSavingsTracker {
       if (fs.existsSync(filePath)) {
         const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
         if (Array.isArray(data.events)) {
-          this.events = data.events;
+          // Validate each event and only keep valid ones
+          this.events = data.events.filter(isValidEvent);
+          // Apply event limit on load
+          if (this.events.length > MAX_EVENTS) {
+            this.events = this.events.slice(-MAX_EVENTS);
+          }
         }
         if (typeof data.sessionStart === 'number') {
           this.sessionStart = data.sessionStart;
@@ -146,24 +192,37 @@ export class TokenSavingsTracker {
   }
 
   /**
-   * Save token savings to disk
+   * Save token savings to disk (debounced to avoid blocking on every event)
    */
   private saveToDisk(): void {
     const filePath = this.getFilePath();
     if (!filePath) return;
 
-    try {
-      const dir = path.dirname(filePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+    // Mark that we have pending changes
+    this.pendingSave = true;
+
+    // If a save is already scheduled, let it handle the write
+    if (this.saveTimer) return;
+
+    // Schedule a debounced write
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      if (!this.pendingSave) return;
+      this.pendingSave = false;
+
+      try {
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(
+          filePath,
+          JSON.stringify({ events: this.events, sessionStart: this.sessionStart }, null, 2)
+        );
+      } catch {
+        // Ignore errors saving to disk
       }
-      fs.writeFileSync(
-        filePath,
-        JSON.stringify({ events: this.events, sessionStart: this.sessionStart }, null, 2)
-      );
-    } catch {
-      // Ignore errors saving to disk
-    }
+    }, SAVE_DEBOUNCE_MS);
   }
 
   /**
@@ -177,6 +236,11 @@ export class TokenSavingsTracker {
    * Notify that token savings have been updated
    */
   private notifyUpdate(): void {
+    // Rotate events if we exceed the limit
+    if (this.events.length > MAX_EVENTS) {
+      this.events = this.events.slice(-MAX_EVENTS);
+    }
+
     this.saveToDisk();
     if (this.onUpdate) {
       this.onUpdate();
@@ -195,13 +259,15 @@ export class TokenSavingsTracker {
       0,
       GREP_ESTIMATE.SEARCH_CODE_LINES * AVG_CHARS_PER_LINE - charsReturned
     );
+    // Estimate: agent would grep through ~5-10 files to find what semantic search found directly
+    const filesAvoided = Math.max(0, Math.min(10, totalFilesSearched) - matchedFiles);
 
     this.events.push({
       type: 'search_code',
       timestamp: Date.now(),
       charsReturned,
       charsAvoided,
-      filesAvoided: matchedFiles,
+      filesAvoided,
       context: `Searched ${totalFilesSearched} files, returned ${matchedFiles} matches`,
     });
     this.notifyUpdate();
@@ -218,13 +284,15 @@ export class TokenSavingsTracker {
       0,
       GREP_ESTIMATE.SEARCH_SIMILAR_LINES * AVG_CHARS_PER_LINE - charsReturned
     );
+    // Estimate: agent would read at least 3 files to find similar patterns
+    const filesAvoided = Math.max(3, matchedChunks);
 
     this.events.push({
       type: 'search_similar',
       timestamp: Date.now(),
       charsReturned,
       charsAvoided,
-      filesAvoided: matchedChunks,
+      filesAvoided,
       context: `Found ${matchedChunks} similar code chunks`,
     });
     this.notifyUpdate();
@@ -261,13 +329,15 @@ export class TokenSavingsTracker {
       0,
       GREP_ESTIMATE.FIND_SYMBOL_LINES * AVG_CHARS_PER_LINE - charsReturned
     );
+    // Estimate: agent would grep through multiple files to find symbol definition
+    const filesAvoided = Math.max(0, Math.min(filesSearched, 5) - 1);
 
     this.events.push({
       type: 'find_symbol',
       timestamp: Date.now(),
       charsReturned,
       charsAvoided,
-      filesAvoided: Math.min(filesSearched, 5),
+      filesAvoided,
       context: `Searched ${filesSearched} files`,
     });
     this.notifyUpdate();
@@ -284,13 +354,15 @@ export class TokenSavingsTracker {
       0,
       GREP_ESTIMATE.SUMMARIZE_LINES * AVG_CHARS_PER_LINE - charsReturned
     );
+    // Estimate: agent would explore ~20 files to understand codebase structure
+    const filesAvoided = Math.min(totalFiles, 20);
 
     this.events.push({
       type: 'summarize_codebase',
       timestamp: Date.now(),
       charsReturned,
       charsAvoided,
-      filesAvoided: Math.min(totalFiles, 10),
+      filesAvoided,
       context: `Summarized ${totalFiles} files`,
     });
     this.notifyUpdate();
@@ -307,13 +379,15 @@ export class TokenSavingsTracker {
       0,
       GREP_ESTIMATE.LIST_CONCEPTS_LINES * AVG_CHARS_PER_LINE - charsReturned
     );
+    // Estimate: agent would explore ~3 files per concept cluster to understand organization
+    const filesAvoided = Math.min(clusterCount * 3, 15);
 
     this.events.push({
       type: 'list_concepts',
       timestamp: Date.now(),
       charsReturned,
       charsAvoided,
-      filesAvoided: clusterCount,
+      filesAvoided,
       context: `Found ${clusterCount} concept clusters`,
     });
     this.notifyUpdate();
@@ -330,13 +404,15 @@ export class TokenSavingsTracker {
       0,
       GREP_ESTIMATE.SEARCH_BY_CONCEPT_LINES * AVG_CHARS_PER_LINE - charsReturned
     );
+    // Estimate: agent would grep and read ~half the matched chunks worth of files
+    const filesAvoided = Math.max(2, Math.floor(matchedChunks / 2));
 
     this.events.push({
       type: 'search_by_concept',
       timestamp: Date.now(),
       charsReturned,
       charsAvoided,
-      filesAvoided: matchedChunks,
+      filesAvoided,
       context: `Explored concept with ${matchedChunks} chunks`,
     });
     this.notifyUpdate();
@@ -387,14 +463,6 @@ export class TokenSavingsTracker {
       efficiencyPercent,
       sessionStart: this.sessionStart,
     };
-  }
-
-  /**
-   * Reset the tracker for a new session
-   */
-  reset(): void {
-    this.events = [];
-    this.sessionStart = Date.now();
   }
 
   /**
