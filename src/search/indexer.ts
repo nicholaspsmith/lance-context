@@ -30,6 +30,56 @@ import {
 /** Default concurrency for parallel file processing */
 const FILE_PROCESSING_CONCURRENCY = 10;
 
+/** Similarity threshold for query deduplication (0.92 = very similar queries) */
+const QUERY_SIMILARITY_THRESHOLD = 0.92;
+
+/** TTL for query result cache in milliseconds (5 minutes) */
+const QUERY_RESULT_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/** Maximum number of cached query results */
+const QUERY_RESULT_CACHE_MAX_SIZE = 50;
+
+/**
+ * Cached query result entry with embedding for similarity comparison.
+ */
+interface CachedQueryResult {
+  /** The query embedding for similarity comparison */
+  embedding: number[];
+  /** The search results */
+  results: CodeChunk[];
+  /** Search options used (for cache key matching) */
+  options: {
+    limit: number;
+    pathPattern?: string;
+    languages?: string[];
+  };
+  /** Timestamp when cached */
+  timestamp: number;
+}
+
+/**
+ * Compute cosine similarity between two vectors.
+ * Returns a value between -1 and 1, where 1 means identical.
+ */
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length) return 0;
+
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+
+  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+  if (denominator === 0) return 0;
+
+  return dotProduct / denominator;
+}
+
 /**
  * Compute a checksum for index integrity validation.
  * Based on sorted file list and chunk count.
@@ -302,6 +352,8 @@ export class CodeIndexer {
   private config: GlanceyConfig | null = null;
   /** LRU cache for query embeddings with TTL to avoid recomputing identical queries */
   private queryEmbeddingCache = new TTLCache<number[]>({ maxSize: 100, ttlMs: 60 * 60 * 1000 });
+  /** Cache for query results to deduplicate semantically similar queries */
+  private queryResultCache: CachedQueryResult[] = [];
   /** Tracks chunking method usage during current indexing operation */
   private currentChunkingStats: ChunkingStats = this.createEmptyChunkingStats();
 
@@ -862,6 +914,9 @@ export class CodeIndexer {
       console.error(`[glancey] ${progress.message}`);
       onProgress?.(progress);
     };
+
+    // Clear query result cache since index is being updated
+    this.clearQueryResultCache();
 
     // Reset chunking stats for this indexing run
     this.currentChunkingStats = this.createEmptyChunkingStats();
@@ -1631,6 +1686,84 @@ export class CodeIndexer {
   }
 
   /**
+   * Check if search options match (for cache key comparison).
+   */
+  private searchOptionsMatch(
+    a: CachedQueryResult['options'],
+    b: CachedQueryResult['options']
+  ): boolean {
+    if (a.limit !== b.limit) return false;
+    if (a.pathPattern !== b.pathPattern) return false;
+    if ((a.languages?.length ?? 0) !== (b.languages?.length ?? 0)) return false;
+    if (a.languages && b.languages) {
+      const sortedA = [...a.languages].sort();
+      const sortedB = [...b.languages].sort();
+      if (!sortedA.every((v, i) => v === sortedB[i])) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Find a cached result for a semantically similar query.
+   * Returns the cached results if found, or null if no similar query is cached.
+   */
+  private findCachedQueryResult(
+    queryEmbedding: number[],
+    options: CachedQueryResult['options']
+  ): CodeChunk[] | null {
+    const now = Date.now();
+
+    // Clean up expired entries
+    this.queryResultCache = this.queryResultCache.filter(
+      (entry) => now - entry.timestamp < QUERY_RESULT_CACHE_TTL_MS
+    );
+
+    // Find a similar query with matching options
+    for (const entry of this.queryResultCache) {
+      if (!this.searchOptionsMatch(entry.options, options)) continue;
+
+      const similarity = cosineSimilarity(queryEmbedding, entry.embedding);
+      if (similarity >= QUERY_SIMILARITY_THRESHOLD) {
+        // Update timestamp to keep frequently accessed entries fresh
+        entry.timestamp = now;
+        return entry.results;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Cache a query result for future deduplication.
+   */
+  private cacheQueryResult(
+    queryEmbedding: number[],
+    results: CodeChunk[],
+    options: CachedQueryResult['options']
+  ): void {
+    // Enforce max cache size by removing oldest entries
+    while (this.queryResultCache.length >= QUERY_RESULT_CACHE_MAX_SIZE) {
+      // Remove the oldest entry (first in array)
+      this.queryResultCache.shift();
+    }
+
+    this.queryResultCache.push({
+      embedding: queryEmbedding,
+      results,
+      options,
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
+   * Clear the query result cache.
+   * Called when the index is updated to ensure fresh results.
+   */
+  clearQueryResultCache(): void {
+    this.queryResultCache = [];
+  }
+
+  /**
    * Check if a filepath matches a glob pattern.
    * Supports negation patterns starting with '!'.
    */
@@ -1678,6 +1811,13 @@ export class CodeIndexer {
 
     const queryEmbedding = await this.getQueryEmbedding(query);
 
+    // Check for cached results from a semantically similar query
+    const cacheOptions = { limit: resultLimit, pathPattern, languages };
+    const cachedResults = this.findCachedQueryResult(queryEmbedding, cacheOptions);
+    if (cachedResults) {
+      return cachedResults;
+    }
+
     // Fetch more results than needed for re-ranking and filtering
     // If we have filters, fetch even more to account for filtered-out results
     const hasFilters = pathPattern !== undefined || (languages && languages.length > 0);
@@ -1719,7 +1859,7 @@ export class CodeIndexer {
     // Sort by combined score and take top results
     scoredResults.sort((a, b) => b.score - a.score);
 
-    return scoredResults.slice(0, resultLimit).map((sr) => ({
+    const finalResults = scoredResults.slice(0, resultLimit).map((sr) => ({
       id: sr.result.id,
       filepath: sr.result.filepath,
       content: sr.result.content,
@@ -1729,6 +1869,11 @@ export class CodeIndexer {
       symbolType: sr.result.symbolType,
       symbolName: sr.result.symbolName,
     }));
+
+    // Cache the results for future similar queries
+    this.cacheQueryResult(queryEmbedding, finalResults, cacheOptions);
+
+    return finalResults;
   }
 
   /**

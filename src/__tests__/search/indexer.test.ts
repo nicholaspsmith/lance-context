@@ -359,6 +359,103 @@ describe('CodeIndexer', () => {
     });
   });
 
+  describe('query result deduplication', () => {
+    it('should return cached results for semantically similar queries', async () => {
+      const mockTable = createMockTable([
+        {
+          id: 'test.ts:1-10',
+          filepath: 'test.ts',
+          content: 'function test() {}',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+        },
+      ]);
+      mockConnection.tableNames.mockResolvedValue(['code_chunks']);
+      mockConnection.openTable.mockResolvedValue(mockTable as any);
+      vi.mocked(fsPromises.readFile).mockRejectedValue(new Error('ENOENT'));
+
+      // Setup mock to return very similar embeddings for similar queries
+      const baseEmbedding = Array(128).fill(0.1);
+      mockBackend.embed
+        .mockResolvedValueOnce(baseEmbedding) // First query
+        .mockResolvedValueOnce(baseEmbedding.map((v) => v + 0.001)); // Very similar embedding
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      // First search - should call the table search
+      await indexer.search('authentication middleware');
+      expect(mockTable.search).toHaveBeenCalledTimes(1);
+
+      // Second search with similar query - should return cached results
+      await indexer.search('auth middleware'); // Very similar query
+      // Table search should not be called again since results are cached
+      expect(mockTable.search).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not use cache when search options differ', async () => {
+      const mockTable = createMockTable([
+        {
+          id: 'test.ts:1-10',
+          filepath: 'test.ts',
+          content: 'function test() {}',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+        },
+      ]);
+      mockConnection.tableNames.mockResolvedValue(['code_chunks']);
+      mockConnection.openTable.mockResolvedValue(mockTable as any);
+      vi.mocked(fsPromises.readFile).mockRejectedValue(new Error('ENOENT'));
+
+      // Return identical embeddings
+      const baseEmbedding = Array(128).fill(0.1);
+      mockBackend.embed.mockResolvedValue(baseEmbedding);
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      // First search with limit 5
+      await indexer.search({ query: 'test', limit: 5 });
+      expect(mockTable.search).toHaveBeenCalledTimes(1);
+
+      // Second search with different limit - should not use cache
+      await indexer.search({ query: 'test', limit: 10 });
+      expect(mockTable.search).toHaveBeenCalledTimes(2);
+    });
+
+    it('should clear result cache when index is updated', async () => {
+      const mockTable = createMockTable([
+        {
+          id: 'test.ts:1-10',
+          filepath: 'test.ts',
+          content: 'function test() {}',
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+        },
+      ]);
+      mockConnection.tableNames.mockResolvedValue(['code_chunks']);
+      mockConnection.openTable.mockResolvedValue(mockTable as any);
+      vi.mocked(fsPromises.readFile).mockRejectedValue(new Error('ENOENT'));
+
+      const indexer = new CodeIndexer('/project', mockBackend);
+      await indexer.initialize();
+
+      // Search to populate cache
+      await indexer.search('test query');
+      expect(mockTable.search).toHaveBeenCalledTimes(1);
+
+      // Manually clear the result cache
+      indexer.clearQueryResultCache();
+
+      // Same query should now hit the table again
+      await indexer.search('test query');
+      expect(mockTable.search).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe('search filtering', () => {
     it('should filter results by pathPattern glob', async () => {
       const mockTable = createMockTable([
