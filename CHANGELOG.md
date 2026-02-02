@@ -1,3 +1,10 @@
+# [1.37.0](https://github.com/nicholaspsmith/lance-context/compare/v1.36.2...v1.37.0) (2026-02-02)
+
+
+### Features
+
+* **dashboard:** add tabbed layout with settings management ([#127](https://github.com/nicholaspsmith/lance-context/issues/127)) ([f74dd4f](https://github.com/nicholaspsmith/lance-context/commit/f74dd4fa13ad1666084b11ad2229036f971c61a8))
+
 ## [1.36.2](https://github.com/nicholaspsmith/lance-context/compare/v1.36.1...v1.36.2) (2026-02-02)
 
 
