@@ -863,3 +863,118 @@ export async function getDashboardSettings(projectPath: string): Promise<{
     openBrowser: config.dashboard?.openBrowser ?? DEFAULT_DASHBOARD.openBrowser,
   };
 }
+
+/**
+ * Search weights settings for dashboard configuration
+ */
+export interface SearchWeightsSettings {
+  semanticWeight: number;
+  keywordWeight: number;
+}
+
+/**
+ * Save search weights to .lance-context.local.json (gitignored, user-specific)
+ */
+export async function saveSearchWeights(
+  projectPath: string,
+  settings: SearchWeightsSettings
+): Promise<void> {
+  const localConfigPath = path.join(projectPath, LOCAL_CONFIG_FILENAME);
+  let localConfig: Partial<LanceContextConfig> = {};
+
+  try {
+    const content = await fs.readFile(localConfigPath, 'utf-8');
+    localConfig = JSON.parse(content);
+  } catch {
+    // File doesn't exist, start fresh
+  }
+
+  // Update search config
+  localConfig.search = {
+    ...localConfig.search,
+    semanticWeight: settings.semanticWeight,
+    keywordWeight: settings.keywordWeight,
+  };
+
+  await fs.writeFile(localConfigPath, JSON.stringify(localConfig, null, 2));
+}
+
+/**
+ * Get current search weights
+ */
+export async function getSearchWeights(projectPath: string): Promise<SearchWeightsSettings> {
+  const config = await loadConfig(projectPath);
+
+  return {
+    semanticWeight: config.search?.semanticWeight ?? DEFAULT_SEARCH.semanticWeight,
+    keywordWeight: config.search?.keywordWeight ?? DEFAULT_SEARCH.keywordWeight,
+  };
+}
+
+/**
+ * Add a pattern to include or exclude patterns in .lance-context.local.json
+ */
+export async function addPattern(
+  projectPath: string,
+  pattern: string,
+  type: 'include' | 'exclude'
+): Promise<void> {
+  const localConfigPath = path.join(projectPath, LOCAL_CONFIG_FILENAME);
+  let localConfig: Partial<LanceContextConfig> = {};
+
+  try {
+    const content = await fs.readFile(localConfigPath, 'utf-8');
+    localConfig = JSON.parse(content);
+  } catch {
+    // File doesn't exist, start fresh
+  }
+
+  // Get effective config to check for duplicates and get current patterns
+  const effectiveConfig = await loadConfig(projectPath);
+
+  if (type === 'include') {
+    const currentPatterns = effectiveConfig.patterns || [];
+    if (!currentPatterns.includes(pattern)) {
+      localConfig.patterns = [...currentPatterns, pattern];
+    }
+  } else {
+    const currentPatterns = effectiveConfig.excludePatterns || [];
+    if (!currentPatterns.includes(pattern)) {
+      localConfig.excludePatterns = [...currentPatterns, pattern];
+    }
+  }
+
+  await fs.writeFile(localConfigPath, JSON.stringify(localConfig, null, 2));
+}
+
+/**
+ * Remove a pattern from include or exclude patterns in .lance-context.local.json
+ */
+export async function removePattern(
+  projectPath: string,
+  pattern: string,
+  type: 'include' | 'exclude'
+): Promise<void> {
+  const localConfigPath = path.join(projectPath, LOCAL_CONFIG_FILENAME);
+  let localConfig: Partial<LanceContextConfig> = {};
+
+  try {
+    const content = await fs.readFile(localConfigPath, 'utf-8');
+    localConfig = JSON.parse(content);
+  } catch {
+    // File doesn't exist, start fresh
+  }
+
+  // Get effective config to get current patterns
+  const effectiveConfig = await loadConfig(projectPath);
+
+  if (type === 'include') {
+    const currentPatterns = effectiveConfig.patterns || [];
+    localConfig.patterns = currentPatterns.filter((p) => p !== pattern);
+  } else {
+    const currentPatterns = effectiveConfig.excludePatterns || [];
+    localConfig.excludePatterns = currentPatterns.filter((p) => p !== pattern);
+  }
+
+  await fs.writeFile(localConfigPath, JSON.stringify(localConfig, null, 2));
+}
