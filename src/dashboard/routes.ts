@@ -169,7 +169,16 @@ async function handleGetEmbeddingSettings(
 
   try {
     const settings = await getEmbeddingSettings(projectPath);
-    sendJSON(res, settings);
+
+    // Include running backend and fallback info so UI can show actual state
+    const status = await dashboardState.getStatus();
+    const fallback = dashboardState.getBackendFallback();
+
+    sendJSON(res, {
+      ...settings,
+      runningBackend: status?.embeddingBackend ?? null,
+      fallback,
+    });
   } catch (error) {
     sendJSON(res, { error: String(error) }, 500);
   }

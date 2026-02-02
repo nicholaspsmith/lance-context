@@ -371,9 +371,11 @@ async function getIndexer(): Promise<CodeIndexer> {
       dashboardState.setConfig(config);
       dashboardState.setProjectPath(PROJECT_PATH);
 
-      // Track backend fallback if it occurred
+      // Track backend fallback if it occurred, or clear if successful
       if (fallback) {
         dashboardState.setBackendFallback(fallback);
+      } else {
+        dashboardState.clearBackendFallback();
       }
 
       return idx;

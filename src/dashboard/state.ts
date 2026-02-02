@@ -218,6 +218,13 @@ export class DashboardStateManager extends EventEmitter {
   }
 
   /**
+   * Clear backend fallback info (when backend is successfully reinitialized)
+   */
+  clearBackendFallback(): void {
+    this.backendFallback = null;
+  }
+
+  /**
    * Get backend fallback info if a fallback occurred
    */
   getBackendFallback(): BackendFallbackInfo | null {

@@ -1425,22 +1425,29 @@ export function getDashboardHTML(): string {
         const response = await fetch('/api/settings/embedding');
         if (response.ok) {
           const settings = await response.json();
-          const backend = settings.backend || 'gemini';
+          const configuredBackend = settings.backend || 'gemini';
           const concurrency = String(settings.ollamaConcurrency || 1);
           const batchSize = String(settings.batchSize || 256);
 
-          // Update saved settings
-          savedSettings = { backend, ollamaConcurrency: concurrency, batchSize };
+          // If fallback occurred, show the running backend instead of configured
+          const fallbackOccurred = settings.fallback && settings.fallback.occurred;
+          const displayBackend = fallbackOccurred ? settings.runningBackend : configuredBackend;
 
-          // Update form values
-          backendSelect.value = backend;
+          // Update saved settings (use configured backend for comparison)
+          savedSettings = { backend: configuredBackend, ollamaConcurrency: concurrency, batchSize };
+
+          // Update form values - show running backend when fallback occurred
+          backendSelect.value = displayBackend || configuredBackend;
           concurrencySelect.value = concurrency;
           batchSizeSelect.value = batchSize;
           updateBackendVisibility();
           updateSaveButtonVisibility();
 
           // Update status badge
-          if (settings.backend === 'gemini') {
+          if (fallbackOccurred) {
+            embeddingStatus.textContent = 'Fallback Active';
+            embeddingStatus.className = 'badge warning';
+          } else if (settings.backend === 'gemini') {
             if (settings.hasApiKey) {
               embeddingStatus.textContent = 'API Key Set';
               embeddingStatus.className = 'badge success';
@@ -2052,10 +2059,12 @@ export function getDashboardHTML(): string {
       }
 
       // Check if configured backend differs from running backend
+      // Don't show "restart needed" if fallback occurred - the difference is expected
       if (currentStatus && currentConfig) {
         const runningBackend = currentStatus.embeddingBackend;
         const configuredBackend = currentConfig.embedding?.backend;
-        if (configuredBackend && runningBackend && configuredBackend !== runningBackend) {
+        const fallbackOccurred = currentStatus.backendFallback && currentStatus.backendFallback.occurred;
+        if (configuredBackend && runningBackend && configuredBackend !== runningBackend && !fallbackOccurred) {
           embeddingBackend.innerHTML = runningBackend + ' <span class="badge warning" title="Restart required to use ' + configuredBackend + '">\u26a0 restart needed</span>';
         }
       }
