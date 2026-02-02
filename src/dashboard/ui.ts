@@ -222,18 +222,8 @@ export function getDashboardHTML(): string {
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 16px;
-    }
-
-    /* Tablet: 2 cards per row */
-    @media (max-width: 1024px) {
-      .grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-      .card.double-width {
-        grid-column: span 2;
-      }
     }
 
     /* Mobile: 1 card per row */
@@ -241,7 +231,8 @@ export function getDashboardHTML(): string {
       .grid {
         grid-template-columns: 1fr;
       }
-      .card.double-width {
+      .card.double-width,
+      .card.half-width {
         grid-column: span 1;
       }
     }
@@ -565,6 +556,29 @@ export function getDashboardHTML(): string {
       grid-column: span 2;
     }
 
+    /* Half-width: takes 1 column (50% on 2-col grid) */
+    .card.half-width {
+      grid-column: span 1;
+    }
+
+    /* Compact card style */
+    .card.compact {
+      padding: 16px;
+    }
+
+    .card.compact .stat {
+      margin-bottom: 8px;
+    }
+
+    .card.compact .stat-value {
+      font-size: 20px;
+    }
+
+    .card.compact .reindex-actions {
+      margin-top: 8px;
+      padding-top: 8px;
+    }
+
     .empty-state {
       text-align: center;
       padding: 40px 20px;
@@ -785,16 +799,28 @@ export function getDashboardHTML(): string {
 
     /* Beads Section Styles */
     .beads-section {
-      margin-top: 32px;
-      padding-top: 24px;
-      border-top: 1px solid var(--border-color);
+      /* Now a standalone tab, no border needed */
     }
 
     .beads-header {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 12px;
       margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .beads-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .beads-header-right {
+      display: flex;
+      align-items: center;
+      gap: 24px;
     }
 
     .beads-logo {
@@ -969,6 +995,194 @@ export function getDashboardHTML(): string {
       font-style: italic;
       color: var(--text-muted);
     }
+
+    /* Tab navigation */
+    .tab-container {
+      margin-bottom: 24px;
+    }
+
+    .tab-nav {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0;
+    }
+
+    .tab-btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-primary);
+      background-color: var(--bg-tertiary);
+    }
+
+    .tab-btn.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Slider styles */
+    .form-slider {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--bg-tertiary);
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+      cursor: pointer;
+    }
+
+    .form-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      cursor: pointer;
+      border: 2px solid var(--bg-primary);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .form-slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      cursor: pointer;
+      border: 2px solid var(--bg-primary);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .slider-value {
+      text-align: center;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-top: 8px;
+    }
+
+    /* Chip styles */
+    .chips-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      color: var(--text-secondary);
+    }
+
+    .chip.exclude {
+      color: var(--accent-red);
+      border-color: rgba(248, 81, 73, 0.3);
+      background-color: rgba(248, 81, 73, 0.1);
+    }
+
+    .chip-remove {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0;
+      font-size: 14px;
+      line-height: 1;
+      transition: all 0.2s ease;
+    }
+
+    .chip-remove:hover {
+      background-color: var(--accent-red);
+      color: white;
+    }
+
+    .chip-input-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .chip-input-group .form-input {
+      flex: 1;
+    }
+
+    .chip-input-group .btn {
+      flex-shrink: 0;
+    }
+
+    .chips-empty {
+      color: var(--text-muted);
+      font-size: 13px;
+      font-style: italic;
+    }
+
+    /* Patterns section layout */
+    .patterns-section {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .patterns-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .patterns-group-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .patterns-group-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
   </style>
 </head>
 <body>
@@ -999,6 +1213,18 @@ export function getDashboardHTML(): string {
       </div>
     </header>
 
+    <!-- Tab Navigation -->
+    <div class="tab-container">
+      <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="status">Status</button>
+        <button class="tab-btn" data-tab="beads">Beads</button>
+        <button class="tab-btn" data-tab="settings">Settings</button>
+      </nav>
+    </div>
+
+    <!-- Status Tab -->
+    <div id="tab-status" class="tab-content active">
+
     <!-- Backend Fallback Warning Banner -->
     <div class="warning-banner" id="fallbackBanner">
       <div class="warning-banner-header">
@@ -1016,8 +1242,29 @@ export function getDashboardHTML(): string {
     </div>
 
     <div class="grid">
+      <!-- Command Usage Card -->
+      <div class="card full-width">
+        <div class="card-header">
+          <span class="card-title">Command Usage</span>
+          <span class="badge" id="sessionBadge">This Session</span>
+        </div>
+        <div id="usageChartContainer">
+          <div class="usage-empty" id="usageEmpty">No commands executed yet</div>
+          <div id="chartWrapper">
+            <table class="charts-css column show-primary-axis data-spacing-5" id="usage-chart" style="display: none;">
+              <tbody id="usageChartBody"></tbody>
+            </table>
+          </div>
+          <ul class="charts-css legend legend-inline legend-square" id="chartLegend" style="display: none;"></ul>
+          <div class="usage-total" id="usageTotal" style="display: none;">
+            <span class="usage-total-label">Total Commands</span>
+            <span class="usage-total-count" id="totalCount">0</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Index Status Card -->
-      <div class="card">
+      <div class="card half-width compact">
         <div class="card-header">
           <span class="card-title">Index Status</span>
           <span class="badge" id="indexBadge">Loading...</span>
@@ -1047,132 +1294,8 @@ export function getDashboardHTML(): string {
         </div>
       </div>
 
-      <!-- Embedding Backend Card -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Embedding Backend</span>
-          <span class="badge" id="embeddingStatus">-</span>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Current Backend</div>
-          <div class="stat-value small" id="embeddingBackend">-</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Index Path</div>
-          <div class="stat-value small" id="indexPath">-</div>
-        </div>
-        <div class="settings-form" id="embeddingSettingsForm">
-          <div class="form-group">
-            <label for="backendSelect">Select Backend</label>
-            <select id="backendSelect" class="form-select">
-              <option value="ollama">Ollama (local)</option>
-              <option value="gemini" selected>Google Gemini (free - requires API key)</option>
-            </select>
-          </div>
-          <div class="form-group" id="ollamaSettingsGroup">
-            <label for="concurrencySelect">Ollama Concurrency</label>
-            <select id="concurrencySelect" class="form-select">
-              <option value="1" selected>1 (default)</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="5">5</option>
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-              <option value="250">250</option>
-              <option value="500">500</option>
-              <option value="1000">1000</option>
-            </select>
-          </div>
-          <div class="form-group" id="batchSizeGroup">
-            <label for="batchSizeSelect">Batch Size</label>
-            <select id="batchSizeSelect" class="form-select">
-              <option value="32">32</option>
-              <option value="64">64</option>
-              <option value="128">128</option>
-              <option value="256" selected>256 (default)</option>
-              <option value="512">512</option>
-              <option value="1024">1024</option>
-              <option value="2048">2048</option>
-              <option value="4096">4096</option>
-              <option value="8192">8192</option>
-              <option value="16384">16384</option>
-            </select>
-          </div>
-          <div class="form-group" id="apiKeyGroup" style="display: none;">
-            <label for="apiKeyInput" id="apiKeyLabel">API Key</label>
-            <input type="password" id="apiKeyInput" class="form-input" placeholder="" />
-            <div class="form-hint" id="apiKeyHint"></div>
-          </div>
-          <div class="form-actions">
-            <button type="button" id="saveEmbeddingBtn" class="btn btn-primary">Save Settings</button>
-            <span id="saveStatus" class="save-status"></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Dashboard Settings Card -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Dashboard Settings</span>
-          <span class="badge" id="dashboardBadge">Enabled</span>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Auto-Start on MCP Launch</div>
-          <div class="stat-value small" id="dashboardEnabled">-</div>
-        </div>
-        <div class="settings-form" id="dashboardSettingsForm">
-          <div class="form-group">
-            <label for="dashboardEnabledSelect">Dashboard Auto-Start</label>
-            <select id="dashboardEnabledSelect" class="form-select">
-              <option value="true">Enabled (auto-start with MCP server)</option>
-              <option value="false">Disabled (manual start only)</option>
-            </select>
-          </div>
-          <div class="form-hint">
-            When disabled, use the <code>open_dashboard</code> MCP tool to start manually.
-          </div>
-          <div class="form-actions">
-            <button type="button" id="saveDashboardBtn" class="btn btn-primary" style="display: none;">Save Settings</button>
-            <span id="saveDashboardStatus" class="save-status"></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Configuration Card -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Configuration</span>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Project Path</div>
-          <div class="stat-value small" id="projectPath">-</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Chunk Size</div>
-          <div class="stat-value small" id="chunkSize">-</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Search Weights</div>
-          <div class="stat-value small" id="searchWeights">-</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Include Patterns</div>
-          <div class="patterns-list" id="includePatterns">
-            <span class="pattern-tag">Loading...</span>
-          </div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Exclude Patterns</div>
-          <div class="patterns-list" id="excludePatterns">
-            <span class="pattern-tag exclude">Loading...</span>
-          </div>
-        </div>
-      </div>
-
       <!-- Token Savings Card -->
-      <div class="card">
+      <div class="card half-width compact">
         <div class="card-header">
           <span class="card-title">Token Savings</span>
           <span class="badge" id="savingsBadge">This Session</span>
@@ -1193,84 +1316,6 @@ export function getDashboardHTML(): string {
           <div class="stat-label">Operations Tracked</div>
           <div class="stat-value small" id="operationCount">0</div>
         </div>
-        <div class="form-hint" style="margin-top: 10px;">
-          Semantic search returns only relevant code chunks instead of entire files, saving context tokens.
-        </div>
-      </div>
-
-      <!-- Command Usage Card -->
-      <div class="card double-width">
-        <div class="card-header">
-          <span class="card-title">Command Usage</span>
-          <span class="badge" id="sessionBadge">This Session</span>
-        </div>
-        <div id="usageChartContainer">
-          <div class="usage-empty" id="usageEmpty">No commands executed yet</div>
-          <div id="chartWrapper">
-            <table class="charts-css column show-primary-axis data-spacing-5" id="usage-chart" style="display: none;">
-              <tbody id="usageChartBody"></tbody>
-            </table>
-          </div>
-          <ul class="charts-css legend legend-inline legend-square" id="chartLegend" style="display: none;"></ul>
-          <div class="usage-total" id="usageTotal" style="display: none;">
-            <span class="usage-total-label">Total Commands</span>
-            <span class="usage-total-count" id="totalCount">0</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Beads Section -->
-    <div class="beads-section" id="beadsSection" style="display: none;">
-      <div class="beads-header">
-        <svg class="beads-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="5" r="3"/>
-          <circle cx="12" cy="12" r="3"/>
-          <circle cx="12" cy="19" r="3"/>
-          <line x1="12" y1="8" x2="12" y2="9"/>
-          <line x1="12" y1="15" x2="12" y2="16"/>
-        </svg>
-        <span class="beads-title">Beads Issue Tracker</span>
-      </div>
-      <div class="grid">
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">Status</span>
-            <span class="badge success" id="beadsBadge">Active</span>
-          </div>
-          <div class="beads-stats">
-            <div class="beads-stat">
-              <span class="beads-stat-value" id="beadsReadyCount">0</span>
-              <span class="beads-stat-label">Ready</span>
-            </div>
-            <div class="beads-stat">
-              <span class="beads-stat-value" id="beadsOpenCount">0</span>
-              <span class="beads-stat-label">Open</span>
-            </div>
-            <div class="beads-stat">
-              <span class="beads-stat-value" id="beadsTotalCount">0</span>
-              <span class="beads-stat-label">Total</span>
-            </div>
-          </div>
-          <div class="beads-daemon-status" id="beadsDaemonStatus">
-            <div class="status-dot" id="beadsDaemonDot"></div>
-            <span id="beadsDaemonText">Daemon status unknown</span>
-          </div>
-          <div class="stat" style="margin-top: 12px;" id="beadsSyncBranchStat">
-            <div class="stat-label">Sync Branch</div>
-            <div class="stat-value small" id="beadsSyncBranch">-</div>
-          </div>
-        </div>
-
-        <div class="card" style="grid-column: span 2;">
-          <div class="card-header">
-            <span class="card-title">Ready Tasks</span>
-            <span class="badge" id="readyTasksBadge">0 tasks</span>
-          </div>
-          <div class="beads-issues" id="beadsIssuesList">
-            <div class="beads-empty">No ready tasks</div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -1290,6 +1335,225 @@ export function getDashboardHTML(): string {
         <div class="log-empty" id="logEmpty">No logs yet. Logs will appear when indexing or other server operations occur.</div>
       </div>
     </div>
+
+    </div><!-- End Status Tab -->
+
+    <!-- Beads Tab -->
+    <div id="tab-beads" class="tab-content">
+      <div class="beads-section" id="beadsSection">
+        <div class="beads-header">
+          <div class="beads-header-left">
+            <svg class="beads-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="5" r="3"/>
+              <circle cx="12" cy="12" r="3"/>
+              <circle cx="12" cy="19" r="3"/>
+              <line x1="12" y1="8" x2="12" y2="9"/>
+              <line x1="12" y1="15" x2="12" y2="16"/>
+            </svg>
+            <span class="beads-title">Beads Issue Tracker</span>
+            <span class="badge success" id="beadsBadge" style="display: none;">Active</span>
+          </div>
+          <div class="beads-header-right" id="beadsHeaderStats" style="display: none;">
+            <div class="beads-stats">
+              <div class="beads-stat">
+                <span class="beads-stat-value" id="beadsReadyCount">0</span>
+                <span class="beads-stat-label">Ready</span>
+              </div>
+              <div class="beads-stat">
+                <span class="beads-stat-value" id="beadsOpenCount">0</span>
+                <span class="beads-stat-label">Open</span>
+              </div>
+              <div class="beads-stat">
+                <span class="beads-stat-value" id="beadsTotalCount">0</span>
+                <span class="beads-stat-label">Total</span>
+              </div>
+            </div>
+            <div class="beads-daemon-status" id="beadsDaemonStatus">
+              <div class="status-dot" id="beadsDaemonDot"></div>
+              <span id="beadsDaemonText">Daemon status unknown</span>
+            </div>
+          </div>
+        </div>
+        <div id="beadsUnavailable" class="beads-unavailable">
+          <p>Beads is not configured for this project.</p>
+          <p style="margin-top: 8px; font-size: 13px;">Visit <a href="https://github.com/nicholaspsmith/beads" target="_blank" style="color: var(--accent-blue);">github.com/nicholaspsmith/beads</a> to learn more.</p>
+        </div>
+        <div id="beadsContent" style="display: none;">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Ready Tasks</span>
+              <span class="badge" id="readyTasksBadge">0 tasks</span>
+            </div>
+            <div class="beads-issues" id="beadsIssuesList">
+              <div class="beads-empty">No ready tasks</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- End Beads Tab -->
+
+    <!-- Settings Tab -->
+    <div id="tab-settings" class="tab-content">
+      <div class="grid">
+        <!-- Embedding Backend Card -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Embedding Backend</span>
+            <span class="badge" id="embeddingStatus">-</span>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Current Backend</div>
+            <div class="stat-value small" id="embeddingBackend">-</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Index Path</div>
+            <div class="stat-value small" id="indexPath">-</div>
+          </div>
+          <div class="settings-form" id="embeddingSettingsForm">
+            <div class="form-group">
+              <label for="backendSelect">Select Backend</label>
+              <select id="backendSelect" class="form-select">
+                <option value="ollama">Ollama (local)</option>
+                <option value="gemini" selected>Google Gemini (free - requires API key)</option>
+              </select>
+            </div>
+            <div class="form-group" id="ollamaSettingsGroup">
+              <label for="concurrencySelect">Ollama Concurrency</label>
+              <select id="concurrencySelect" class="form-select">
+                <option value="1" selected>1 (default)</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="250">250</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+              </select>
+            </div>
+            <div class="form-group" id="batchSizeGroup">
+              <label for="batchSizeSelect">Batch Size</label>
+              <select id="batchSizeSelect" class="form-select">
+                <option value="32">32</option>
+                <option value="64">64</option>
+                <option value="128">128</option>
+                <option value="256" selected>256 (default)</option>
+                <option value="512">512</option>
+                <option value="1024">1024</option>
+                <option value="2048">2048</option>
+                <option value="4096">4096</option>
+                <option value="8192">8192</option>
+                <option value="16384">16384</option>
+              </select>
+            </div>
+            <div class="form-group" id="apiKeyGroup" style="display: none;">
+              <label for="apiKeyInput" id="apiKeyLabel">API Key</label>
+              <input type="password" id="apiKeyInput" class="form-input" placeholder="" />
+              <div class="form-hint" id="apiKeyHint"></div>
+            </div>
+            <div class="form-actions">
+              <button type="button" id="saveEmbeddingBtn" class="btn btn-primary">Save Settings</button>
+              <span id="saveStatus" class="save-status"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard Settings Card -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Dashboard Settings</span>
+            <span class="badge" id="dashboardBadge">Enabled</span>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Auto-Start on MCP Launch</div>
+            <div class="stat-value small" id="dashboardEnabled">-</div>
+          </div>
+          <div class="settings-form" id="dashboardSettingsForm">
+            <div class="form-group">
+              <label for="dashboardEnabledSelect">Dashboard Auto-Start</label>
+              <select id="dashboardEnabledSelect" class="form-select">
+                <option value="true">Enabled (auto-start with MCP server)</option>
+                <option value="false">Disabled (manual start only)</option>
+              </select>
+            </div>
+            <div class="form-hint">
+              When disabled, use the <code>open_dashboard</code> MCP tool to start manually.
+            </div>
+            <div class="form-actions">
+              <button type="button" id="saveDashboardBtn" class="btn btn-primary" style="display: none;">Save Settings</button>
+              <span id="saveDashboardStatus" class="save-status"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Search Weights Card -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Search Weights</span>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Semantic vs Keyword Balance</div>
+            <div class="slider-value" id="weightsDisplay">Semantic: 70%, Keyword: 30%</div>
+          </div>
+          <div class="form-group" style="margin-top: 16px;">
+            <input type="range" id="weightsSlider" class="form-slider" min="0" max="100" value="70">
+            <div class="slider-labels">
+              <span>100% Keyword</span>
+              <span>100% Semantic</span>
+            </div>
+          </div>
+          <div class="form-hint" style="margin-top: 12px;">
+            Semantic search finds conceptually similar code. Keyword search matches exact terms.
+          </div>
+          <div class="form-actions">
+            <button type="button" id="saveWeightsBtn" class="btn btn-primary" style="display: none;">Save Weights</button>
+            <span id="saveWeightsStatus" class="save-status"></span>
+          </div>
+        </div>
+
+        <!-- File Patterns Card -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">File Patterns</span>
+          </div>
+          <div class="patterns-section">
+            <div class="patterns-group">
+              <div class="patterns-group-header">
+                <span class="patterns-group-title">Include</span>
+                <span class="badge" id="includePatternsCount">0</span>
+              </div>
+              <div class="stat-label">Files matching these patterns will be indexed</div>
+              <div class="chips-container" id="includePatternsChips">
+                <span class="chips-empty">Loading...</span>
+              </div>
+              <div class="chip-input-group">
+                <input type="text" id="includePatternInput" class="form-input" placeholder="e.g., **/*.ts">
+                <button type="button" id="addIncludePatternBtn" class="btn btn-secondary">Add</button>
+              </div>
+              <span id="includePatternStatus" class="save-status"></span>
+            </div>
+            <div class="patterns-group">
+              <div class="patterns-group-header">
+                <span class="patterns-group-title">Exclude</span>
+                <span class="badge" id="excludePatternsCount">0</span>
+              </div>
+              <div class="stat-label">Files matching these patterns will be skipped</div>
+              <div class="chips-container" id="excludePatternsChips">
+                <span class="chips-empty">Loading...</span>
+              </div>
+              <div class="chip-input-group">
+                <input type="text" id="excludePatternInput" class="form-input" placeholder="e.g., **/node_modules/**">
+                <button type="button" id="addExcludePatternBtn" class="btn btn-secondary">Add</button>
+              </div>
+              <span id="excludePatternStatus" class="save-status"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- End Settings Tab -->
+
   </div>
 
   <script>
@@ -1315,6 +1579,33 @@ export function getDashboardHTML(): string {
     // Theme toggle button
     document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
+    // Tab management
+    function getStoredTab() {
+      return localStorage.getItem('lance-context-tab') || 'status';
+    }
+
+    function setActiveTab(tabId) {
+      // Update buttons
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+      });
+      // Update content
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.toggle('active', content.id === 'tab-' + tabId);
+      });
+      localStorage.setItem('lance-context-tab', tabId);
+    }
+
+    // Initialize tabs
+    setActiveTab(getStoredTab());
+
+    // Tab click handlers
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setActiveTab(btn.getAttribute('data-tab'));
+      });
+    });
+
     // State
     let isConnected = false;
     let eventSource = null;
@@ -1333,11 +1624,6 @@ export function getDashboardHTML(): string {
     const indexPath = document.getElementById('indexPath');
     const fallbackBanner = document.getElementById('fallbackBanner');
     const fallbackContent = document.getElementById('fallbackContent');
-    const projectPath = document.getElementById('projectPath');
-    const chunkSize = document.getElementById('chunkSize');
-    const searchWeights = document.getElementById('searchWeights');
-    const includePatterns = document.getElementById('includePatterns');
-    const excludePatterns = document.getElementById('excludePatterns');
     const progressContainer = document.getElementById('progressContainer');
     const progressFill = document.getElementById('progressFill');
     const progressText = document.getElementById('progressText');
@@ -1687,6 +1973,228 @@ export function getDashboardHTML(): string {
     // Load dashboard settings on page load
     loadDashboardSettings();
 
+    // ===== Search Weights Settings =====
+    const weightsSlider = document.getElementById('weightsSlider');
+    const weightsDisplay = document.getElementById('weightsDisplay');
+    const saveWeightsBtn = document.getElementById('saveWeightsBtn');
+    const saveWeightsStatus = document.getElementById('saveWeightsStatus');
+    let savedSemanticWeight = 70;
+
+    function updateWeightsDisplay() {
+      const semantic = parseInt(weightsSlider.value, 10);
+      const keyword = 100 - semantic;
+      weightsDisplay.textContent = 'Semantic: ' + semantic + '%, Keyword: ' + keyword + '%';
+    }
+
+    function hasWeightsChanged() {
+      return parseInt(weightsSlider.value, 10) !== savedSemanticWeight;
+    }
+
+    function updateWeightsSaveButtonVisibility() {
+      saveWeightsBtn.style.display = hasWeightsChanged() ? 'inline-block' : 'none';
+      saveWeightsStatus.textContent = '';
+    }
+
+    weightsSlider.addEventListener('input', function() {
+      updateWeightsDisplay();
+      updateWeightsSaveButtonVisibility();
+    });
+
+    async function loadSearchWeights() {
+      try {
+        const response = await fetch('/api/search-weights');
+        if (response.ok) {
+          const weights = await response.json();
+          const semantic = Math.round(weights.semanticWeight * 100);
+          savedSemanticWeight = semantic;
+          weightsSlider.value = semantic;
+          updateWeightsDisplay();
+          updateWeightsSaveButtonVisibility();
+        }
+      } catch (error) {
+        console.error('Failed to load search weights:', error);
+      }
+    }
+
+    saveWeightsBtn.addEventListener('click', async function() {
+      const semantic = parseInt(weightsSlider.value, 10) / 100;
+      const keyword = 1 - semantic;
+
+      saveWeightsBtn.disabled = true;
+      saveWeightsStatus.textContent = 'Saving...';
+      saveWeightsStatus.className = 'save-status';
+
+      try {
+        const response = await fetch('/api/search-weights', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ semanticWeight: semantic, keywordWeight: keyword })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          savedSemanticWeight = parseInt(weightsSlider.value, 10);
+          saveWeightsStatus.textContent = 'Saved!';
+          saveWeightsStatus.className = 'save-status success';
+          updateWeightsSaveButtonVisibility();
+          fetchData(); // Refresh config display
+        } else {
+          saveWeightsStatus.textContent = result.error || 'Failed to save';
+          saveWeightsStatus.className = 'save-status error';
+        }
+      } catch (error) {
+        saveWeightsStatus.textContent = 'Network error';
+        saveWeightsStatus.className = 'save-status error';
+      } finally {
+        saveWeightsBtn.disabled = false;
+      }
+    });
+
+    loadSearchWeights();
+
+    // ===== Include/Exclude Patterns =====
+    const includePatternsChips = document.getElementById('includePatternsChips');
+    const excludePatternsChips = document.getElementById('excludePatternsChips');
+    const includePatternsCount = document.getElementById('includePatternsCount');
+    const excludePatternsCount = document.getElementById('excludePatternsCount');
+    const includePatternInput = document.getElementById('includePatternInput');
+    const excludePatternInput = document.getElementById('excludePatternInput');
+    const addIncludePatternBtn = document.getElementById('addIncludePatternBtn');
+    const addExcludePatternBtn = document.getElementById('addExcludePatternBtn');
+    const includePatternStatus = document.getElementById('includePatternStatus');
+    const excludePatternStatus = document.getElementById('excludePatternStatus');
+
+    function renderPatternChips(container, patterns, type, countBadge) {
+      // Clear container safely
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
+
+      if (!patterns || patterns.length === 0) {
+        const empty = document.createElement('span');
+        empty.className = 'chips-empty';
+        empty.textContent = 'No patterns configured';
+        container.appendChild(empty);
+        countBadge.textContent = '0';
+        return;
+      }
+
+      countBadge.textContent = String(patterns.length);
+
+      patterns.forEach(function(pattern) {
+        const chip = document.createElement('span');
+        chip.className = type === 'exclude' ? 'chip exclude' : 'chip';
+
+        const patternText = document.createTextNode(pattern);
+        chip.appendChild(patternText);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'chip-remove';
+        removeBtn.title = 'Remove pattern';
+        removeBtn.textContent = '\\u00d7';
+
+        removeBtn.addEventListener('click', async function(e) {
+          e.stopPropagation();
+          await removePatternFromConfig(pattern, type);
+        });
+
+        chip.appendChild(removeBtn);
+        container.appendChild(chip);
+      });
+    }
+
+    async function removePatternFromConfig(pattern, type) {
+      const statusEl = type === 'include' ? includePatternStatus : excludePatternStatus;
+      statusEl.textContent = 'Removing...';
+      statusEl.className = 'save-status';
+
+      try {
+        const response = await fetch('/api/patterns', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pattern, type })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          statusEl.textContent = 'Removed!';
+          statusEl.className = 'save-status success';
+          setTimeout(function() { statusEl.textContent = ''; }, 2000);
+          fetchData(); // Refresh patterns
+        } else {
+          statusEl.textContent = result.error || 'Failed to remove';
+          statusEl.className = 'save-status error';
+        }
+      } catch (error) {
+        statusEl.textContent = 'Network error';
+        statusEl.className = 'save-status error';
+      }
+    }
+
+    async function addPatternToConfig(pattern, type) {
+      const statusEl = type === 'include' ? includePatternStatus : excludePatternStatus;
+      const inputEl = type === 'include' ? includePatternInput : excludePatternInput;
+
+      if (!pattern.trim()) {
+        statusEl.textContent = 'Pattern is required';
+        statusEl.className = 'save-status error';
+        return;
+      }
+
+      statusEl.textContent = 'Adding...';
+      statusEl.className = 'save-status';
+
+      try {
+        const response = await fetch('/api/patterns', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pattern: pattern.trim(), type })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          inputEl.value = '';
+          statusEl.textContent = 'Added!';
+          statusEl.className = 'save-status success';
+          setTimeout(function() { statusEl.textContent = ''; }, 2000);
+          fetchData(); // Refresh patterns
+        } else {
+          statusEl.textContent = result.error || 'Failed to add';
+          statusEl.className = 'save-status error';
+        }
+      } catch (error) {
+        statusEl.textContent = 'Network error';
+        statusEl.className = 'save-status error';
+      }
+    }
+
+    addIncludePatternBtn.addEventListener('click', function() {
+      addPatternToConfig(includePatternInput.value, 'include');
+    });
+
+    addExcludePatternBtn.addEventListener('click', function() {
+      addPatternToConfig(excludePatternInput.value, 'exclude');
+    });
+
+    // Handle Enter key for pattern inputs
+    includePatternInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addPatternToConfig(includePatternInput.value, 'include');
+      }
+    });
+
+    excludePatternInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addPatternToConfig(excludePatternInput.value, 'exclude');
+      }
+    });
+
     // Format date
     function formatDate(isoString) {
       if (!isoString) return 'Never';
@@ -1752,8 +2260,6 @@ export function getDashboardHTML(): string {
 
     // Update config display
     function updateConfig(config) {
-      projectPath.textContent = config.projectPath || '-';
-
       // Update project name in header
       if (config.projectName) {
         projectNameHeader.textContent = config.projectName;
@@ -1762,33 +2268,12 @@ export function getDashboardHTML(): string {
         projectNameHeader.textContent = config.projectPath.split('/').pop() || config.projectPath;
       }
 
-      if (config.chunking) {
-        chunkSize.textContent = config.chunking.maxLines + ' lines (overlap: ' + config.chunking.overlap + ')';
-      }
-
-      if (config.search) {
-        searchWeights.textContent = 'Semantic: ' + (config.search.semanticWeight * 100) + '%, Keyword: ' + (config.search.keywordWeight * 100) + '%';
-      }
-
-      // Update patterns
+      // Update Settings tab pattern chips
       if (config.patterns) {
-        includePatterns.innerHTML = config.patterns
-          .slice(0, 10)
-          .map(p => '<span class="pattern-tag">' + escapeHtml(p) + '</span>')
-          .join('');
-        if (config.patterns.length > 10) {
-          includePatterns.innerHTML += '<span class="pattern-tag">+' + (config.patterns.length - 10) + ' more</span>';
-        }
+        renderPatternChips(includePatternsChips, config.patterns, 'include', includePatternsCount);
       }
-
       if (config.excludePatterns) {
-        excludePatterns.innerHTML = config.excludePatterns
-          .slice(0, 6)
-          .map(p => '<span class="pattern-tag exclude">' + escapeHtml(p) + '</span>')
-          .join('');
-        if (config.excludePatterns.length > 6) {
-          excludePatterns.innerHTML += '<span class="pattern-tag exclude">+' + (config.excludePatterns.length - 6) + ' more</span>';
-        }
+        renderPatternChips(excludePatternsChips, config.excludePatterns, 'exclude', excludePatternsCount);
       }
     }
 
@@ -1947,17 +2432,27 @@ export function getDashboardHTML(): string {
     const beadsTotalCount = document.getElementById('beadsTotalCount');
     const beadsDaemonDot = document.getElementById('beadsDaemonDot');
     const beadsDaemonText = document.getElementById('beadsDaemonText');
-    const beadsSyncBranch = document.getElementById('beadsSyncBranch');
     const beadsIssuesList = document.getElementById('beadsIssuesList');
     const readyTasksBadge = document.getElementById('readyTasksBadge');
 
     function updateBeads(data) {
+      const beadsUnavailable = document.getElementById('beadsUnavailable');
+      const beadsContent = document.getElementById('beadsContent');
+      const beadsHeaderStats = document.getElementById('beadsHeaderStats');
+      const beadsBadgeEl = document.getElementById('beadsBadge');
+
       if (!data.available) {
-        beadsSection.style.display = 'none';
+        beadsUnavailable.style.display = 'block';
+        beadsContent.style.display = 'none';
+        beadsHeaderStats.style.display = 'none';
+        beadsBadgeEl.style.display = 'none';
         return;
       }
 
-      beadsSection.style.display = 'block';
+      beadsUnavailable.style.display = 'none';
+      beadsContent.style.display = 'block';
+      beadsHeaderStats.style.display = 'flex';
+      beadsBadgeEl.style.display = 'inline-flex';
       beadsReadyCount.textContent = data.readyCount;
       beadsOpenCount.textContent = data.openCount;
       beadsTotalCount.textContent = data.issueCount;
@@ -1971,9 +2466,6 @@ export function getDashboardHTML(): string {
         beadsDaemonDot.className = 'status-dot';
         beadsDaemonText.textContent = 'Daemon not running';
       }
-
-      // Sync branch
-      beadsSyncBranch.textContent = data.syncBranch || 'Not configured';
 
       // Issues list
       if (data.issues && data.issues.length > 0) {

@@ -10,8 +10,13 @@ import {
   getEmbeddingSettings,
   saveDashboardSettings,
   getDashboardSettings,
+  saveSearchWeights,
+  getSearchWeights,
+  addPattern,
+  removePattern,
   type EmbeddingSettings,
   type DashboardSettings,
+  type SearchWeightsSettings,
 } from '../config.js';
 
 /**
@@ -338,6 +343,125 @@ function handleTokenSavings(_req: IncomingMessage, res: ServerResponse): void {
 }
 
 /**
+ * Handle GET /api/settings/search-weights - Get current search weights
+ */
+async function handleGetSearchWeights(_req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const projectPath = dashboardState.getProjectPath();
+  if (!projectPath) {
+    sendJSON(res, { error: 'Project path not set' }, 503);
+    return;
+  }
+
+  try {
+    const weights = await getSearchWeights(projectPath);
+    sendJSON(res, weights);
+  } catch (error) {
+    sendJSON(res, { error: String(error) }, 500);
+  }
+}
+
+/**
+ * Handle PUT /api/search-weights - Update search weights
+ */
+async function handleUpdateSearchWeights(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const projectPath = dashboardState.getProjectPath();
+  if (!projectPath) {
+    sendJSON(res, { error: 'Project path not set' }, 503);
+    return;
+  }
+
+  try {
+    const body = (await parseJsonBody(req)) as SearchWeightsSettings;
+
+    if (
+      typeof body.semanticWeight !== 'number' ||
+      typeof body.keywordWeight !== 'number' ||
+      body.semanticWeight < 0 ||
+      body.semanticWeight > 1 ||
+      body.keywordWeight < 0 ||
+      body.keywordWeight > 1
+    ) {
+      sendJSON(res, { error: 'Invalid weights. Both must be numbers between 0 and 1.' }, 400);
+      return;
+    }
+
+    await saveSearchWeights(projectPath, body);
+    sendJSON(res, {
+      success: true,
+      message: 'Search weights updated. Config will auto-reload.',
+    });
+  } catch (error) {
+    sendJSON(res, { error: String(error) }, 500);
+  }
+}
+
+/**
+ * Handle POST /api/patterns - Add a pattern
+ */
+async function handleAddPattern(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const projectPath = dashboardState.getProjectPath();
+  if (!projectPath) {
+    sendJSON(res, { error: 'Project path not set' }, 503);
+    return;
+  }
+
+  try {
+    const body = (await parseJsonBody(req)) as { pattern: string; type: 'include' | 'exclude' };
+
+    if (!body.pattern || typeof body.pattern !== 'string') {
+      sendJSON(res, { error: 'Pattern is required' }, 400);
+      return;
+    }
+
+    if (body.type !== 'include' && body.type !== 'exclude') {
+      sendJSON(res, { error: 'Type must be "include" or "exclude"' }, 400);
+      return;
+    }
+
+    await addPattern(projectPath, body.pattern, body.type);
+    sendJSON(res, {
+      success: true,
+      message: `Pattern added to ${body.type} patterns. Config will auto-reload.`,
+    });
+  } catch (error) {
+    sendJSON(res, { error: String(error) }, 500);
+  }
+}
+
+/**
+ * Handle DELETE /api/patterns - Remove a pattern
+ */
+async function handleRemovePattern(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const projectPath = dashboardState.getProjectPath();
+  if (!projectPath) {
+    sendJSON(res, { error: 'Project path not set' }, 503);
+    return;
+  }
+
+  try {
+    const body = (await parseJsonBody(req)) as { pattern: string; type: 'include' | 'exclude' };
+
+    if (!body.pattern || typeof body.pattern !== 'string') {
+      sendJSON(res, { error: 'Pattern is required' }, 400);
+      return;
+    }
+
+    if (body.type !== 'include' && body.type !== 'exclude') {
+      sendJSON(res, { error: 'Type must be "include" or "exclude"' }, 400);
+      return;
+    }
+
+    await removePattern(projectPath, body.pattern, body.type);
+    sendJSON(res, {
+      success: true,
+      message: `Pattern removed from ${body.type} patterns. Config will auto-reload.`,
+    });
+  } catch (error) {
+    sendJSON(res, { error: String(error) }, 500);
+  }
+}
+
+/**
  * Route dispatcher
  */
 export async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -349,7 +473,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
   if (method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     });
     res.end();
@@ -368,6 +492,33 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
           return;
         case '/api/reindex':
           await handleReindex(req, res);
+          return;
+        case '/api/patterns':
+          await handleAddPattern(req, res);
+          return;
+        default:
+          sendJSON(res, { error: 'Method not allowed' }, 405);
+          return;
+      }
+    }
+
+    // PUT routes
+    if (method === 'PUT') {
+      switch (routePath) {
+        case '/api/search-weights':
+          await handleUpdateSearchWeights(req, res);
+          return;
+        default:
+          sendJSON(res, { error: 'Method not allowed' }, 405);
+          return;
+      }
+    }
+
+    // DELETE routes
+    if (method === 'DELETE') {
+      switch (routePath) {
+        case '/api/patterns':
+          await handleRemovePattern(req, res);
           return;
         default:
           sendJSON(res, { error: 'Method not allowed' }, 405);
@@ -411,6 +562,9 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
         break;
       case '/api/token-savings':
         handleTokenSavings(req, res);
+        break;
+      case '/api/search-weights':
+        await handleGetSearchWeights(req, res);
         break;
       default:
         send404(res);
