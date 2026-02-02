@@ -1,3 +1,10 @@
+## [1.37.1](https://github.com/nicholaspsmith/lance-context/compare/v1.37.0...v1.37.1) (2026-02-02)
+
+
+### Bug Fixes
+
+* **dashboard:** correct beads section layout and repository URL ([#128](https://github.com/nicholaspsmith/lance-context/issues/128)) ([52de1db](https://github.com/nicholaspsmith/lance-context/commit/52de1db066e6259182a57a6daa6710145e919460))
+
 # [1.37.0](https://github.com/nicholaspsmith/lance-context/compare/v1.36.2...v1.37.0) (2026-02-02)
 
 
