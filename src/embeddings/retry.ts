@@ -108,6 +108,45 @@ function isRetryableStatus(status: number): boolean {
 }
 
 /**
+ * Check if a 429 error is a quota exhaustion (not retryable) vs temporary rate limit (retryable)
+ * Quota exhaustion means daily/monthly limits exceeded - retrying won't help
+ */
+async function isQuotaExhausted(
+  response: Response
+): Promise<{ exhausted: boolean; message: string }> {
+  if (response.status !== 429) {
+    return { exhausted: false, message: '' };
+  }
+
+  try {
+    const text = await response.text();
+    const lowerText = text.toLowerCase();
+
+    // Check for quota exhaustion indicators in the response
+    const quotaIndicators = [
+      'exceeded your current quota',
+      'resource_exhausted',
+      'quota exceeded',
+      'quotafailure',
+      'daily limit',
+      'monthly limit',
+      'billing',
+    ];
+
+    for (const indicator of quotaIndicators) {
+      if (lowerText.includes(indicator)) {
+        return { exhausted: true, message: text };
+      }
+    }
+
+    return { exhausted: false, message: text };
+  } catch {
+    // If we can't read the body, assume it's a temporary rate limit
+    return { exhausted: false, message: '' };
+  }
+}
+
+/**
  * Parse Retry-After header value
  * Returns delay in milliseconds, or null if not present/parseable
  */
@@ -187,6 +226,21 @@ export async function fetchWithRetry(
       // If response is ok or non-retryable error, return it
       if (response.ok || !isRetryableStatus(response.status)) {
         return response;
+      }
+
+      // For 429 errors, check if it's quota exhaustion (not retryable)
+      if (response.status === 429) {
+        const { exhausted, message } = await isQuotaExhausted(response);
+        if (exhausted) {
+          logRetry('error', 'API quota exhausted (daily/monthly limit reached). Skipping retries.');
+          // Create a new Response with the same status but the body we already read
+          const errorResponse = new Response(message, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+          });
+          return errorResponse;
+        }
       }
 
       // Retryable status code
