@@ -46,7 +46,7 @@ describe('Dashboard Routes', () => {
       expect(response.headers.get('content-type')).toContain('text/html');
 
       const html = await response.text();
-      expect(html).toContain('lance-context');
+      expect(html).toContain('glancey');
       expect(html).toContain('<!DOCTYPE html>');
     });
   });
@@ -64,7 +64,7 @@ describe('Dashboard Routes', () => {
           fileCount: 10,
           chunkCount: 50,
           lastUpdated: '2024-01-01T00:00:00.000Z',
-          indexPath: '/test/.lance-context',
+          indexPath: '/test/.glancey',
           embeddingBackend: 'gemini',
         }),
       };

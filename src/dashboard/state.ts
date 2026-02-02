@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { CodeIndexer, IndexStatus, IndexProgress } from '../search/indexer.js';
-import type { LanceContextConfig } from '../config.js';
+import type { GlanceyConfig } from '../config.js';
 import type { BackendFallbackInfo } from '../embeddings/types.js';
 import { tokenTracker, type TokenSavingsStats } from './token-tracking.js';
 
@@ -112,7 +112,7 @@ const MAX_LISTENERS = 20;
 
 export class DashboardStateManager extends EventEmitter {
   private indexer: CodeIndexer | null = null;
-  private config: LanceContextConfig | null = null;
+  private config: GlanceyConfig | null = null;
   private projectPath: string | null = null;
   private version: string | null = null;
   private isIndexing = false;
@@ -131,7 +131,7 @@ export class DashboardStateManager extends EventEmitter {
    */
   private getUsageFilePath(): string | null {
     if (!this.projectPath) return null;
-    return path.join(this.projectPath, '.lance-context', 'usage.json');
+    return path.join(this.projectPath, '.glancey', 'usage.json');
   }
 
   /**
@@ -184,7 +184,7 @@ export class DashboardStateManager extends EventEmitter {
   /**
    * Set the configuration for the dashboard to display
    */
-  setConfig(config: LanceContextConfig): void {
+  setConfig(config: GlanceyConfig): void {
     this.config = config;
   }
 
@@ -245,7 +245,7 @@ export class DashboardStateManager extends EventEmitter {
   /**
    * Get the current configuration
    */
-  getConfig(): LanceContextConfig | null {
+  getConfig(): GlanceyConfig | null {
     return this.config;
   }
 

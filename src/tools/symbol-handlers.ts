@@ -25,7 +25,7 @@ import {
 import type { ToolResponse } from './types.js';
 import { createToolResponse } from './types.js';
 import { isString, isNumber, isBoolean } from '../utils/type-guards.js';
-import { LanceContextError } from '../utils/errors.js';
+import { GlanceyError } from '../utils/errors.js';
 import { dashboardState } from '../dashboard/state.js';
 
 /**
@@ -56,7 +56,7 @@ export function parseGetSymbolsOverviewArgs(
 ): GetSymbolsOverviewArgs {
   const relativePath = isString(args?.relative_path) ? args.relative_path : '';
   if (!relativePath) {
-    throw new LanceContextError('relative_path is required', 'validation', {
+    throw new GlanceyError('relative_path is required', 'validation', {
       tool: 'get_symbols_overview',
     });
   }
@@ -131,7 +131,7 @@ export interface FindSymbolArgs {
 export function parseFindSymbolArgs(args: Record<string, unknown> | undefined): FindSymbolArgs {
   const namePathPattern = isString(args?.name_path_pattern) ? args.name_path_pattern : '';
   if (!namePathPattern) {
-    throw new LanceContextError('name_path_pattern is required', 'validation', {
+    throw new GlanceyError('name_path_pattern is required', 'validation', {
       tool: 'find_symbol',
     });
   }
@@ -193,7 +193,7 @@ export async function getFilesToSearch(
         }
       }
     } catch {
-      throw new LanceContextError(`Path not found: ${relativePath}`, 'validation', {
+      throw new GlanceyError(`Path not found: ${relativePath}`, 'validation', {
         tool: 'find_symbol',
       });
     }
@@ -331,7 +331,7 @@ export function parseFindReferencingSymbolsArgs(
   const relativePath = isString(args?.relative_path) ? args.relative_path : '';
 
   if (!namePath || !relativePath) {
-    throw new LanceContextError('name_path and relative_path are required', 'validation', {
+    throw new GlanceyError('name_path and relative_path are required', 'validation', {
       tool: 'find_referencing_symbols',
     });
   }
@@ -394,7 +394,7 @@ export function parseSearchForPatternArgs(
 ): SearchForPatternArgs {
   const substringPattern = isString(args?.substring_pattern) ? args.substring_pattern : '';
   if (!substringPattern) {
-    throw new LanceContextError('substring_pattern is required', 'validation', {
+    throw new GlanceyError('substring_pattern is required', 'validation', {
       tool: 'search_for_pattern',
     });
   }
@@ -458,7 +458,7 @@ export function parseReplaceSymbolBodyArgs(
   const body = isString(args?.body) ? args.body : '';
 
   if (!namePath || !relativePath || !body) {
-    throw new LanceContextError('name_path, relative_path, and body are required', 'validation', {
+    throw new GlanceyError('name_path, relative_path, and body are required', 'validation', {
       tool: 'replace_symbol_body',
     });
   }
@@ -533,7 +533,7 @@ export function parseInsertBeforeSymbolArgs(
   const body = isString(args?.body) ? args.body : '';
 
   if (!namePath || !relativePath || !body) {
-    throw new LanceContextError('name_path, relative_path, and body are required', 'validation', {
+    throw new GlanceyError('name_path, relative_path, and body are required', 'validation', {
       tool: 'insert_before_symbol',
     });
   }
@@ -598,7 +598,7 @@ export function parseInsertAfterSymbolArgs(
   const body = isString(args?.body) ? args.body : '';
 
   if (!namePath || !relativePath || !body) {
-    throw new LanceContextError('name_path, relative_path, and body are required', 'validation', {
+    throw new GlanceyError('name_path, relative_path, and body are required', 'validation', {
       tool: 'insert_after_symbol',
     });
   }
@@ -662,11 +662,9 @@ export function parseRenameSymbolArgs(args: Record<string, unknown> | undefined)
   const newName = isString(args?.new_name) ? args.new_name : '';
 
   if (!namePath || !relativePath || !newName) {
-    throw new LanceContextError(
-      'name_path, relative_path, and new_name are required',
-      'validation',
-      { tool: 'rename_symbol' }
-    );
+    throw new GlanceyError('name_path, relative_path, and new_name are required', 'validation', {
+      tool: 'rename_symbol',
+    });
   }
 
   return {

@@ -18,7 +18,7 @@ export function getDashboardHTML(): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>lance-context Dashboard</title>
+  <title>glancey Dashboard</title>
   <link rel="icon" type="image/png" href="${FAVICON_PNG}">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/charts.css/dist/charts.min.css">
   <style>
@@ -1188,8 +1188,8 @@ export function getDashboardHTML(): string {
     <header>
       <div class="header-left">
         <h1>
-          <div class="logo"><img src="${LOGO_PNG}" alt="lance-context logo" width="40" height="36"></div>
-          lance-context
+          <div class="logo"><img src="${LOGO_PNG}" alt="glancey logo" width="40" height="36"></div>
+          glancey
           <span class="version-badge" id="versionBadge"></span>
         </h1>
         <div class="project-name" id="projectName"></div>
@@ -1235,7 +1235,7 @@ export function getDashboardHTML(): string {
         <!-- Content populated by JavaScript -->
       </div>
       <div class="warning-banner-actions">
-        <strong>To resolve:</strong> Wait for rate limits to reset, check your API key, or update <code>.lance-context.json</code> to use <code>"backend": "ollama"</code> permanently.
+        <strong>To resolve:</strong> Wait for rate limits to reset, check your API key, or update <code>.glancey.json</code> to use <code>"backend": "ollama"</code> permanently.
       </div>
     </div>
 
@@ -1557,12 +1557,12 @@ export function getDashboardHTML(): string {
   <script>
     // Theme management
     function getStoredTheme() {
-      return localStorage.getItem('lance-context-theme') || 'dark';
+      return localStorage.getItem('glancey-theme') || 'dark';
     }
 
     function setTheme(theme) {
       document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem('lance-context-theme', theme);
+      localStorage.setItem('glancey-theme', theme);
     }
 
     function toggleTheme() {
@@ -1579,7 +1579,7 @@ export function getDashboardHTML(): string {
 
     // Tab management
     function getStoredTab() {
-      return localStorage.getItem('lance-context-tab') || 'status';
+      return localStorage.getItem('glancey-tab') || 'status';
     }
 
     function setActiveTab(tabId) {
@@ -1591,7 +1591,7 @@ export function getDashboardHTML(): string {
       document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.toggle('active', content.id === 'tab-' + tabId);
       });
-      localStorage.setItem('lance-context-tab', tabId);
+      localStorage.setItem('glancey-tab', tabId);
     }
 
     // Initialize tabs

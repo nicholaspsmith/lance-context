@@ -7,7 +7,7 @@
 Key requirements:
 - **NEVER commit directly to main** - always create a feature branch first
 - **One responsibility per commit** - split multiple changes into separate commits
-- **Use lance-context** for semantic code search, not Grep/Read for exploration
+- **Use glancey** for semantic code search, not Grep/Read for exploration
 
 ## Command Preferences
 
@@ -18,7 +18,7 @@ Key requirements:
 
 ## Semantic Code Search
 
-This project uses **lance-context** for semantic code search. When exploring the codebase:
+This project uses **glancey** for semantic code search. When exploring the codebase:
 
 1. Use `search_code` tool to find relevant code using natural language queries
 2. Run `index_codebase` if the index appears out of date

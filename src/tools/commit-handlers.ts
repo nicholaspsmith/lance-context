@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { ToolResponse } from './types.js';
 import { isString, isStringArray } from '../utils/type-guards.js';
-import { LanceContextError, wrapError } from '../utils/errors.js';
+import { GlanceyError, wrapError } from '../utils/errors.js';
 
 const execAsync = promisify(exec);
 
@@ -163,7 +163,7 @@ export function parseCommitArgs(args: Record<string, unknown> | undefined): Comm
   const files = isStringArray(args?.files) ? args.files : [];
 
   if (!message) {
-    throw new LanceContextError('message is required', 'validation', { tool: 'commit' });
+    throw new GlanceyError('message is required', 'validation', { tool: 'commit' });
   }
 
   return { message, files };
@@ -294,13 +294,13 @@ export async function handleCommit(
   try {
     const stagedFiles = await git.getStagedFiles(context.projectPath);
     if (stagedFiles.length === 0) {
-      throw new LanceContextError(
+      throw new GlanceyError(
         'No staged changes to commit. Stage files first or pass files parameter.',
         'git'
       );
     }
   } catch (e) {
-    if (e instanceof LanceContextError) {
+    if (e instanceof GlanceyError) {
       throw e;
     }
     throw wrapError('Failed to check staged changes', 'git', e);

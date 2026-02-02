@@ -7,7 +7,7 @@ export type { IndexProgress } from '../search/indexer.js';
 import { startServer, type DashboardServer } from './server.js';
 import { dashboardState } from './state.js';
 import type { CodeIndexer } from '../search/indexer.js';
-import type { LanceContextConfig } from '../config.js';
+import type { GlanceyConfig } from '../config.js';
 
 export interface DashboardOptions {
   /** Port to use (default: auto-discover from 24300) */
@@ -15,7 +15,7 @@ export interface DashboardOptions {
   /** The indexer instance to share with the dashboard */
   indexer?: CodeIndexer;
   /** The configuration to display */
-  config?: LanceContextConfig;
+  config?: GlanceyConfig;
   /** The project path */
   projectPath?: string;
   /** Package version to display */

@@ -6,7 +6,7 @@ import type { CodeChunk, SimilarCodeResult } from '../search/indexer.js';
 import type { ToolContext, ToolResponse } from './types.js';
 import { createToolResponse } from './types.js';
 import { isString, isNumber, isStringArray } from '../utils/type-guards.js';
-import { LanceContextError } from '../utils/errors.js';
+import { GlanceyError } from '../utils/errors.js';
 import { dashboardState } from '../dashboard/state.js';
 
 /**
@@ -25,7 +25,7 @@ export interface SearchCodeArgs {
 export function parseSearchCodeArgs(args: Record<string, unknown> | undefined): SearchCodeArgs {
   const query = isString(args?.query) ? args.query : '';
   if (!query) {
-    throw new LanceContextError('query is required', 'validation', { tool: 'search_code' });
+    throw new GlanceyError('query is required', 'validation', { tool: 'search_code' });
   }
 
   return {
@@ -110,7 +110,7 @@ export function parseSearchSimilarArgs(
   const filepath = isString(args?.filepath) ? args.filepath : undefined;
 
   if (!code && !filepath) {
-    throw new LanceContextError('Either code or filepath must be provided', 'validation', {
+    throw new GlanceyError('Either code or filepath must be provided', 'validation', {
       tool: 'search_similar',
     });
   }

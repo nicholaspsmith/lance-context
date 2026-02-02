@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="logo.png" alt="lance-context logo" width="150" height="150">
+  <img src="logo.png" alt="glancey logo" width="150" height="150">
 </p>
 
 <p align="center">
-  <a href="https://github.com/nicholaspsmith/lance-context/actions/workflows/ci.yml"><img src="https://github.com/nicholaspsmith/lance-context/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://www.npmjs.com/package/lance-context"><img src="https://img.shields.io/npm/v/lance-context.svg" alt="npm version"></a>
-  <a href="https://github.com/nicholaspsmith/lance-context/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://github.com/nicholaspsmith/glancey/actions/workflows/ci.yml"><img src="https://github.com/nicholaspsmith/glancey/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/glancey"><img src="https://img.shields.io/npm/v/glancey.svg" alt="npm version"></a>
+  <a href="https://github.com/nicholaspsmith/glancey/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg" alt="Node.js version">
 </p>
 
-# lance-context
+# glancey
 
 An MCP plugin that adds semantic code search to Claude Code and other AI coding agents, giving them deep context from your entire codebase.
 
@@ -23,11 +23,11 @@ An MCP plugin that adds semantic code search to Claude Code and other AI coding 
 - **Web Dashboard**: Real-time monitoring of index status, token savings, and usage statistics
 - **Beads Integration**: Shows issue tracker data if your project uses [beads](https://github.com/steveyegge/beads)
 
-## How lance-context Saves Tokens
+## How glancey Saves Tokens
 
-AI coding agents typically need to read entire files to understand your codebase, which consumes significant context tokens. lance-context dramatically reduces token usage by:
+AI coding agents typically need to read entire files to understand your codebase, which consumes significant context tokens. glancey dramatically reduces token usage by:
 
-| Without lance-context | With lance-context | Savings |
+| Without glancey | With glancey | Savings |
 |-----------------------|-------------------|---------|
 | Read 5-10 files to find auth code (~5000 lines) | `search_code` returns 3 chunks (~150 lines) | ~97% |
 | Read entire file to understand structure | `get_symbols_overview` returns compact list | ~80-90% |
@@ -53,10 +53,10 @@ The web dashboard displays real-time token savings statistics:
 
 ### Quick Install (Recommended)
 
-Add lance-context to Claude Code:
+Add glancey to Claude Code:
 
 ```bash
-claude mcp add --scope user --transport stdio lance-context -- npx -y lance-context
+claude mcp add --scope user --transport stdio glancey -- npx -y glancey
 ```
 
 Restart Claude Code to start using semantic search.
@@ -66,22 +66,22 @@ Restart Claude Code to start using semantic search.
 For faster startup (no npm check on each run):
 
 ```bash
-npm install -g lance-context
+npm install -g glancey
 ```
 
-This automatically registers lance-context with Claude Code. Update manually with `npm update -g lance-context`.
+This automatically registers glancey with Claude Code. Update manually with `npm update -g glancey`.
 
 ### Manual Registration
 
 If automatic registration didn't work, manually add to Claude Code:
 
 ```bash
-claude mcp add --scope user --transport stdio lance-context -- npx -y lance-context@latest
+claude mcp add --scope user --transport stdio glancey -- npx -y glancey@latest
 ```
 
 ### Verify Installation
 
-In Claude Code, run `/mcp` to see lance-context in the list of MCP servers.
+In Claude Code, run `/mcp` to see glancey in the list of MCP servers.
 
 ### Project-Level Installation
 
@@ -90,9 +90,9 @@ For project-specific MCP configuration, add a `.mcp.json` to your project root:
 ```json
 {
   "mcpServers": {
-    "lance-context": {
+    "glancey": {
       "command": "npx",
-      "args": ["-y", "lance-context@latest"]
+      "args": ["-y", "glancey@latest"]
     }
   }
 }
@@ -100,7 +100,7 @@ For project-specific MCP configuration, add a `.mcp.json` to your project root:
 
 ### Project Configuration
 
-Create a `.lance-context.json` file in your project root to customize indexing behavior. All options are optional - lance-context works out of the box with sensible defaults.
+Create a `.glancey.json` file in your project root to customize indexing behavior. All options are optional - glancey works out of the box with sensible defaults.
 
 #### Minimal Configuration
 
@@ -160,7 +160,7 @@ For most projects, you only need to specify what to include:
 
 #### Default Behavior
 
-Without a `.lance-context.json` file, lance-context will:
+Without a `.glancey.json` file, glancey will:
 
 - Index common source code files (TypeScript, JavaScript, Python, Go, Rust, Java, Ruby, PHP, C/C++, C#, Swift, Kotlin)
 - Exclude build artifacts, dependencies, and generated files
@@ -177,7 +177,7 @@ Set these environment variables to configure embedding backends:
 |----------|-------------|---------|
 | `GEMINI_API_KEY` | Google Gemini API key for cloud embeddings ([free tier available](https://aistudio.google.com/app/apikey)) | None |
 | `OLLAMA_URL` | Custom Ollama server URL for local embeddings | `http://localhost:11434` |
-| `LANCE_CONTEXT_PROJECT` | Override the project path to index | Current working directory |
+| `GLANCEY_PROJECT` | Override the project path to index | Current working directory |
 
 **Backend Selection Priority:**
 
@@ -207,13 +207,13 @@ Set these environment variables to configure embedding backends:
                   │
 ┌─────────────────▼───────────────────────────────────────────┐
 │                   LanceDB Vector Store                      │
-│           Stored in .lance-context/ directory               │
+│           Stored in .glancey/ directory               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## Embedding Backend Setup
 
-lance-context automatically selects the best available backend (in priority order):
+glancey automatically selects the best available backend (in priority order):
 
 1. **Google Gemini** (if `GEMINI_API_KEY` is set, free tier available)
    ```bash
@@ -245,7 +245,7 @@ Ollama provides free, local embeddings with no API rate limits. Perfect for inde
    ollama run qwen3-embedding:0.6b "test"
    ```
 
-That's it! lance-context will automatically use Ollama when no Gemini API key is set.
+That's it! glancey will automatically use Ollama when no Gemini API key is set.
 
 #### Model Options
 
@@ -255,7 +255,7 @@ That's it! lance-context will automatically use Ollama when no Gemini API key is
 | `qwen3-embedding:4b` | 2.5GB | Better | Users with 16GB+ RAM |
 | `qwen3-embedding:8b` | 4.7GB | Best | Users with 32GB+ RAM |
 
-To use a different model, add to your `.lance-context.json`:
+To use a different model, add to your `.glancey.json`:
 ```json
 {
   "embedding": {
@@ -331,7 +331,7 @@ Use semantic search for exploring this codebase. Always run tests before committ
 
 ## Dashboard
 
-lance-context includes a web dashboard for monitoring index status and usage.
+glancey includes a web dashboard for monitoring index status and usage.
 
 ### Accessing the Dashboard
 
@@ -354,13 +354,13 @@ The browser opens automatically on startup (configurable).
 
 ### Dashboard Configuration
 
-Configure the dashboard via the `dashboard` options in `.lance-context.json`. See [Configuration Options Reference](#configuration-options-reference) for details.
+Configure the dashboard via the `dashboard` options in `.glancey.json`. See [Configuration Options Reference](#configuration-options-reference) for details.
 
 ## How It Works
 
 1. **Indexing**: Code files are chunked into ~100-line segments with overlap
 2. **Embedding**: Each chunk is converted to a vector using your chosen backend
-3. **Storage**: Vectors are stored in LanceDB (`.lance-context/` directory)
+3. **Storage**: Vectors are stored in LanceDB (`.glancey/` directory)
 4. **Search**: Natural language queries are embedded and matched against stored vectors
 
 ## Supported Languages
@@ -409,7 +409,7 @@ If you encounter strange search results or errors:
 > index_codebase
 ```
 
-Or manually delete the `.lance-context/` directory and re-index.
+Or manually delete the `.glancey/` directory and re-index.
 
 ## License
 

@@ -5,7 +5,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', '.lance-context/**'],
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', '.glancey/**'],
   },
   {
     files: ['src/**/*.ts'],

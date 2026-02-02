@@ -13,7 +13,7 @@ import {
 } from '../../tools/clustering-handlers.js';
 import type { CodeIndexer, CodebaseSummary, CodeChunk } from '../../search/indexer.js';
 import type { ConceptCluster } from '../../search/clustering.js';
-import { LanceContextError } from '../../utils/errors.js';
+import { GlanceyError } from '../../utils/errors.js';
 
 // Helper to create a valid ConceptCluster
 function createConceptCluster(overrides: Partial<ConceptCluster> = {}): ConceptCluster {
@@ -234,12 +234,12 @@ describe('clustering-handlers', () => {
 
   describe('parseSearchByConceptArgs', () => {
     it('should throw when conceptId is missing', () => {
-      expect(() => parseSearchByConceptArgs({})).toThrow(LanceContextError);
+      expect(() => parseSearchByConceptArgs({})).toThrow(GlanceyError);
       expect(() => parseSearchByConceptArgs({})).toThrow('conceptId is required');
     });
 
     it('should throw when conceptId is negative', () => {
-      expect(() => parseSearchByConceptArgs({ conceptId: -1 })).toThrow(LanceContextError);
+      expect(() => parseSearchByConceptArgs({ conceptId: -1 })).toThrow(GlanceyError);
     });
 
     it('should parse valid conceptId', () => {

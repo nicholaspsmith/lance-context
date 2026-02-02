@@ -14,7 +14,7 @@ import {
 import type { ToolResponse } from './types.js';
 import { createToolResponse } from './types.js';
 import { isString, isBoolean } from '../utils/type-guards.js';
-import { LanceContextError } from '../utils/errors.js';
+import { GlanceyError } from '../utils/errors.js';
 
 /**
  * Interface for worktree manager operations (for testability).
@@ -74,7 +74,7 @@ export function parseCreateWorktreeArgs(
 ): CreateWorktreeArgs {
   const shortName = isString(args?.short_name) ? args.short_name : '';
   if (!shortName) {
-    throw new LanceContextError('short_name is required', 'validation', {
+    throw new GlanceyError('short_name is required', 'validation', {
       tool: 'create_worktree',
     });
   }
@@ -82,17 +82,15 @@ export function parseCreateWorktreeArgs(
   const prefix = isString(args?.prefix) ? args.prefix : undefined;
   const validPrefixes = ['feature', 'fix', 'refactor', 'docs', 'test'];
   if (prefix && !validPrefixes.includes(prefix)) {
-    throw new LanceContextError(
-      `prefix must be one of: ${validPrefixes.join(', ')}`,
-      'validation',
-      { tool: 'create_worktree' }
-    );
+    throw new GlanceyError(`prefix must be one of: ${validPrefixes.join(', ')}`, 'validation', {
+      tool: 'create_worktree',
+    });
   }
 
   const packageManager = isString(args?.package_manager) ? args.package_manager : undefined;
   const validPackageManagers = ['npm', 'yarn', 'pnpm', 'bun'];
   if (packageManager && !validPackageManagers.includes(packageManager)) {
-    throw new LanceContextError(
+    throw new GlanceyError(
       `package_manager must be one of: ${validPackageManagers.join(', ')}`,
       'validation',
       { tool: 'create_worktree' }
@@ -193,7 +191,7 @@ export function parseRemoveWorktreeArgs(
 ): RemoveWorktreeArgs {
   const name = isString(args?.name) ? args.name : '';
   if (!name) {
-    throw new LanceContextError('name is required', 'validation', {
+    throw new GlanceyError('name is required', 'validation', {
       tool: 'remove_worktree',
     });
   }
@@ -268,7 +266,7 @@ export function parseWorktreeStatusArgs(
 ): WorktreeStatusArgs {
   const name = isString(args?.name) ? args.name : '';
   if (!name) {
-    throw new LanceContextError('name is required', 'validation', {
+    throw new GlanceyError('name is required', 'validation', {
       tool: 'worktree_status',
     });
   }

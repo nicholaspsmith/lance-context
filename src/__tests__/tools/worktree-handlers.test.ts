@@ -17,7 +17,7 @@ import type {
   CreateWorktreeResult,
   RemoveWorktreeResult,
 } from '../../worktree/index.js';
-import { LanceContextError } from '../../utils/errors.js';
+import { GlanceyError } from '../../utils/errors.js';
 
 // Helper to create a valid WorktreeInfo
 function createWorktreeInfo(overrides: Partial<WorktreeInfo> = {}): WorktreeInfo {
@@ -55,7 +55,7 @@ describe('worktree-handlers', () => {
 
   describe('parseCreateWorktreeArgs', () => {
     it('should throw when short_name is missing', () => {
-      expect(() => parseCreateWorktreeArgs({})).toThrow(LanceContextError);
+      expect(() => parseCreateWorktreeArgs({})).toThrow(GlanceyError);
       expect(() => parseCreateWorktreeArgs({})).toThrow('short_name is required');
     });
 
@@ -86,7 +86,7 @@ describe('worktree-handlers', () => {
 
     it('should throw for invalid prefix', () => {
       expect(() => parseCreateWorktreeArgs({ short_name: 'test', prefix: 'invalid' })).toThrow(
-        LanceContextError
+        GlanceyError
       );
       expect(() => parseCreateWorktreeArgs({ short_name: 'test', prefix: 'invalid' })).toThrow(
         'prefix must be one of'
@@ -101,7 +101,7 @@ describe('worktree-handlers', () => {
     it('should throw for invalid package_manager', () => {
       expect(() =>
         parseCreateWorktreeArgs({ short_name: 'test', package_manager: 'invalid' })
-      ).toThrow(LanceContextError);
+      ).toThrow(GlanceyError);
     });
 
     it('should parse base_branch', () => {
@@ -237,7 +237,7 @@ describe('worktree-handlers', () => {
 
   describe('parseRemoveWorktreeArgs', () => {
     it('should throw when name is missing', () => {
-      expect(() => parseRemoveWorktreeArgs({})).toThrow(LanceContextError);
+      expect(() => parseRemoveWorktreeArgs({})).toThrow(GlanceyError);
       expect(() => parseRemoveWorktreeArgs({})).toThrow('name is required');
     });
 
@@ -349,7 +349,7 @@ describe('worktree-handlers', () => {
 
   describe('parseWorktreeStatusArgs', () => {
     it('should throw when name is missing', () => {
-      expect(() => parseWorktreeStatusArgs({})).toThrow(LanceContextError);
+      expect(() => parseWorktreeStatusArgs({})).toThrow(GlanceyError);
       expect(() => parseWorktreeStatusArgs({})).toThrow('name is required');
     });
 

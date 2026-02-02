@@ -1,11 +1,11 @@
 {
-  "name": "lance-context",
+  "name": "glancey",
   "version": "1.37.1",
   "description": "MCP plugin for semantic code search using LanceDB - gives AI coding agents deep context from your entire codebase",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "lance-context": "./dist/index.js"
+    "glancey": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -19,7 +19,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf dist coverage .lance-context",
+    "clean": "rm -rf dist coverage .glancey",
     "prepublishOnly": "npm run build",
     "prepare": "husky",
     "postinstall": "node scripts/postinstall.js || true"
@@ -31,7 +31,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nicholaspsmith/lance-context.git"
+    "url": "git+https://github.com/nicholaspsmith/glancey.git"
   },
   "keywords": [
     "mcp",
@@ -45,9 +45,9 @@
   "author": "Nicholas Smith",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/nicholaspsmith/lance-context/issues"
+    "url": "https://github.com/nicholaspsmith/glancey/issues"
   },
-  "homepage": "https://github.com/nicholaspsmith/lance-context#readme",
+  "homepage": "https://github.com/nicholaspsmith/glancey#readme",
   "dependencies": {
     "@lancedb/lancedb": "^0.22.3",
     "@modelcontextprotocol/sdk": "^1.0.0",

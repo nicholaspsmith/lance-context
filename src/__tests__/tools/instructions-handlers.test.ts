@@ -55,7 +55,7 @@ describe('instructions-handlers', () => {
       const result = await handleGetProjectInstructions(contextNoInstructions);
 
       expect(result.content[0].text).toContain('No project instructions configured');
-      expect(result.content[0].text).toContain('.lance-context.json');
+      expect(result.content[0].text).toContain('.glancey.json');
     });
 
     it('should handle undefined project instructions gracefully', async () => {

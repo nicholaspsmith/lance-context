@@ -13,7 +13,7 @@ import {
   getChunkingConfig,
   getSearchConfig,
   getIndexingConfig,
-  type LanceContextConfig,
+  type GlanceyConfig,
 } from '../config.js';
 import { TTLCache } from '../utils/cache.js';
 import { minimatch } from 'minimatch';
@@ -299,7 +299,7 @@ export class CodeIndexer {
   private embeddingBackend: EmbeddingBackend;
   private indexPath: string;
   private projectPath: string;
-  private config: LanceContextConfig | null = null;
+  private config: GlanceyConfig | null = null;
   /** LRU cache for query embeddings with TTL to avoid recomputing identical queries */
   private queryEmbeddingCache = new TTLCache<number[]>({ maxSize: 100, ttlMs: 60 * 60 * 1000 });
   /** Tracks chunking method usage during current indexing operation */
@@ -319,13 +319,13 @@ export class CodeIndexer {
   constructor(projectPath: string, embeddingBackend: EmbeddingBackend) {
     this.projectPath = projectPath;
     this.embeddingBackend = embeddingBackend;
-    this.indexPath = path.join(projectPath, '.lance-context');
+    this.indexPath = path.join(projectPath, '.glancey');
   }
 
   async initialize(): Promise<void> {
     this.db = await lancedb.connect(this.indexPath);
     this.config = await loadConfig(this.projectPath);
-    console.error(`[lance-context] Loaded config with ${this.config.patterns?.length} patterns`);
+    console.error(`[glancey] Loaded config with ${this.config.patterns?.length} patterns`);
   }
 
   private get metadataPath(): string {
@@ -365,7 +365,7 @@ export class CodeIndexer {
     } else {
       // Non-blocking: start write in background, don't wait
       // If crash happens before write completes, checkpoint is lost but that's acceptable
-      doSave().catch((err) => console.error('[lance-context] Checkpoint save failed:', err));
+      doSave().catch((err) => console.error('[glancey] Checkpoint save failed:', err));
     }
   }
 
@@ -419,7 +419,7 @@ export class CodeIndexer {
         !Array.isArray(checkpoint.files) ||
         !Array.isArray(checkpoint.processedFiles)
       ) {
-        console.error('[lance-context] Invalid checkpoint file, ignoring');
+        console.error('[glancey] Invalid checkpoint file, ignoring');
         await this.clearCheckpoint();
         return null;
       }
@@ -537,15 +537,13 @@ export class CodeIndexer {
         const filepath = path.join(this.projectPath, relativePath);
         const currentMtime = await this.getFileMtime(filepath);
         if (currentMtime > savedMtime) {
-          console.error(
-            `[lance-context] File ${relativePath} modified since checkpoint, invalidating`
-          );
+          console.error(`[glancey] File ${relativePath} modified since checkpoint, invalidating`);
           return false;
         }
       } catch {
         // File was deleted or can't be accessed - checkpoint is stale
         console.error(
-          `[lance-context] File ${relativePath} no longer accessible, invalidating checkpoint`
+          `[glancey] File ${relativePath} no longer accessible, invalidating checkpoint`
         );
         return false;
       }
@@ -861,7 +859,7 @@ export class CodeIndexer {
     const { glob } = await import('glob');
 
     const report = (progress: IndexProgress) => {
-      console.error(`[lance-context] ${progress.message}`);
+      console.error(`[glancey] ${progress.message}`);
       onProgress?.(progress);
     };
 
@@ -872,8 +870,8 @@ export class CodeIndexer {
     if (autoRepair) {
       const status = await this.getStatus();
       if (status.corrupted) {
-        console.error(`[lance-context] Index corruption detected: ${status.corruptionReason}`);
-        console.error('[lance-context] Auto-repair enabled, clearing and rebuilding index...');
+        console.error(`[glancey] Index corruption detected: ${status.corruptionReason}`);
+        console.error('[glancey] Auto-repair enabled, clearing and rebuilding index...');
         await this.clearIndex();
         // Recursively call with forceReindex but without autoRepair to avoid loops
         const result = await this.indexCodebase(patterns, excludePatterns, true, onProgress, false);
@@ -894,7 +892,7 @@ export class CodeIndexer {
           checkpoint.embeddingModel !== currentModel
         ) {
           console.error(
-            `[lance-context] Checkpoint uses different embedding backend/model ` +
+            `[glancey] Checkpoint uses different embedding backend/model ` +
               `(${checkpoint.embeddingBackend}/${checkpoint.embeddingModel} vs ${currentBackend}/${currentModel}), ` +
               `discarding checkpoint`
           );
@@ -904,12 +902,12 @@ export class CodeIndexer {
           const isFresh = await this.validateCheckpointFreshness(checkpoint);
           if (!isFresh) {
             console.error(
-              `[lance-context] Checkpoint is stale (files modified since ${checkpoint.startedAt}), discarding`
+              `[glancey] Checkpoint is stale (files modified since ${checkpoint.startedAt}), discarding`
             );
             await this.clearCheckpoint();
           } else {
             console.error(
-              `[lance-context] Found incomplete checkpoint from ${checkpoint.startedAt}, resuming...`
+              `[glancey] Found incomplete checkpoint from ${checkpoint.startedAt}, resuming...`
             );
             return this.resumeFromCheckpoint(checkpoint, onProgress);
           }
@@ -956,7 +954,7 @@ export class CodeIndexer {
       // Check dimension mismatch
       if (metadata?.embeddingDimensions && metadata.embeddingDimensions !== currentDimensions) {
         console.error(
-          `[lance-context] Embedding dimension mismatch: index has ${metadata.embeddingDimensions}, ` +
+          `[glancey] Embedding dimension mismatch: index has ${metadata.embeddingDimensions}, ` +
             `current backend (${this.embeddingBackend.name}) uses ${currentDimensions}. Forcing full reindex.`
         );
         embeddingMismatch = true;
@@ -965,7 +963,7 @@ export class CodeIndexer {
       // Check model mismatch (even if dimensions match, different models produce incompatible embeddings)
       if (metadata?.embeddingModel && metadata.embeddingModel !== currentModel) {
         console.error(
-          `[lance-context] Embedding model mismatch: index uses '${metadata.embeddingModel}', ` +
+          `[glancey] Embedding model mismatch: index uses '${metadata.embeddingModel}', ` +
             `current backend uses '${currentModel}'. Forcing full reindex.`
         );
         embeddingMismatch = true;
@@ -990,7 +988,7 @@ export class CodeIndexer {
     onProgress?: ProgressCallback
   ): Promise<{ filesIndexed: number; chunksCreated: number; incremental: boolean }> {
     const report = (progress: IndexProgress) => {
-      console.error(`[lance-context] ${progress.message}`);
+      console.error(`[glancey] ${progress.message}`);
       onProgress?.(progress);
     };
 
@@ -1098,28 +1096,26 @@ export class CodeIndexer {
     const totalFiles = stats.astChunked + stats.treeSitterChunked + stats.lineBasedChunked;
 
     console.error(
-      `[lance-context] Chunking: ${stats.astChunked} AST, ${stats.treeSitterChunked} tree-sitter, ${stats.lineBasedChunked} line-based`
+      `[glancey] Chunking: ${stats.astChunked} AST, ${stats.treeSitterChunked} tree-sitter, ${stats.lineBasedChunked} line-based`
     );
 
     if (totalFallbacks > 0) {
       const fallbackPct = ((totalFallbacks / totalFiles) * 100).toFixed(1);
       console.error(
-        `[lance-context] Warning: ${totalFallbacks} files (${fallbackPct}%) fell back to line-based chunking`
+        `[glancey] Warning: ${totalFallbacks} files (${fallbackPct}%) fell back to line-based chunking`
       );
       if (stats.astFallbacks.length > 0 && stats.astFallbacks.length <= 5) {
-        console.error(`[lance-context]   AST fallbacks: ${stats.astFallbacks.join(', ')}`);
+        console.error(`[glancey]   AST fallbacks: ${stats.astFallbacks.join(', ')}`);
       } else if (stats.astFallbacks.length > 5) {
         console.error(
-          `[lance-context]   AST fallbacks: ${stats.astFallbacks.slice(0, 5).join(', ')} (+${stats.astFallbacks.length - 5} more)`
+          `[glancey]   AST fallbacks: ${stats.astFallbacks.slice(0, 5).join(', ')} (+${stats.astFallbacks.length - 5} more)`
         );
       }
       if (stats.treeSitterFallbacks.length > 0 && stats.treeSitterFallbacks.length <= 5) {
-        console.error(
-          `[lance-context]   Tree-sitter fallbacks: ${stats.treeSitterFallbacks.join(', ')}`
-        );
+        console.error(`[glancey]   Tree-sitter fallbacks: ${stats.treeSitterFallbacks.join(', ')}`);
       } else if (stats.treeSitterFallbacks.length > 5) {
         console.error(
-          `[lance-context]   Tree-sitter fallbacks: ${stats.treeSitterFallbacks.slice(0, 5).join(', ')} (+${stats.treeSitterFallbacks.length - 5} more)`
+          `[glancey]   Tree-sitter fallbacks: ${stats.treeSitterFallbacks.slice(0, 5).join(', ')} (+${stats.treeSitterFallbacks.length - 5} more)`
         );
       }
     }
@@ -1133,7 +1129,7 @@ export class CodeIndexer {
     onProgress?: ProgressCallback
   ): Promise<{ filesIndexed: number; chunksCreated: number; incremental: boolean }> {
     const report = (progress: IndexProgress) => {
-      console.error(`[lance-context] ${progress.message}`);
+      console.error(`[glancey] ${progress.message}`);
       onProgress?.(progress);
     };
 
@@ -1258,7 +1254,7 @@ export class CodeIndexer {
     onProgress?: ProgressCallback
   ): Promise<{ filesIndexed: number; chunksCreated: number; incremental: boolean }> {
     const report = (progress: IndexProgress) => {
-      console.error(`[lance-context] ${progress.message}`);
+      console.error(`[glancey] ${progress.message}`);
       onProgress?.(progress);
     };
 
@@ -1275,7 +1271,7 @@ export class CodeIndexer {
       case 'chunking': {
         // Resume from chunking phase - chunks are ready but not embedded
         if (!checkpoint.pendingChunks || checkpoint.pendingChunks.length === 0) {
-          console.error('[lance-context] Checkpoint has no pending chunks, restarting full index');
+          console.error('[glancey] Checkpoint has no pending chunks, restarting full index');
           await this.clearCheckpoint();
           return this.indexFull(checkpoint.files, onProgress);
         }
@@ -1322,7 +1318,7 @@ export class CodeIndexer {
       case 'embedding': {
         // Resume from embedding phase - chunks are embedded but not stored
         if (!checkpoint.embeddedChunks || checkpoint.embeddedChunks.length === 0) {
-          console.error('[lance-context] Checkpoint has no embedded chunks, restarting full index');
+          console.error('[glancey] Checkpoint has no embedded chunks, restarting full index');
           await this.clearCheckpoint();
           return this.indexFull(checkpoint.files, onProgress);
         }
@@ -1350,7 +1346,7 @@ export class CodeIndexer {
 
       default:
         // Unknown phase, restart full index
-        console.error(`[lance-context] Unknown checkpoint phase: ${checkpoint.phase}, restarting`);
+        console.error(`[glancey] Unknown checkpoint phase: ${checkpoint.phase}, restarting`);
         await this.clearCheckpoint();
         return this.indexFull(checkpoint.files, onProgress);
     }
@@ -1410,7 +1406,7 @@ export class CodeIndexer {
    */
   private async embedChunks(chunks: CodeChunk[], onProgress?: ProgressCallback): Promise<void> {
     const report = (progress: IndexProgress) => {
-      console.error(`[lance-context] ${progress.message}`);
+      console.error(`[glancey] ${progress.message}`);
       onProgress?.(progress);
     };
 
@@ -1440,7 +1436,7 @@ export class CodeIndexer {
       const batch = chunks.slice(i, i + embeddingBatchSize);
       const texts = batch.map((c) => c.content);
       const batchMsg = `Sending ${texts.length} texts to embedding backend (batch ${Math.floor(i / embeddingBatchSize) + 1}/${Math.ceil(chunks.length / embeddingBatchSize)})...`;
-      console.error(`[lance-context] ${batchMsg}`);
+      console.error(`[glancey] ${batchMsg}`);
       broadcastLog('info', batchMsg);
       const embeddings = await this.embeddingBackend.embedBatch(texts);
       batch.forEach((chunk, idx) => {
@@ -1483,7 +1479,7 @@ export class CodeIndexer {
       } catch {
         // Fall back to line-based chunking if AST parsing fails
         console.error(
-          `[lance-context] AST parsing failed for ${relativePath}, falling back to line-based chunking`
+          `[glancey] AST parsing failed for ${relativePath}, falling back to line-based chunking`
         );
         this.currentChunkingStats.astFallbacks.push(relativePath);
       }
@@ -1498,7 +1494,7 @@ export class CodeIndexer {
       } catch (error) {
         // Fall back to line-based chunking if tree-sitter parsing fails
         console.error(
-          `[lance-context] Tree-sitter parsing failed for ${relativePath}, falling back to line-based chunking:`,
+          `[glancey] Tree-sitter parsing failed for ${relativePath}, falling back to line-based chunking:`,
           error
         );
         this.currentChunkingStats.treeSitterFallbacks.push(relativePath);

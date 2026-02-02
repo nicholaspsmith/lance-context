@@ -172,7 +172,7 @@ describe('index-handlers', () => {
         fileCount: 10,
         chunkCount: 50,
         lastUpdated: '2024-01-01T00:00:00.000Z',
-        indexPath: '/test/.lance-context',
+        indexPath: '/test/.glancey',
       };
       vi.mocked(mockIndexer.getStatus!).mockResolvedValue(status);
 
@@ -188,7 +188,7 @@ describe('index-handlers', () => {
         fileCount: 10,
         chunkCount: 50,
         lastUpdated: '2024-01-01T00:00:00.000Z',
-        indexPath: '/test/.lance-context',
+        indexPath: '/test/.glancey',
         corrupted: true,
         corruptionReason: 'Checksum mismatch',
       };
@@ -207,7 +207,7 @@ describe('index-handlers', () => {
         fileCount: 0,
         chunkCount: 0,
         lastUpdated: null,
-        indexPath: '/test/.lance-context',
+        indexPath: '/test/.glancey',
       });
 
       const result = await handleGetIndexStatus(context);

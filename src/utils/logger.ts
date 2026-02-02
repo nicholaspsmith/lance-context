@@ -20,20 +20,20 @@ const LOG_LEVEL_VALUES: Record<LogLevel, number> = {
 const DEFAULT_LOG_LEVEL: LogLevel = 'info';
 
 /** Prefix used for all log messages */
-const LOG_PREFIX = '[lance-context]';
+const LOG_PREFIX = '[glancey]';
 
 /**
  * Get the configured log level from environment.
  */
 function getLogLevel(): LogLevel {
-  const envLevel = process.env.LANCE_CONTEXT_LOG_LEVEL?.toLowerCase();
+  const envLevel = process.env.GLANCEY_LOG_LEVEL?.toLowerCase();
 
   if (envLevel && envLevel in LOG_LEVEL_VALUES) {
     return envLevel as LogLevel;
   }
 
   // Support legacy debug mode
-  if (process.env.LANCE_CONTEXT_DEBUG === '1' || process.env.LANCE_CONTEXT_DEBUG === 'true') {
+  if (process.env.GLANCEY_DEBUG === '1' || process.env.GLANCEY_DEBUG === 'true') {
     return 'debug';
   }
 
@@ -62,7 +62,7 @@ function formatMessage(level: LogLevel, message: string, context?: string): stri
  */
 export const logger = {
   /**
-   * Log debug information. Only shown when LANCE_CONTEXT_LOG_LEVEL=debug.
+   * Log debug information. Only shown when GLANCEY_LOG_LEVEL=debug.
    */
   debug(message: string, context?: string, data?: Record<string, unknown>): void {
     if (!shouldLog('debug')) return;

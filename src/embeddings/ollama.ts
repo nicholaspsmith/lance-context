@@ -100,8 +100,8 @@ export class OllamaBackend implements EmbeddingBackend {
 
     const initMsg = `Ollama: embedding ${texts.length} texts in ${batches.length} batches (${this.batchSize} texts/batch, ${this.concurrency} parallel, ${totalGroups} groups)`;
     const modelMsg = `Ollama: using model ${this.model} at ${this.baseUrl}`;
-    console.error(`[lance-context] ${initMsg}`);
-    console.error(`[lance-context] ${modelMsg}`);
+    console.error(`[glancey] ${initMsg}`);
+    console.error(`[glancey] ${modelMsg}`);
     broadcastLog('info', initMsg);
     broadcastLog('info', modelMsg);
 
@@ -123,7 +123,7 @@ export class OllamaBackend implements EmbeddingBackend {
       };
 
       const groupStartMsg = `Embedding group ${groupNum}/${totalGroups} (${batchGroup.length} batches)...`;
-      console.error(`[lance-context] ${groupStartMsg}`);
+      console.error(`[glancey] ${groupStartMsg}`);
       broadcastLog('info', groupStartMsg);
       updateProgressMessage(groupStartMsg);
 
@@ -135,7 +135,7 @@ export class OllamaBackend implements EmbeddingBackend {
         updateBatchProgress();
 
         const batchStartMsg = `Batch ${batchNum}/${batches.length}: sending ${batch.length} texts...`;
-        console.error(`[lance-context]   ${batchStartMsg}`);
+        console.error(`[glancey]   ${batchStartMsg}`);
         broadcastLog('info', batchStartMsg);
 
         const batchStart = Date.now();
@@ -171,7 +171,7 @@ export class OllamaBackend implements EmbeddingBackend {
           updateBatchProgress();
 
           const batchDoneMsg = `Batch ${batchNum}/${batches.length}: done in ${batchElapsed}s`;
-          console.error(`[lance-context]   ${batchDoneMsg}`);
+          console.error(`[glancey]   ${batchDoneMsg}`);
           broadcastLog('info', batchDoneMsg);
           return { batchIndex: i + groupIndex, embeddings: data.embeddings };
         } catch (error) {
@@ -181,7 +181,7 @@ export class OllamaBackend implements EmbeddingBackend {
           const batchErrorMsg = isTimeout
             ? `Batch ${batchNum}/${batches.length}: TIMEOUT after ${DEFAULT_TIMEOUT_MS / 1000}s - ${errorMsg}`
             : `Batch ${batchNum}/${batches.length}: ERROR - ${errorMsg}`;
-          console.error(`[lance-context]   ${batchErrorMsg}`);
+          console.error(`[glancey]   ${batchErrorMsg}`);
           broadcastLog('error', batchErrorMsg);
           batchStatuses.set(batchNum, isTimeout ? '⏱️ TIMEOUT' : '❌ ERROR');
           updateBatchProgress();
@@ -193,7 +193,7 @@ export class OllamaBackend implements EmbeddingBackend {
       const groupElapsed = ((Date.now() - groupStart) / 1000).toFixed(1);
       const processedSoFar = Math.min((i + this.concurrency) * this.batchSize, texts.length);
       const groupCompleteMsg = `Embedded batch group ${Math.floor(i / this.concurrency) + 1}/${Math.ceil(batches.length / this.concurrency)} (${processedSoFar}/${texts.length} texts) in ${groupElapsed}s`;
-      console.error(`[lance-context] ${groupCompleteMsg}`);
+      console.error(`[glancey] ${groupCompleteMsg}`);
       broadcastLog('info', groupCompleteMsg);
 
       // Place results in correct positions

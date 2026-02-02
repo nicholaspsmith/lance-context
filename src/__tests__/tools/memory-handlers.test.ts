@@ -14,7 +14,7 @@ import {
   type IMemoryManager,
 } from '../../tools/memory-handlers.js';
 import type { MemoryInfo } from '../../memory/index.js';
-import { LanceContextError } from '../../utils/errors.js';
+import { GlanceyError } from '../../utils/errors.js';
 
 describe('memory-handlers', () => {
   let mockMemoryManager: IMemoryManager;
@@ -38,11 +38,11 @@ describe('memory-handlers', () => {
 
   describe('parseWriteMemoryArgs', () => {
     it('should throw when memory_file_name is missing', () => {
-      expect(() => parseWriteMemoryArgs({ content: 'test' })).toThrow(LanceContextError);
+      expect(() => parseWriteMemoryArgs({ content: 'test' })).toThrow(GlanceyError);
     });
 
     it('should throw when content is missing', () => {
-      expect(() => parseWriteMemoryArgs({ memory_file_name: 'test' })).toThrow(LanceContextError);
+      expect(() => parseWriteMemoryArgs({ memory_file_name: 'test' })).toThrow(GlanceyError);
     });
 
     it('should parse valid arguments', () => {
@@ -74,7 +74,7 @@ describe('memory-handlers', () => {
 
   describe('parseReadMemoryArgs', () => {
     it('should throw when memory_file_name is missing', () => {
-      expect(() => parseReadMemoryArgs({})).toThrow(LanceContextError);
+      expect(() => parseReadMemoryArgs({})).toThrow(GlanceyError);
     });
 
     it('should parse valid arguments', () => {
@@ -141,7 +141,7 @@ describe('memory-handlers', () => {
 
   describe('parseDeleteMemoryArgs', () => {
     it('should throw when memory_file_name is missing', () => {
-      expect(() => parseDeleteMemoryArgs({})).toThrow(LanceContextError);
+      expect(() => parseDeleteMemoryArgs({})).toThrow(GlanceyError);
     });
 
     it('should parse valid arguments', () => {
@@ -167,20 +167,20 @@ describe('memory-handlers', () => {
   describe('parseEditMemoryArgs', () => {
     it('should throw when memory_file_name is missing', () => {
       expect(() => parseEditMemoryArgs({ needle: 'x', repl: 'y', mode: 'literal' })).toThrow(
-        LanceContextError
+        GlanceyError
       );
     });
 
     it('should throw when needle is missing', () => {
       expect(() =>
         parseEditMemoryArgs({ memory_file_name: 'test', repl: 'y', mode: 'literal' })
-      ).toThrow(LanceContextError);
+      ).toThrow(GlanceyError);
     });
 
     it('should throw when mode is missing', () => {
       expect(() =>
         parseEditMemoryArgs({ memory_file_name: 'test', needle: 'x', repl: 'y' })
-      ).toThrow(LanceContextError);
+      ).toThrow(GlanceyError);
     });
 
     it('should throw for invalid mode', () => {

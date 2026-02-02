@@ -7,7 +7,7 @@ import type { ConceptCluster } from '../search/clustering.js';
 import type { ToolResponse } from './types.js';
 import { createToolResponse } from './types.js';
 import { isNumber, isBoolean, isString } from '../utils/type-guards.js';
-import { LanceContextError } from '../utils/errors.js';
+import { GlanceyError } from '../utils/errors.js';
 import { dashboardState } from '../dashboard/state.js';
 
 /**
@@ -166,7 +166,7 @@ export function parseSearchByConceptArgs(
 ): SearchByConceptArgs {
   const conceptId = isNumber(args?.conceptId) ? args.conceptId : -1;
   if (conceptId < 0) {
-    throw new LanceContextError(
+    throw new GlanceyError(
       'conceptId is required and must be a non-negative number',
       'validation',
       { tool: 'search_by_concept' }

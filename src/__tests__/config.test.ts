@@ -8,7 +8,7 @@ import {
   getChunkingConfig,
   getSearchConfig,
   getDashboardConfig,
-  LanceContextConfig,
+  GlanceyConfig,
 } from '../config.js';
 
 vi.mock('fs/promises', () => ({
@@ -55,14 +55,14 @@ describe('config', () => {
 
   describe('getInstructions', () => {
     it('should return instructions when present in config', () => {
-      const config: LanceContextConfig = {
+      const config: GlanceyConfig = {
         instructions: 'Use semantic search for this codebase.',
       };
       expect(getInstructions(config)).toBe('Use semantic search for this codebase.');
     });
 
     it('should return undefined when instructions not set', () => {
-      const config: LanceContextConfig = {};
+      const config: GlanceyConfig = {};
       expect(getInstructions(config)).toBeUndefined();
     });
   });
@@ -85,7 +85,7 @@ describe('config', () => {
       expect(config.excludePatterns).toBeDefined();
     });
 
-    it('should load config from .lance-context.json', async () => {
+    it('should load config from .glancey.json', async () => {
       const customConfig = {
         patterns: ['**/*.custom'],
         instructions: 'Custom instructions',
@@ -98,7 +98,7 @@ describe('config', () => {
       expect(config.instructions).toBe('Custom instructions');
     });
 
-    it('should try lance-context.config.json if .lance-context.json fails', async () => {
+    it('should try glancey.config.json if .glancey.json fails', async () => {
       const customConfig = {
         patterns: ['**/*.alt'],
       };
@@ -250,7 +250,7 @@ describe('config', () => {
 
   describe('getChunkingConfig', () => {
     it('should return defaults when config has no chunking', () => {
-      const config: LanceContextConfig = {};
+      const config: GlanceyConfig = {};
       const chunking = getChunkingConfig(config);
 
       expect(chunking.maxLines).toBeDefined();
@@ -258,7 +258,7 @@ describe('config', () => {
     });
 
     it('should merge user config with defaults', () => {
-      const config: LanceContextConfig = {
+      const config: GlanceyConfig = {
         chunking: { maxLines: 200 },
       };
       const chunking = getChunkingConfig(config);
@@ -270,7 +270,7 @@ describe('config', () => {
 
   describe('getSearchConfig', () => {
     it('should return defaults when config has no search', () => {
-      const config: LanceContextConfig = {};
+      const config: GlanceyConfig = {};
       const search = getSearchConfig(config);
 
       expect(search.semanticWeight).toBeDefined();
@@ -278,7 +278,7 @@ describe('config', () => {
     });
 
     it('should merge user config with defaults', () => {
-      const config: LanceContextConfig = {
+      const config: GlanceyConfig = {
         search: { semanticWeight: 0.8 },
       };
       const search = getSearchConfig(config);
@@ -290,7 +290,7 @@ describe('config', () => {
 
   describe('getDashboardConfig', () => {
     it('should return defaults when config has no dashboard', () => {
-      const config: LanceContextConfig = {};
+      const config: GlanceyConfig = {};
       const dashboard = getDashboardConfig(config);
 
       expect(dashboard.enabled).toBeDefined();
@@ -298,7 +298,7 @@ describe('config', () => {
     });
 
     it('should merge user config with defaults', () => {
-      const config: LanceContextConfig = {
+      const config: GlanceyConfig = {
         dashboard: { enabled: false, port: 9000 },
       };
       const dashboard = getDashboardConfig(config);

@@ -161,7 +161,7 @@ export class TokenSavingsTracker {
    */
   private getFilePath(): string | null {
     if (!this.projectPath) return null;
-    return path.join(this.projectPath, '.lance-context', 'token-savings.json');
+    return path.join(this.projectPath, '.glancey', 'token-savings.json');
   }
 
   /**

@@ -71,7 +71,7 @@ const packageJson = require('../package.json');
 import { createEmbeddingBackend } from './embeddings/index.js';
 import { CodeIndexer } from './search/indexer.js';
 import { isStringArray, isString, isNumber, isBoolean } from './utils/type-guards.js';
-import { logError, formatErrorResponse, wrapError, LanceContextError } from './utils/errors.js';
+import { logError, formatErrorResponse, wrapError, GlanceyError } from './utils/errors.js';
 import { logger } from './utils/logger.js';
 import { loadConfig, loadSecrets, getInstructions, getDashboardConfig } from './config.js';
 import {
@@ -130,7 +130,7 @@ import type { SymbolToolContext } from './tools/symbol-handlers.js';
  * Check if browser was recently opened (within the last hour)
  */
 function wasBrowserRecentlyOpened(projectPath: string): boolean {
-  const flagFile = path.join(projectPath, '.lance-context', 'browser-opened');
+  const flagFile = path.join(projectPath, '.glancey', 'browser-opened');
   try {
     if (fs.existsSync(flagFile)) {
       const timestamp = parseInt(fs.readFileSync(flagFile, 'utf-8'), 10);
@@ -147,7 +147,7 @@ function wasBrowserRecentlyOpened(projectPath: string): boolean {
  * Record that browser was opened
  */
 function recordBrowserOpened(projectPath: string): void {
-  const flagFile = path.join(projectPath, '.lance-context', 'browser-opened');
+  const flagFile = path.join(projectPath, '.glancey', 'browser-opened');
   try {
     fs.writeFileSync(flagFile, Date.now().toString());
   } catch {
@@ -161,7 +161,7 @@ function recordBrowserOpened(projectPath: string): void {
 function openBrowser(url: string, projectPath: string, force: boolean = false): void {
   // Don't open if already opened recently (unless forced)
   if (!force && wasBrowserRecentlyOpened(projectPath)) {
-    console.error('[lance-context] Dashboard was recently opened, skipping');
+    console.error('[glancey] Dashboard was recently opened, skipping');
     return;
   }
 
@@ -180,18 +180,18 @@ function openBrowser(url: string, projectPath: string, force: boolean = false): 
       command = `xdg-open "${url}"`;
   }
 
-  console.error(`[lance-context] Opening browser with command: ${command}`);
+  console.error(`[glancey] Opening browser with command: ${command}`);
   exec(command, (error) => {
     if (error) {
-      console.error('[lance-context] Failed to open browser:', error.message);
+      console.error('[glancey] Failed to open browser:', error.message);
     } else {
-      console.error('[lance-context] Browser opened successfully');
+      console.error('[glancey] Browser opened successfully');
       recordBrowserOpened(projectPath);
     }
   });
 }
 
-const PROJECT_PATH = path.resolve(process.env.LANCE_CONTEXT_PROJECT || process.cwd());
+const PROJECT_PATH = path.resolve(process.env.GLANCEY_PROJECT || process.cwd());
 
 /**
  * Brief guidance appended to tool responses to reinforce tool selection preferences.
@@ -203,9 +203,9 @@ const TOOL_GUIDANCE = `
 
 /**
  * Server instructions provided at MCP initialization.
- * These guide Claude on when to use lance-context tools vs alternatives.
+ * These guide Claude on when to use glancey tools vs alternatives.
  */
-const SERVER_INSTRUCTIONS = `# lance-context - Semantic Code Search & Codebase Understanding
+const SERVER_INSTRUCTIONS = `# glancey - Semantic Code Search & Codebase Understanding
 
 ## Workflow Triggers - When to Use Each Tool
 
@@ -235,7 +235,7 @@ const SERVER_INSTRUCTIONS = `# lance-context - Semantic Code Search & Codebase U
 
 ## Tool Reference
 
-### Semantic Search (lance-context exclusive)
+### Semantic Search (glancey exclusive)
 | Tool | When to Use |
 |------|-------------|
 | \`search_code\` | Finding code by concept, uncertain of exact names |
@@ -271,7 +271,7 @@ The \`commit\` tool:
 
 A post-commit hook will warn if commits bypass this tool.
 
-## Signs You Should Have Used lance-context Tools
+## Signs You Should Have Used glancey Tools
 
 **Use \`search_code\` if you:**
 - Used wildcards or regex alternation
@@ -308,7 +308,7 @@ const PRIORITY_INSTRUCTIONS = `
 - **commit** - **ALWAYS use instead of \`git commit\`** (MANDATORY)
   - Validates feature branch, message format, single responsibility
 
-### ⚠️ Signs you should have used lance-context:
+### ⚠️ Signs you should have used glancey:
 - You used wildcards or regex alternation
 - Multiple search attempts to find something
 - Pattern-based search returned nothing
@@ -327,7 +327,7 @@ const PACKAGE_VERSION: string = packageJson.version;
 async function checkForUpdates(): Promise<void> {
   try {
     // Use npm view command to get latest version
-    const { stdout } = await execAsync('npm view lance-context version 2>/dev/null', {
+    const { stdout } = await execAsync('npm view glancey version 2>/dev/null', {
       timeout: 5000, // 5 second timeout
     });
     const latestVersion = stdout.trim();
@@ -344,7 +344,7 @@ async function checkForUpdates(): Promise<void> {
 
       if (isOutdated) {
         logger.warn(`Update available: ${PACKAGE_VERSION} → ${latestVersion}`, 'version');
-        logger.warn('Run: npx lance-context@latest (or npm update -g lance-context)', 'version');
+        logger.warn('Run: npx glancey@latest (or npm update -g glancey)', 'version');
       }
     }
   } catch {
@@ -410,11 +410,7 @@ async function getIndexer(): Promise<CodeIndexer> {
 /**
  * Config file names to watch for changes
  */
-const CONFIG_FILES_TO_WATCH = [
-  '.lance-context.json',
-  'lance-context.config.json',
-  '.lance-context.local.json',
-];
+const CONFIG_FILES_TO_WATCH = ['.glancey.json', 'lance-context.config.json', '.glancey.local.json'];
 
 /**
  * Invalidate config and indexer caches to force reload on next access.
@@ -423,7 +419,7 @@ const CONFIG_FILES_TO_WATCH = [
 export function invalidateCaches(): void {
   configPromise = null;
   indexerPromise = null;
-  console.error('[lance-context] Config caches invalidated - will reload on next operation');
+  console.error('[glancey] Config caches invalidated - will reload on next operation');
 }
 
 /**
@@ -443,13 +439,13 @@ export async function reloadConfig(): Promise<boolean> {
     dashboardState.setConfig(config);
     dashboardState.setIndexer(indexer);
 
-    console.error('[lance-context] Config reloaded successfully');
+    console.error('[glancey] Config reloaded successfully');
 
     // Check if reindex is needed due to backend change
     const status = await indexer.getStatus();
     if (status.backendMismatch) {
-      console.error(`[lance-context] ${status.backendMismatchReason}`);
-      console.error('[lance-context] Starting automatic reindex with new backend...');
+      console.error(`[glancey] ${status.backendMismatchReason}`);
+      console.error('[glancey] Starting automatic reindex with new backend...');
 
       dashboardState.onIndexingStart();
       indexer
@@ -459,17 +455,17 @@ export async function reloadConfig(): Promise<boolean> {
         .then((result) => {
           dashboardState.onIndexingComplete(result);
           console.error(
-            `[lance-context] Reindex complete: ${result.filesIndexed} files, ${result.chunksCreated} chunks`
+            `[glancey] Reindex complete: ${result.filesIndexed} files, ${result.chunksCreated} chunks`
           );
         })
         .catch((error) => {
-          console.error('[lance-context] Reindex failed:', error);
+          console.error('[glancey] Reindex failed:', error);
         });
     }
 
     return true;
   } catch (error) {
-    console.error('[lance-context] Failed to reload config:', error);
+    console.error('[glancey] Failed to reload config:', error);
     return false;
   }
 }
@@ -488,7 +484,7 @@ function watchConfigFiles(): void {
       clearTimeout(reloadTimeout);
     }
     reloadTimeout = setTimeout(async () => {
-      console.error(`[lance-context] Config file changed: ${filename}`);
+      console.error(`[glancey] Config file changed: ${filename}`);
       await reloadConfig();
     }, debounceMs);
   };
@@ -504,7 +500,7 @@ function watchConfigFiles(): void {
             scheduleReload(configFile);
           }
         });
-        console.error(`[lance-context] Watching config file: ${configFile}`);
+        console.error(`[glancey] Watching config file: ${configFile}`);
       }
     } catch {
       // File doesn't exist or can't be watched, skip silently
@@ -517,7 +513,7 @@ function watchConfigFiles(): void {
       if (filename && CONFIG_FILES_TO_WATCH.includes(filename) && eventType === 'rename') {
         const configPath = path.join(PROJECT_PATH, filename);
         if (fs.existsSync(configPath)) {
-          console.error(`[lance-context] New config file detected: ${filename}`);
+          console.error(`[glancey] New config file detected: ${filename}`);
           // Set up watcher for the new file
           fs.watch(configPath, (evt) => {
             if (evt === 'change') {
@@ -561,11 +557,11 @@ async function disableSerena(): Promise<void> {
       if (settings.enabledPlugins && settings.enabledPlugins[SERENA_PLUGIN_ID] === true) {
         settings.enabledPlugins[SERENA_PLUGIN_ID] = false;
         fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2));
-        console.error('[lance-context] Disabled Serena plugin in Claude settings');
+        console.error('[glancey] Disabled Serena plugin in Claude settings');
       }
     }
   } catch (error) {
-    console.error('[lance-context] Failed to disable Serena in settings:', error);
+    console.error('[glancey] Failed to disable Serena in settings:', error);
   }
 
   // Step 2: Kill any running Serena processes
@@ -579,7 +575,7 @@ async function disableSerena(): Promise<void> {
       if (pid !== String(process.pid)) {
         try {
           await execAsync(`kill ${pid} 2>/dev/null || true`);
-          console.error(`[lance-context] Killed Serena process ${pid}`);
+          console.error(`[glancey] Killed Serena process ${pid}`);
         } catch {
           // Process may have already exited
         }
@@ -592,7 +588,7 @@ async function disableSerena(): Promise<void> {
 
 const server = new Server(
   {
-    name: 'lance-context',
+    name: 'glancey',
     version: PACKAGE_VERSION,
   },
   {
@@ -687,7 +683,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: 'get_project_instructions',
         description:
-          'Get project-specific instructions from the .lance-context.json config file. Returns instructions for how to work with this codebase.',
+          'Get project-specific instructions from the .glancey.json config file. Returns instructions for how to work with this codebase.',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -1256,7 +1252,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: 'open_dashboard',
         description:
-          'Open the lance-context dashboard in the default browser. Starts the dashboard server if not already running. Works even when dashboard auto-start is disabled in config.',
+          'Open the glancey dashboard in the default browser. Starts the dashboard server if not already running. Works even when dashboard auto-start is disabled in config.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -1417,7 +1413,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               type: 'text',
               text:
                 fullInstructions ||
-                'No project instructions configured. Add an "instructions" field to .lance-context.json.',
+                'No project instructions configured. Add an "instructions" field to .glancey.json.',
             },
           ],
         };
@@ -1468,7 +1464,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const files = isStringArray(args?.files) ? args.files : [];
 
         if (!message) {
-          throw new LanceContextError('message is required', 'validation', { tool: 'commit' });
+          throw new GlanceyError('message is required', 'validation', { tool: 'commit' });
         }
 
         // Commit rules to return with every response
@@ -1559,13 +1555,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             cwd: PROJECT_PATH,
           });
           if (!stdout.trim()) {
-            throw new LanceContextError(
+            throw new GlanceyError(
               'No staged changes to commit. Stage files first or pass files parameter.',
               'git'
             );
           }
         } catch (e) {
-          if (e instanceof LanceContextError) {
+          if (e instanceof GlanceyError) {
             throw e;
           }
           throw wrapError('Failed to check staged changes', 'git', e);
@@ -1643,7 +1639,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const relativePath = isString(args?.relative_path) ? args.relative_path : '';
 
         if (!namePath || !relativePath) {
-          throw new LanceContextError('name_path and relative_path are required', 'validation', {
+          throw new GlanceyError('name_path and relative_path are required', 'validation', {
             tool: 'find_referencing_symbols',
           });
         }
@@ -1678,7 +1674,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'search_for_pattern': {
         const substringPattern = isString(args?.substring_pattern) ? args.substring_pattern : '';
         if (!substringPattern) {
-          throw new LanceContextError('substring_pattern is required', 'validation', {
+          throw new GlanceyError('substring_pattern is required', 'validation', {
             tool: 'search_for_pattern',
           });
         }
@@ -1716,7 +1712,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const content = isString(args?.content) ? args.content : '';
 
         if (!memoryFileName || !content) {
-          throw new LanceContextError('memory_file_name and content are required', 'validation', {
+          throw new GlanceyError('memory_file_name and content are required', 'validation', {
             tool: 'write_memory',
           });
         }
@@ -1738,7 +1734,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const memoryFileName = isString(args?.memory_file_name) ? args.memory_file_name : '';
 
         if (!memoryFileName) {
-          throw new LanceContextError('memory_file_name is required', 'validation', {
+          throw new GlanceyError('memory_file_name is required', 'validation', {
             tool: 'read_memory',
           });
         }
@@ -1774,7 +1770,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const memoryFileName = isString(args?.memory_file_name) ? args.memory_file_name : '';
 
         if (!memoryFileName) {
-          throw new LanceContextError('memory_file_name is required', 'validation', {
+          throw new GlanceyError('memory_file_name is required', 'validation', {
             tool: 'delete_memory',
           });
         }
@@ -1799,7 +1795,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const mode = isString(args?.mode) ? args.mode : '';
 
         if (!memoryFileName || !needle || mode === '') {
-          throw new LanceContextError(
+          throw new GlanceyError(
             'memory_file_name, needle, repl, and mode are required',
             'validation',
             { tool: 'edit_memory' }
@@ -1807,7 +1803,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         if (mode !== 'literal' && mode !== 'regex') {
-          throw new LanceContextError('mode must be "literal" or "regex"', 'validation', {
+          throw new GlanceyError('mode must be "literal" or "regex"', 'validation', {
             tool: 'edit_memory',
           });
         }
@@ -1834,11 +1830,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const body = isString(args?.body) ? args.body : '';
 
         if (!namePath || !relativePath || !body) {
-          throw new LanceContextError(
-            'name_path, relative_path, and body are required',
-            'validation',
-            { tool: 'replace_symbol_body' }
-          );
+          throw new GlanceyError('name_path, relative_path, and body are required', 'validation', {
+            tool: 'replace_symbol_body',
+          });
         }
 
         const editor = new SymbolEditor(PROJECT_PATH);
@@ -1875,11 +1869,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const body = isString(args?.body) ? args.body : '';
 
         if (!namePath || !relativePath || !body) {
-          throw new LanceContextError(
-            'name_path, relative_path, and body are required',
-            'validation',
-            { tool: 'insert_before_symbol' }
-          );
+          throw new GlanceyError('name_path, relative_path, and body are required', 'validation', {
+            tool: 'insert_before_symbol',
+          });
         }
 
         const editor = new SymbolEditor(PROJECT_PATH);
@@ -1916,11 +1908,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const body = isString(args?.body) ? args.body : '';
 
         if (!namePath || !relativePath || !body) {
-          throw new LanceContextError(
-            'name_path, relative_path, and body are required',
-            'validation',
-            { tool: 'insert_after_symbol' }
-          );
+          throw new GlanceyError('name_path, relative_path, and body are required', 'validation', {
+            tool: 'insert_after_symbol',
+          });
         }
 
         const editor = new SymbolEditor(PROJECT_PATH);
@@ -1958,7 +1948,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const dryRun = isBoolean(args?.dry_run) ? args.dry_run : false;
 
         if (!namePath || !relativePath || !newName) {
-          throw new LanceContextError(
+          throw new GlanceyError(
             'name_path, relative_path, and new_name are required',
             'validation',
             { tool: 'rename_symbol' }
@@ -1996,7 +1986,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const shortName = isString(args?.short_name) ? args.short_name : '';
 
         if (!shortName) {
-          throw new LanceContextError('short_name is required', 'validation', {
+          throw new GlanceyError('short_name is required', 'validation', {
             tool: 'create_worktree',
           });
         }
@@ -2070,7 +2060,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const worktreeName = isString(args?.name) ? args.name : '';
 
         if (!worktreeName) {
-          throw new LanceContextError('name is required', 'validation', {
+          throw new GlanceyError('name is required', 'validation', {
             tool: 'remove_worktree',
           });
         }
@@ -2116,7 +2106,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const worktreeName = isString(args?.name) ? args.name : '';
 
         if (!worktreeName) {
-          throw new LanceContextError('name is required', 'validation', {
+          throw new GlanceyError('name is required', 'validation', {
             tool: 'worktree_status',
           });
         }
@@ -2189,7 +2179,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       default:
-        throw new LanceContextError(`Unknown tool: ${name}`, 'validation', { tool: name });
+        throw new GlanceyError(`Unknown tool: ${name}`, 'validation', { tool: name });
     }
   } catch (error) {
     // Log full error details server-side for debugging
@@ -2209,7 +2199,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start server
 async function main() {
-  // Disable Serena plugin (lance-context replaces it)
+  // Disable Serena plugin (glancey replaces it)
   await disableSerena();
 
   // Check for updates in background (non-blocking)
@@ -2227,7 +2217,7 @@ async function main() {
   try {
     indexer = await getIndexer();
   } catch (error) {
-    console.error('[lance-context] Failed to initialize indexer:', error);
+    console.error('[glancey] Failed to initialize indexer:', error);
   }
 
   // Auto-index if project is not yet indexed or backend has changed
@@ -2237,10 +2227,10 @@ async function main() {
     const needsReindex = status.indexed && status.backendMismatch;
 
     if (needsIndex) {
-      console.error('[lance-context] Project not indexed, starting auto-index...');
+      console.error('[glancey] Project not indexed, starting auto-index...');
     } else if (needsReindex) {
-      console.error(`[lance-context] ${status.backendMismatchReason}`);
-      console.error('[lance-context] Starting automatic reindex with new backend...');
+      console.error(`[glancey] ${status.backendMismatchReason}`);
+      console.error('[glancey] Starting automatic reindex with new backend...');
     }
 
     if (needsIndex || needsReindex) {
@@ -2255,18 +2245,18 @@ async function main() {
         .then((result) => {
           dashboardState.onIndexingComplete(result);
           console.error(
-            `[lance-context] Auto-index complete: ${result.filesIndexed} files, ${result.chunksCreated} chunks`
+            `[glancey] Auto-index complete: ${result.filesIndexed} files, ${result.chunksCreated} chunks`
           );
         })
         .catch((error) => {
-          console.error('[lance-context] Auto-index failed:', error);
+          console.error('[glancey] Auto-index failed:', error);
         });
     }
   }
 
   // Start dashboard if enabled
   console.error(
-    `[lance-context] Dashboard config: enabled=${dashboardConfig.enabled}, openBrowser=${dashboardConfig.openBrowser}, port=${dashboardConfig.port}`
+    `[glancey] Dashboard config: enabled=${dashboardConfig.enabled}, openBrowser=${dashboardConfig.openBrowser}, port=${dashboardConfig.port}`
   );
   if (dashboardConfig.enabled) {
     const configuredPort = dashboardConfig.port || 24300;
@@ -2274,7 +2264,7 @@ async function main() {
       const availablePort = await findAvailablePort(configuredPort);
       if (availablePort !== configuredPort) {
         console.error(
-          `[lance-context] Configured port ${configuredPort} unavailable, using ${availablePort}`
+          `[glancey] Configured port ${configuredPort} unavailable, using ${availablePort}`
         );
       }
       const dashboard = await startDashboard({
@@ -2283,47 +2273,47 @@ async function main() {
         projectPath: PROJECT_PATH,
         version: PACKAGE_VERSION,
       });
-      console.error(`[lance-context] Dashboard started at ${dashboard.url}`);
+      console.error(`[glancey] Dashboard started at ${dashboard.url}`);
 
       // Open dashboard in user's default browser if configured
       if (dashboardConfig.openBrowser) {
         openBrowser(dashboard.url, PROJECT_PATH);
       } else {
-        console.error('[lance-context] Browser auto-open disabled in config');
+        console.error('[glancey] Browser auto-open disabled in config');
       }
     } catch (error) {
       // findAvailablePort throws if no port found in range, or startDashboard may fail
-      console.error('[lance-context] Failed to start dashboard:', error);
+      console.error('[glancey] Failed to start dashboard:', error);
     }
   } else {
-    console.error('[lance-context] Dashboard disabled in config');
+    console.error('[glancey] Dashboard disabled in config');
   }
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('[lance-context] MCP server started');
+  console.error('[glancey] MCP server started');
 }
 
 /**
  * Gracefully shutdown the server and cleanup resources
  */
 async function shutdown(signal: string): Promise<void> {
-  console.error(`[lance-context] Received ${signal}, shutting down gracefully...`);
+  console.error(`[glancey] Received ${signal}, shutting down gracefully...`);
 
   try {
     // Stop the dashboard server
     await stopDashboard();
-    console.error('[lance-context] Dashboard stopped');
+    console.error('[glancey] Dashboard stopped');
   } catch (error) {
-    console.error('[lance-context] Error stopping dashboard:', error);
+    console.error('[glancey] Error stopping dashboard:', error);
   }
 
   // Close the MCP server connection
   try {
     await server.close();
-    console.error('[lance-context] MCP server closed');
+    console.error('[glancey] MCP server closed');
   } catch (error) {
-    console.error('[lance-context] Error closing MCP server:', error);
+    console.error('[glancey] Error closing MCP server:', error);
   }
 
   process.exit(0);
@@ -2334,6 +2324,6 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 main().catch((error) => {
-  console.error('[lance-context] Fatal error:', error);
+  console.error('[glancey] Fatal error:', error);
   process.exit(1);
 });

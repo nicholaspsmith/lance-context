@@ -63,15 +63,13 @@ export async function createEmbeddingBackend(
     originalBackend: string,
     reason: string
   ): Promise<CreateBackendResult> => {
-    console.error(`[lance-context] WARN: ${originalBackend} backend failed: ${reason}`);
-    console.error(`[lance-context] WARN: Falling back to Ollama...`);
+    console.error(`[glancey] WARN: ${originalBackend} backend failed: ${reason}`);
+    console.error(`[glancey] WARN: Falling back to Ollama...`);
 
     try {
       const fallbackBackend = createOllamaBackend();
       await fallbackBackend.initialize();
-      console.error(
-        `[lance-context] Using ollama embedding backend (fallback from ${originalBackend})`
-      );
+      console.error(`[glancey] Using ollama embedding backend (fallback from ${originalBackend})`);
 
       const fallbackInfo: BackendFallbackInfo = {
         occurred: true,
@@ -99,7 +97,7 @@ export async function createEmbeddingBackend(
       try {
         const backend = new GeminiBackend({ backend: 'gemini', apiKey: geminiKey, ...config });
         await backend.initialize();
-        console.error(`[lance-context] Using gemini embedding backend (explicitly configured)`);
+        console.error(`[glancey] Using gemini embedding backend (explicitly configured)`);
         return { backend };
       } catch (error) {
         return tryOllamaFallback('gemini', String(error));
@@ -108,7 +106,7 @@ export async function createEmbeddingBackend(
       // Ollama explicitly configured - no fallback available
       const backend = createOllamaBackend();
       await backend.initialize();
-      console.error(`[lance-context] Using ollama embedding backend (explicitly configured)`);
+      console.error(`[glancey] Using ollama embedding backend (explicitly configured)`);
       return { backend };
     }
   }
@@ -135,10 +133,10 @@ export async function createEmbeddingBackend(
     try {
       const backend = create();
       await backend.initialize();
-      console.error(`[lance-context] Using ${name} embedding backend`);
+      console.error(`[glancey] Using ${name} embedding backend`);
       return { backend };
     } catch (error) {
-      console.error(`[lance-context] Backend ${name} failed: ${error}`);
+      console.error(`[glancey] Backend ${name} failed: ${error}`);
     }
   }
 

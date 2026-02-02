@@ -6,7 +6,7 @@ import { MemoryManager, type MemoryInfo } from '../memory/index.js';
 import type { ToolResponse } from './types.js';
 import { createToolResponse } from './types.js';
 import { isString } from '../utils/type-guards.js';
-import { LanceContextError } from '../utils/errors.js';
+import { GlanceyError } from '../utils/errors.js';
 
 /**
  * Interface for memory manager operations (for testability).
@@ -57,7 +57,7 @@ export function parseWriteMemoryArgs(args: Record<string, unknown> | undefined):
   const content = isString(args?.content) ? args.content : '';
 
   if (!memoryFileName || !content) {
-    throw new LanceContextError('memory_file_name and content are required', 'validation', {
+    throw new GlanceyError('memory_file_name and content are required', 'validation', {
       tool: 'write_memory',
     });
   }
@@ -94,7 +94,7 @@ export function parseReadMemoryArgs(args: Record<string, unknown> | undefined): 
   const memoryFileName = isString(args?.memory_file_name) ? args.memory_file_name : '';
 
   if (!memoryFileName) {
-    throw new LanceContextError('memory_file_name is required', 'validation', {
+    throw new GlanceyError('memory_file_name is required', 'validation', {
       tool: 'read_memory',
     });
   }
@@ -158,7 +158,7 @@ export function parseDeleteMemoryArgs(args: Record<string, unknown> | undefined)
   const memoryFileName = isString(args?.memory_file_name) ? args.memory_file_name : '';
 
   if (!memoryFileName) {
-    throw new LanceContextError('memory_file_name is required', 'validation', {
+    throw new GlanceyError('memory_file_name is required', 'validation', {
       tool: 'delete_memory',
     });
   }
@@ -201,15 +201,13 @@ export function parseEditMemoryArgs(args: Record<string, unknown> | undefined): 
   const mode = isString(args?.mode) ? args.mode : '';
 
   if (!memoryFileName || !needle || mode === '') {
-    throw new LanceContextError(
-      'memory_file_name, needle, repl, and mode are required',
-      'validation',
-      { tool: 'edit_memory' }
-    );
+    throw new GlanceyError('memory_file_name, needle, repl, and mode are required', 'validation', {
+      tool: 'edit_memory',
+    });
   }
 
   if (mode !== 'literal' && mode !== 'regex') {
-    throw new LanceContextError('mode must be "literal" or "regex"', 'validation', {
+    throw new GlanceyError('mode must be "literal" or "regex"', 'validation', {
       tool: 'edit_memory',
     });
   }

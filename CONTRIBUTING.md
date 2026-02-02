@@ -1,6 +1,6 @@
-# Contributing to lance-context
+# Contributing to glancey
 
-Thank you for your interest in contributing to lance-context! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to glancey! This document provides guidelines and instructions for contributing.
 
 ## Development Setup
 
@@ -14,8 +14,8 @@ Thank you for your interest in contributing to lance-context! This document prov
 
 1. Fork the repository and clone your fork:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/lance-context.git
-   cd lance-context
+   git clone https://github.com/YOUR_USERNAME/glancey.git
+   cd glancey
    ```
 
 2. Install dependencies:

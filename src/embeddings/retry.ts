@@ -53,7 +53,7 @@ export function setRetryLogCallback(
  * Log a retry message to console and optional callback
  */
 function logRetry(level: 'info' | 'warn' | 'error', message: string): void {
-  const prefixedMsg = `[lance-context] ${message}`;
+  const prefixedMsg = `[glancey] ${message}`;
   if (level === 'error') {
     console.error(prefixedMsg);
   } else if (level === 'warn') {

@@ -1,5 +1,5 @@
 /**
- * Error handling utilities for lance-context MCP server.
+ * Error handling utilities for glancey MCP server.
  *
  * Provides structured error types, server-side logging, and debug mode support.
  */
@@ -20,7 +20,7 @@ export type ErrorCategory =
 /**
  * Structured error with category and context
  */
-export class LanceContextError extends Error {
+export class GlanceyError extends Error {
   readonly category: ErrorCategory;
   readonly context?: Record<string, unknown>;
 
@@ -31,7 +31,7 @@ export class LanceContextError extends Error {
     cause?: Error
   ) {
     super(message);
-    this.name = 'LanceContextError';
+    this.name = 'GlanceyError';
     this.category = category;
     this.context = context;
     if (cause) {
@@ -48,7 +48,7 @@ export class LanceContextError extends Error {
  * Check if debug mode is enabled via environment variable
  */
 export function isDebugMode(): boolean {
-  return process.env.LANCE_CONTEXT_DEBUG === '1' || process.env.LANCE_CONTEXT_DEBUG === 'true';
+  return process.env.GLANCEY_DEBUG === '1' || process.env.GLANCEY_DEBUG === 'true';
 }
 
 /**
@@ -56,9 +56,9 @@ export function isDebugMode(): boolean {
  * Always logs to stderr for debugging purposes.
  */
 export function logError(error: unknown, toolName?: string): void {
-  const prefix = toolName ? `[lance-context] [${toolName}]` : '[lance-context]';
+  const prefix = toolName ? `[glancey] [${toolName}]` : '[glancey]';
 
-  if (error instanceof LanceContextError) {
+  if (error instanceof GlanceyError) {
     console.error(`${prefix} ${error.category} error: ${error.message}`);
     if (error.context) {
       console.error(`${prefix} Context:`, JSON.stringify(error.context, null, 2));
@@ -83,7 +83,7 @@ export function logError(error: unknown, toolName?: string): void {
 export function formatErrorResponse(error: unknown): string {
   const debug = isDebugMode();
 
-  if (error instanceof LanceContextError) {
+  if (error instanceof GlanceyError) {
     let response = `Error [${error.category}]: ${error.message}`;
     if (debug) {
       if (error.context) {
@@ -115,7 +115,7 @@ export function wrapError(
   category: ErrorCategory,
   cause: unknown,
   context?: Record<string, unknown>
-): LanceContextError {
+): GlanceyError {
   const causeError = cause instanceof Error ? cause : new Error(String(cause));
-  return new LanceContextError(message, category, context, causeError);
+  return new GlanceyError(message, category, context, causeError);
 }

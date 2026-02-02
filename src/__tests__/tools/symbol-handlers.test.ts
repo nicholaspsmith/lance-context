@@ -18,7 +18,7 @@ import {
   type Symbol as SymbolType,
   type EditResult,
 } from '../../symbols/index.js';
-import { LanceContextError } from '../../utils/errors.js';
+import { GlanceyError } from '../../utils/errors.js';
 
 describe('symbol-handlers', () => {
   // ============================================================================
@@ -27,7 +27,7 @@ describe('symbol-handlers', () => {
 
   describe('parseGetSymbolsOverviewArgs', () => {
     it('should throw when relative_path is missing', () => {
-      expect(() => parseGetSymbolsOverviewArgs({})).toThrow(LanceContextError);
+      expect(() => parseGetSymbolsOverviewArgs({})).toThrow(GlanceyError);
       expect(() => parseGetSymbolsOverviewArgs({})).toThrow('relative_path is required');
     });
 
@@ -79,7 +79,7 @@ describe('symbol-handlers', () => {
 
   describe('parseFindSymbolArgs', () => {
     it('should throw when name_path_pattern is missing', () => {
-      expect(() => parseFindSymbolArgs({})).toThrow(LanceContextError);
+      expect(() => parseFindSymbolArgs({})).toThrow(GlanceyError);
       expect(() => parseFindSymbolArgs({})).toThrow('name_path_pattern is required');
     });
 
@@ -194,14 +194,12 @@ describe('symbol-handlers', () => {
   describe('parseFindReferencingSymbolsArgs', () => {
     it('should throw when name_path is missing', () => {
       expect(() => parseFindReferencingSymbolsArgs({ relative_path: 'test.ts' })).toThrow(
-        LanceContextError
+        GlanceyError
       );
     });
 
     it('should throw when relative_path is missing', () => {
-      expect(() => parseFindReferencingSymbolsArgs({ name_path: 'myFunc' })).toThrow(
-        LanceContextError
-      );
+      expect(() => parseFindReferencingSymbolsArgs({ name_path: 'myFunc' })).toThrow(GlanceyError);
     });
 
     it('should throw when both are missing', () => {
@@ -243,7 +241,7 @@ describe('symbol-handlers', () => {
 
   describe('parseSearchForPatternArgs', () => {
     it('should throw when substring_pattern is missing', () => {
-      expect(() => parseSearchForPatternArgs({})).toThrow(LanceContextError);
+      expect(() => parseSearchForPatternArgs({})).toThrow(GlanceyError);
       expect(() => parseSearchForPatternArgs({})).toThrow('substring_pattern is required');
     });
 
@@ -291,19 +289,19 @@ describe('symbol-handlers', () => {
     it('should throw when name_path is missing', () => {
       expect(() =>
         parseReplaceSymbolBodyArgs({ relative_path: 'test.ts', body: 'new body' })
-      ).toThrow(LanceContextError);
+      ).toThrow(GlanceyError);
     });
 
     it('should throw when relative_path is missing', () => {
       expect(() => parseReplaceSymbolBodyArgs({ name_path: 'myFunc', body: 'new body' })).toThrow(
-        LanceContextError
+        GlanceyError
       );
     });
 
     it('should throw when body is missing', () => {
       expect(() =>
         parseReplaceSymbolBodyArgs({ name_path: 'myFunc', relative_path: 'test.ts' })
-      ).toThrow(LanceContextError);
+      ).toThrow(GlanceyError);
     });
 
     it('should parse valid arguments', () => {
@@ -351,7 +349,7 @@ describe('symbol-handlers', () => {
 
   describe('parseInsertBeforeSymbolArgs', () => {
     it('should throw when required args are missing', () => {
-      expect(() => parseInsertBeforeSymbolArgs({})).toThrow(LanceContextError);
+      expect(() => parseInsertBeforeSymbolArgs({})).toThrow(GlanceyError);
       expect(() => parseInsertBeforeSymbolArgs({})).toThrow(
         'name_path, relative_path, and body are required'
       );
@@ -376,7 +374,7 @@ describe('symbol-handlers', () => {
 
   describe('parseInsertAfterSymbolArgs', () => {
     it('should throw when required args are missing', () => {
-      expect(() => parseInsertAfterSymbolArgs({})).toThrow(LanceContextError);
+      expect(() => parseInsertAfterSymbolArgs({})).toThrow(GlanceyError);
     });
 
     it('should parse valid arguments', () => {
@@ -400,19 +398,19 @@ describe('symbol-handlers', () => {
     it('should throw when name_path is missing', () => {
       expect(() =>
         parseRenameSymbolArgs({ relative_path: 'test.ts', new_name: 'newName' })
-      ).toThrow(LanceContextError);
+      ).toThrow(GlanceyError);
     });
 
     it('should throw when relative_path is missing', () => {
       expect(() => parseRenameSymbolArgs({ name_path: 'oldName', new_name: 'newName' })).toThrow(
-        LanceContextError
+        GlanceyError
       );
     });
 
     it('should throw when new_name is missing', () => {
       expect(() =>
         parseRenameSymbolArgs({ name_path: 'oldName', relative_path: 'test.ts' })
-      ).toThrow(LanceContextError);
+      ).toThrow(GlanceyError);
     });
 
     it('should parse valid arguments', () => {

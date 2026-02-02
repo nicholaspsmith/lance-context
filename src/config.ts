@@ -48,7 +48,7 @@ const ConfigSchema = z.object({
   instructions: z.string().optional(),
 });
 
-export type LanceContextConfig = z.infer<typeof ConfigSchema>;
+export type GlanceyConfig = z.infer<typeof ConfigSchema>;
 export type ChunkingConfig = z.infer<typeof ChunkingConfigSchema>;
 export type SearchConfig = z.infer<typeof SearchConfigSchema>;
 export type DashboardConfig = z.infer<typeof DashboardConfigSchema>;
@@ -122,7 +122,7 @@ export const DEFAULT_INDEXING: Required<IndexingConfig> = {
   batchSize: 256,
 };
 
-export const DEFAULT_CONFIG: LanceContextConfig = {
+export const DEFAULT_CONFIG: GlanceyConfig = {
   patterns: DEFAULT_PATTERNS,
   excludePatterns: DEFAULT_EXCLUDE_PATTERNS,
   chunking: DEFAULT_CHUNKING,
@@ -131,13 +131,13 @@ export const DEFAULT_CONFIG: LanceContextConfig = {
   indexing: DEFAULT_INDEXING,
 };
 
-const CONFIG_FILENAMES = ['.lance-context.json', 'lance-context.config.json'];
+const CONFIG_FILENAMES = ['.glancey.json', 'glancey.config.json'];
 
 /**
  * Local config filename for user-specific overrides (gitignored)
  * Settings saved from the dashboard are written here instead of the main config
  */
-const LOCAL_CONFIG_FILENAME = '.lance-context.local.json';
+const LOCAL_CONFIG_FILENAME = '.glancey.local.json';
 
 /**
  * Load and validate configuration from project directory
@@ -253,7 +253,7 @@ function getSuggestionForRange(
  * Print formatted validation warnings to console
  */
 function printValidationWarnings(filename: string, errors: z.ZodIssue[], rawConfig: unknown): void {
-  console.warn(`[lance-context] Warning: Invalid config in ${filename}`);
+  console.warn(`[glancey] Warning: Invalid config in ${filename}`);
   for (const error of errors) {
     console.warn(formatValidationError(error, rawConfig));
   }
@@ -467,7 +467,7 @@ function extractValidIndexing(rawIndexing: unknown): Partial<z.infer<typeof Inde
 /**
  * Load local config overrides (user-specific settings, gitignored)
  */
-async function loadLocalConfig(projectPath: string): Promise<Partial<LanceContextConfig>> {
+async function loadLocalConfig(projectPath: string): Promise<Partial<GlanceyConfig>> {
   const localConfigPath = path.join(projectPath, LOCAL_CONFIG_FILENAME);
   try {
     const content = await fs.readFile(localConfigPath, 'utf-8');
@@ -491,9 +491,9 @@ async function loadLocalConfig(projectPath: string): Promise<Partial<LanceContex
  * Deep merge two config objects, with localConfig taking precedence
  */
 function mergeConfigs(
-  baseConfig: LanceContextConfig,
-  localConfig: Partial<LanceContextConfig>
-): LanceContextConfig {
+  baseConfig: GlanceyConfig,
+  localConfig: Partial<GlanceyConfig>
+): GlanceyConfig {
   return {
     patterns: localConfig.patterns || baseConfig.patterns,
     excludePatterns: localConfig.excludePatterns || baseConfig.excludePatterns,
@@ -521,8 +521,8 @@ function mergeConfigs(
   };
 }
 
-export async function loadConfig(projectPath: string): Promise<LanceContextConfig> {
-  let baseConfig: LanceContextConfig = DEFAULT_CONFIG;
+export async function loadConfig(projectPath: string): Promise<GlanceyConfig> {
+  let baseConfig: GlanceyConfig = DEFAULT_CONFIG;
 
   // Load project config
   for (const filename of CONFIG_FILENAMES) {
@@ -593,7 +593,7 @@ export async function loadConfig(projectPath: string): Promise<LanceContextConfi
     } catch (error) {
       // Check if it's a JSON parse error
       if (error instanceof SyntaxError) {
-        console.warn(`[lance-context] Warning: Invalid JSON in ${filename}`);
+        console.warn(`[glancey] Warning: Invalid JSON in ${filename}`);
         console.warn(`  - ${error.message}`);
         console.warn(
           '  Suggestion: Check for trailing commas, missing quotes, or other JSON syntax errors.'
@@ -626,7 +626,7 @@ export function getDefaultExcludePatterns(): string[] {
 /**
  * Get chunking config with defaults
  */
-export function getChunkingConfig(config: LanceContextConfig): Required<ChunkingConfig> {
+export function getChunkingConfig(config: GlanceyConfig): Required<ChunkingConfig> {
   return {
     ...DEFAULT_CHUNKING,
     ...config.chunking,
@@ -636,7 +636,7 @@ export function getChunkingConfig(config: LanceContextConfig): Required<Chunking
 /**
  * Get search config with defaults
  */
-export function getSearchConfig(config: LanceContextConfig): Required<SearchConfig> {
+export function getSearchConfig(config: GlanceyConfig): Required<SearchConfig> {
   return {
     ...DEFAULT_SEARCH,
     ...config.search,
@@ -646,7 +646,7 @@ export function getSearchConfig(config: LanceContextConfig): Required<SearchConf
 /**
  * Get dashboard config with defaults
  */
-export function getDashboardConfig(config: LanceContextConfig): Required<DashboardConfig> {
+export function getDashboardConfig(config: GlanceyConfig): Required<DashboardConfig> {
   return {
     ...DEFAULT_DASHBOARD,
     ...config.dashboard,
@@ -656,7 +656,7 @@ export function getDashboardConfig(config: LanceContextConfig): Required<Dashboa
 /**
  * Get indexing config with defaults
  */
-export function getIndexingConfig(config: LanceContextConfig): Required<IndexingConfig> {
+export function getIndexingConfig(config: GlanceyConfig): Required<IndexingConfig> {
   return {
     ...DEFAULT_INDEXING,
     ...config.indexing,
@@ -666,41 +666,38 @@ export function getIndexingConfig(config: LanceContextConfig): Required<Indexing
 /**
  * Get project instructions from config
  */
-export function getInstructions(config: LanceContextConfig): string | undefined {
+export function getInstructions(config: GlanceyConfig): string | undefined {
   return config.instructions;
 }
 
 /**
  * Secrets stored separately from main config (should be gitignored)
  */
-export interface LanceContextSecrets {
+export interface GlanceySecrets {
   geminiApiKey?: string;
 }
 
 /**
- * Load secrets from .lance-context/secrets.json
+ * Load secrets from .glancey/secrets.json
  */
-export async function loadSecrets(projectPath: string): Promise<LanceContextSecrets> {
-  const secretsPath = path.join(projectPath, '.lance-context', 'secrets.json');
+export async function loadSecrets(projectPath: string): Promise<GlanceySecrets> {
+  const secretsPath = path.join(projectPath, '.glancey', 'secrets.json');
   try {
     const content = await fs.readFile(secretsPath, 'utf-8');
-    return JSON.parse(content) as LanceContextSecrets;
+    return JSON.parse(content) as GlanceySecrets;
   } catch {
     return {};
   }
 }
 
 /**
- * Save secrets to .lance-context/secrets.json
+ * Save secrets to .glancey/secrets.json
  */
-export async function saveSecrets(
-  projectPath: string,
-  secrets: LanceContextSecrets
-): Promise<void> {
-  const lanceDir = path.join(projectPath, '.lance-context');
+export async function saveSecrets(projectPath: string, secrets: GlanceySecrets): Promise<void> {
+  const lanceDir = path.join(projectPath, '.glancey');
   const secretsPath = path.join(lanceDir, 'secrets.json');
 
-  // Ensure .lance-context directory exists
+  // Ensure .glancey directory exists
   await fs.mkdir(lanceDir, { recursive: true });
 
   // Load existing secrets and merge
@@ -725,8 +722,8 @@ export interface EmbeddingSettings {
 
 /**
  * Save embedding settings from dashboard
- * - Stores backend preference in .lance-context.local.json (gitignored, user-specific)
- * - Stores API key in .lance-context/secrets.json (gitignored)
+ * - Stores backend preference in .glancey.local.json (gitignored, user-specific)
+ * - Stores API key in .glancey/secrets.json (gitignored)
  */
 export async function saveEmbeddingSettings(
   projectPath: string,
@@ -734,7 +731,7 @@ export async function saveEmbeddingSettings(
 ): Promise<void> {
   // Load existing local config (user-specific overrides)
   const localConfigPath = path.join(projectPath, LOCAL_CONFIG_FILENAME);
-  let localConfig: Partial<LanceContextConfig> = {};
+  let localConfig: Partial<GlanceyConfig> = {};
 
   try {
     const content = await fs.readFile(localConfigPath, 'utf-8');
@@ -812,14 +809,14 @@ export interface DashboardSettings {
 }
 
 /**
- * Save dashboard settings to .lance-context.local.json (gitignored, user-specific)
+ * Save dashboard settings to .glancey.local.json (gitignored, user-specific)
  */
 export async function saveDashboardSettings(
   projectPath: string,
   settings: DashboardSettings
 ): Promise<void> {
   const localConfigPath = path.join(projectPath, LOCAL_CONFIG_FILENAME);
-  let localConfig: Partial<LanceContextConfig> = {};
+  let localConfig: Partial<GlanceyConfig> = {};
 
   try {
     const content = await fs.readFile(localConfigPath, 'utf-8');
@@ -873,14 +870,14 @@ export interface SearchWeightsSettings {
 }
 
 /**
- * Save search weights to .lance-context.local.json (gitignored, user-specific)
+ * Save search weights to .glancey.local.json (gitignored, user-specific)
  */
 export async function saveSearchWeights(
   projectPath: string,
   settings: SearchWeightsSettings
 ): Promise<void> {
   const localConfigPath = path.join(projectPath, LOCAL_CONFIG_FILENAME);
-  let localConfig: Partial<LanceContextConfig> = {};
+  let localConfig: Partial<GlanceyConfig> = {};
 
   try {
     const content = await fs.readFile(localConfigPath, 'utf-8');
@@ -912,7 +909,7 @@ export async function getSearchWeights(projectPath: string): Promise<SearchWeigh
 }
 
 /**
- * Add a pattern to include or exclude patterns in .lance-context.local.json
+ * Add a pattern to include or exclude patterns in .glancey.local.json
  */
 export async function addPattern(
   projectPath: string,
@@ -920,7 +917,7 @@ export async function addPattern(
   type: 'include' | 'exclude'
 ): Promise<void> {
   const localConfigPath = path.join(projectPath, LOCAL_CONFIG_FILENAME);
-  let localConfig: Partial<LanceContextConfig> = {};
+  let localConfig: Partial<GlanceyConfig> = {};
 
   try {
     const content = await fs.readFile(localConfigPath, 'utf-8');
@@ -948,7 +945,7 @@ export async function addPattern(
 }
 
 /**
- * Remove a pattern from include or exclude patterns in .lance-context.local.json
+ * Remove a pattern from include or exclude patterns in .glancey.local.json
  */
 export async function removePattern(
   projectPath: string,
@@ -956,7 +953,7 @@ export async function removePattern(
   type: 'include' | 'exclude'
 ): Promise<void> {
   const localConfigPath = path.join(projectPath, LOCAL_CONFIG_FILENAME);
-  let localConfig: Partial<LanceContextConfig> = {};
+  let localConfig: Partial<GlanceyConfig> = {};
 
   try {
     const content = await fs.readFile(localConfigPath, 'utf-8');

@@ -1,6 +1,6 @@
 /**
  * File-based memory system for storing project-specific information.
- * Stores human-readable markdown files in .lance-context/memories/
+ * Stores human-readable markdown files in .glancey/memories/
  */
 
 import * as fs from 'fs/promises';
@@ -24,7 +24,7 @@ export class MemoryManager {
 
   constructor(projectPath: string) {
     this.projectPath = projectPath;
-    this.memoriesPath = path.join(projectPath, '.lance-context', 'memories');
+    this.memoriesPath = path.join(projectPath, '.glancey', 'memories');
   }
 
   /**

@@ -9,7 +9,7 @@ import {
   type CommitToolContext,
   type IGitOperations,
 } from '../../tools/commit-handlers.js';
-import { LanceContextError } from '../../utils/errors.js';
+import { GlanceyError } from '../../utils/errors.js';
 
 describe('commit-handlers', () => {
   let mockGitOperations: IGitOperations;
@@ -33,12 +33,12 @@ describe('commit-handlers', () => {
 
   describe('parseCommitArgs', () => {
     it('should throw when message is missing', () => {
-      expect(() => parseCommitArgs({})).toThrow(LanceContextError);
+      expect(() => parseCommitArgs({})).toThrow(GlanceyError);
       expect(() => parseCommitArgs({})).toThrow('message is required');
     });
 
     it('should throw when message is empty', () => {
-      expect(() => parseCommitArgs({ message: '' })).toThrow(LanceContextError);
+      expect(() => parseCommitArgs({ message: '' })).toThrow(GlanceyError);
     });
 
     it('should parse valid message', () => {

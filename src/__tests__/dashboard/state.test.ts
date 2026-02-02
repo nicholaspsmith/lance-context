@@ -16,7 +16,7 @@ describe('DashboardStateManager', () => {
           fileCount: 10,
           chunkCount: 50,
           lastUpdated: '2024-01-01T00:00:00.000Z',
-          indexPath: '/test/.lance-context',
+          indexPath: '/test/.glancey',
         }),
       };
 
@@ -28,7 +28,7 @@ describe('DashboardStateManager', () => {
         fileCount: 10,
         chunkCount: 50,
         lastUpdated: '2024-01-01T00:00:00.000Z',
-        indexPath: '/test/.lance-context',
+        indexPath: '/test/.glancey',
       });
       expect(mockIndexer.getStatus).toHaveBeenCalled();
     });
@@ -143,7 +143,7 @@ describe('DashboardStateManager', () => {
         fileCount: 10,
         chunkCount: 50,
         lastUpdated: '2024-01-01T00:00:00.000Z',
-        indexPath: '/test/.lance-context',
+        indexPath: '/test/.glancey',
       };
       stateManager.onStatusChange(status);
 

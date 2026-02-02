@@ -55,7 +55,7 @@ export async function handleGetProjectInstructions(
         type: 'text',
         text:
           fullInstructions ||
-          'No project instructions configured. Add an "instructions" field to .lance-context.json.',
+          'No project instructions configured. Add an "instructions" field to .glancey.json.',
       },
     ],
   };

@@ -8,7 +8,7 @@ import {
 } from '../../tools/search-handlers.js';
 import type { ToolContext } from '../../tools/types.js';
 import type { CodeIndexer, CodeChunk } from '../../search/indexer.js';
-import { LanceContextError } from '../../utils/errors.js';
+import { GlanceyError } from '../../utils/errors.js';
 
 describe('search-handlers', () => {
   let mockIndexer: Partial<CodeIndexer>;
@@ -29,7 +29,7 @@ describe('search-handlers', () => {
 
   describe('parseSearchCodeArgs', () => {
     it('should throw when query is missing', () => {
-      expect(() => parseSearchCodeArgs(undefined)).toThrow(LanceContextError);
+      expect(() => parseSearchCodeArgs(undefined)).toThrow(GlanceyError);
       expect(() => parseSearchCodeArgs({})).toThrow('query is required');
     });
 
@@ -206,7 +206,7 @@ describe('search-handlers', () => {
 
   describe('parseSearchSimilarArgs', () => {
     it('should throw when neither code nor filepath provided', () => {
-      expect(() => parseSearchSimilarArgs({})).toThrow(LanceContextError);
+      expect(() => parseSearchSimilarArgs({})).toThrow(GlanceyError);
       expect(() => parseSearchSimilarArgs({})).toThrow('Either code or filepath must be provided');
     });
 

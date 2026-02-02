@@ -101,7 +101,7 @@ export class GeminiBackend implements EmbeddingBackend {
     const startTime = Date.now();
 
     const initMsg = `Gemini: embedding ${texts.length} texts in ${chunks.length} batches (${this.batchSize} texts/batch)`;
-    console.error(`[lance-context] ${initMsg}`);
+    console.error(`[glancey] ${initMsg}`);
     broadcastLog('info', initMsg);
 
     for (let i = 0; i < chunks.length; i++) {
@@ -125,7 +125,7 @@ export class GeminiBackend implements EmbeddingBackend {
       const textsProcessed = Math.min((i + 1) * this.batchSize, texts.length);
       const progressMsg = `Gemini batch ${batchNum}/${chunks.length}: done in ${batchElapsed}s (${textsProcessed}/${texts.length} texts, ${totalElapsed}s total)`;
 
-      console.error(`[lance-context] ${progressMsg}`);
+      console.error(`[glancey] ${progressMsg}`);
       broadcastLog('info', progressMsg);
 
       // Update progress bar after batch completes
@@ -134,7 +134,7 @@ export class GeminiBackend implements EmbeddingBackend {
 
     const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     const completeMsg = `Gemini: completed embedding ${texts.length} texts in ${totalElapsed}s`;
-    console.error(`[lance-context] ${completeMsg}`);
+    console.error(`[glancey] ${completeMsg}`);
     broadcastLog('info', completeMsg);
 
     return results;
@@ -147,13 +147,13 @@ export class GeminiBackend implements EmbeddingBackend {
   private async embedBatchDirect(texts: string[]): Promise<number[][]> {
     // Acquire a rate limit token before making the request
     const acquireMsg = 'Gemini: acquiring rate limit token...';
-    console.error(`[lance-context] ${acquireMsg}`);
+    console.error(`[glancey] ${acquireMsg}`);
     broadcastLog('info', acquireMsg);
 
     await this.rateLimiter.acquire();
 
     const acquiredMsg = 'Gemini: rate limit token acquired';
-    console.error(`[lance-context] ${acquiredMsg}`);
+    console.error(`[glancey] ${acquiredMsg}`);
     broadcastLog('info', acquiredMsg);
 
     const url = `${this.baseUrl}/models/${this.model}:batchEmbedContents`;
@@ -169,7 +169,7 @@ export class GeminiBackend implements EmbeddingBackend {
 
     const payloadSizeKb = (requestBody.length / 1024).toFixed(1);
     const sendingMsg = `Gemini: sending batch request (${texts.length} texts, ${payloadSizeKb} KB payload)...`;
-    console.error(`[lance-context] ${sendingMsg}`);
+    console.error(`[glancey] ${sendingMsg}`);
     broadcastLog('info', sendingMsg);
 
     const fetchStart = Date.now();
@@ -184,7 +184,7 @@ export class GeminiBackend implements EmbeddingBackend {
 
     const fetchTime = ((Date.now() - fetchStart) / 1000).toFixed(1);
     const responseMsg = `Gemini: received response in ${fetchTime}s (status: ${response.status})`;
-    console.error(`[lance-context] ${responseMsg}`);
+    console.error(`[glancey] ${responseMsg}`);
     broadcastLog('info', responseMsg);
 
     if (!response.ok) {

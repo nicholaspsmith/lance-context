@@ -82,7 +82,7 @@ describe('CodeIndexer', () => {
       const indexer = new CodeIndexer('/project', mockBackend);
       await indexer.initialize();
 
-      expect(lancedb.connect).toHaveBeenCalledWith('/project/.lance-context');
+      expect(lancedb.connect).toHaveBeenCalledWith('/project/.glancey');
     });
   });
 
@@ -1056,7 +1056,7 @@ describe('CodeIndexer', () => {
       // Should have written checkpoint at least once
       const writeFileCalls = vi.mocked(fsPromises.writeFile).mock.calls;
       const checkpointWrites = writeFileCalls.filter(
-        (call) => call[0] === '/project/.lance-context/checkpoint.json'
+        (call) => call[0] === '/project/.glancey/checkpoint.json'
       );
       expect(checkpointWrites.length).toBeGreaterThan(0);
 
@@ -1079,7 +1079,7 @@ describe('CodeIndexer', () => {
       await indexer.indexCodebase();
 
       // Should have tried to unlink the checkpoint file
-      expect(fsPromises.unlink).toHaveBeenCalledWith('/project/.lance-context/checkpoint.json');
+      expect(fsPromises.unlink).toHaveBeenCalledWith('/project/.glancey/checkpoint.json');
     });
 
     it('should resume from checkpoint with embedded chunks', async () => {
@@ -1110,7 +1110,7 @@ describe('CodeIndexer', () => {
 
       let checkpointCleared = false;
       vi.mocked(fsPromises.readFile).mockImplementation(async (path) => {
-        if (path === '/project/.lance-context/checkpoint.json') {
+        if (path === '/project/.glancey/checkpoint.json') {
           if (checkpointCleared) {
             throw new Error('ENOENT');
           }
@@ -1121,7 +1121,7 @@ describe('CodeIndexer', () => {
       // Return same mtime as checkpoint to indicate file hasn't changed
       vi.mocked(fsPromises.stat).mockResolvedValue({ mtimeMs: checkpointMtime } as any);
       vi.mocked(fsPromises.unlink).mockImplementation(async (path) => {
-        if (path === '/project/.lance-context/checkpoint.json') {
+        if (path === '/project/.glancey/checkpoint.json') {
           checkpointCleared = true;
         }
       });
@@ -1166,7 +1166,7 @@ describe('CodeIndexer', () => {
 
       let checkpointCleared = false;
       vi.mocked(fsPromises.readFile).mockImplementation(async (path) => {
-        if (path === '/project/.lance-context/checkpoint.json') {
+        if (path === '/project/.glancey/checkpoint.json') {
           if (checkpointCleared) {
             throw new Error('ENOENT');
           }
@@ -1176,7 +1176,7 @@ describe('CodeIndexer', () => {
       });
       vi.mocked(fsPromises.stat).mockResolvedValue({ mtimeMs: Date.now() } as any);
       vi.mocked(fsPromises.unlink).mockImplementation(async (path) => {
-        if (path === '/project/.lance-context/checkpoint.json') {
+        if (path === '/project/.glancey/checkpoint.json') {
           checkpointCleared = true;
         }
       });
@@ -1188,7 +1188,7 @@ describe('CodeIndexer', () => {
       await indexer.indexCodebase();
 
       // Should have cleared the incompatible checkpoint
-      expect(fsPromises.unlink).toHaveBeenCalledWith('/project/.lance-context/checkpoint.json');
+      expect(fsPromises.unlink).toHaveBeenCalledWith('/project/.glancey/checkpoint.json');
 
       // Should have re-embedded since backend changed
       expect(mockBackend.embedBatch).toHaveBeenCalled();
@@ -1203,7 +1203,7 @@ describe('CodeIndexer', () => {
       await indexer.clearIndex();
 
       // Should have tried to unlink the checkpoint file
-      expect(fsPromises.unlink).toHaveBeenCalledWith('/project/.lance-context/checkpoint.json');
+      expect(fsPromises.unlink).toHaveBeenCalledWith('/project/.glancey/checkpoint.json');
     });
 
     it('should handle invalid checkpoint gracefully', async () => {
@@ -1213,7 +1213,7 @@ describe('CodeIndexer', () => {
       // Invalid checkpoint (missing required fields)
       let checkpointCleared = false;
       vi.mocked(fsPromises.readFile).mockImplementation(async (path) => {
-        if (path === '/project/.lance-context/checkpoint.json') {
+        if (path === '/project/.glancey/checkpoint.json') {
           if (checkpointCleared) {
             throw new Error('ENOENT');
           }
@@ -1223,7 +1223,7 @@ describe('CodeIndexer', () => {
       });
       vi.mocked(fsPromises.stat).mockResolvedValue({ mtimeMs: Date.now() } as any);
       vi.mocked(fsPromises.unlink).mockImplementation(async (path) => {
-        if (path === '/project/.lance-context/checkpoint.json') {
+        if (path === '/project/.glancey/checkpoint.json') {
           checkpointCleared = true;
         }
       });

@@ -284,7 +284,7 @@ async function handleReindex(req: IncomingMessage, res: ServerResponse): Promise
     // Trigger reindex asynchronously - don't wait for completion
     // The dashboard will receive progress updates via SSE
     dashboardState.triggerReindex(forceReindex).catch((error) => {
-      console.error('[lance-context] Reindex failed:', error);
+      console.error('[glancey] Reindex failed:', error);
     });
 
     sendJSON(res, {
@@ -570,7 +570,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
         send404(res);
     }
   } catch (error) {
-    console.error('[lance-context] Dashboard error:', error);
+    console.error('[glancey] Dashboard error:', error);
     sendJSON(res, { error: 'Internal server error' }, 500);
   }
 }
