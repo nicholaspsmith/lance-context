@@ -377,7 +377,7 @@ describe('CodeIndexer', () => {
 
       // Setup mock to return very similar embeddings for similar queries
       const baseEmbedding = Array(128).fill(0.1);
-      mockBackend.embed
+      vi.mocked(mockBackend.embed)
         .mockResolvedValueOnce(baseEmbedding) // First query
         .mockResolvedValueOnce(baseEmbedding.map((v) => v + 0.001)); // Very similar embedding
 
@@ -411,7 +411,7 @@ describe('CodeIndexer', () => {
 
       // Return identical embeddings
       const baseEmbedding = Array(128).fill(0.1);
-      mockBackend.embed.mockResolvedValue(baseEmbedding);
+      vi.mocked(mockBackend.embed).mockResolvedValue(baseEmbedding);
 
       const indexer = new CodeIndexer('/project', mockBackend);
       await indexer.initialize();
