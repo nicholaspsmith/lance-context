@@ -18,6 +18,26 @@ MCP configurations to use the new "glancey" package name.
 
 Co-authored-by: Claude Opus 4.5 <noreply@anthropic.com>
 
+# [2.0.0](https://github.com/nicholaspsmith/glancey/compare/v1.37.1...v2.0.0) (2026-02-02)
+
+
+### Bug Fixes
+
+* regenerate package-lock.json for cross-platform compatibility ([#131](https://github.com/nicholaspsmith/glancey/issues/131)) ([946c755](https://github.com/nicholaspsmith/glancey/commit/946c7552d6338f49896f30913a52e4f23ff6651a))
+
+
+### Features
+
+* rename project from lance-context to glancey ([#130](https://github.com/nicholaspsmith/glancey/issues/130)) ([6583630](https://github.com/nicholaspsmith/glancey/commit/65836300c5351c4b61ac37c3763ce7de9a240cbf))
+
+
+### BREAKING CHANGES
+
+* Users need to rename their config files and update
+MCP configurations to use the new "glancey" package name.
+
+Co-authored-by: Claude Opus 4.5 <noreply@anthropic.com>
+
 ## [1.37.1](https://github.com/nicholaspsmith/glancey/compare/v1.37.0...v1.37.1) (2026-02-02)
 
 
