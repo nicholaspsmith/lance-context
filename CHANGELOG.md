@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/nicholaspsmith/glancey/compare/v2.0.0...v2.1.0) (2026-02-02)
+
+
+### Features
+
+* query deduplication and token tracking fix ([#133](https://github.com/nicholaspsmith/glancey/issues/133)) ([4d0de63](https://github.com/nicholaspsmith/glancey/commit/4d0de639771ef67bc69cd68ed7229160e4193937))
+
 # [2.0.0](https://github.com/nicholaspsmith/glancey/compare/v1.37.1...v2.0.0) (2026-02-02)
 
 
