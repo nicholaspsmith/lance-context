@@ -61,6 +61,14 @@ export class SSEManager {
         // Ignore broadcast failures
       }
     });
+
+    dashboardState.on('tokenSavings:update', (savings) => {
+      try {
+        this.broadcast('tokenSavings:update', savings);
+      } catch {
+        // Ignore broadcast failures
+      }
+    });
   }
 
   /**

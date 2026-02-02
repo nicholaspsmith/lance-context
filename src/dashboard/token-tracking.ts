@@ -6,20 +6,49 @@
  * semantic search vs. reading entire files.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+
 /**
  * Approximate characters per token (industry standard estimate)
  */
 const CHARS_PER_TOKEN = 4;
 
 /**
- * Average lines per file in a typical codebase
- */
-const AVG_LINES_PER_FILE = 200;
-
-/**
  * Average characters per line of code
  */
 const AVG_CHARS_PER_LINE = 60;
+
+/**
+ * Maximum number of events to keep in history (prevents unbounded growth)
+ */
+const MAX_EVENTS = 1000;
+
+/**
+ * Debounce delay for disk writes in milliseconds
+ */
+const SAVE_DEBOUNCE_MS = 1000;
+
+/**
+ * Estimated lines an agent would read via grep for different operations.
+ * These are conservative estimates based on typical grep + read patterns:
+ * - grep returns ~5-10 lines of context per match
+ * - agent might read 2-3 additional snippets of ~20-30 lines
+ */
+const GREP_ESTIMATE = {
+  /** search_code: grep + read a few snippets to understand context */
+  SEARCH_CODE_LINES: 100,
+  /** search_similar: would need to read multiple files to find patterns */
+  SEARCH_SIMILAR_LINES: 150,
+  /** find_symbol: grep for symbol name, read definition + usages */
+  FIND_SYMBOL_LINES: 80,
+  /** summarize_codebase: would read file headers, READMEs, key files */
+  SUMMARIZE_LINES: 300,
+  /** list_concepts: would explore directory structure, read samples */
+  LIST_CONCEPTS_LINES: 200,
+  /** search_by_concept: grep by keywords, read matching sections */
+  SEARCH_BY_CONCEPT_LINES: 120,
+};
 
 /**
  * Token savings event types
@@ -32,6 +61,19 @@ export type TokenSavingsEventType =
   | 'summarize_codebase'
   | 'list_concepts'
   | 'search_by_concept';
+
+/**
+ * Valid event types for validation
+ */
+const VALID_EVENT_TYPES: Set<string> = new Set([
+  'search_code',
+  'search_similar',
+  'get_symbols_overview',
+  'find_symbol',
+  'summarize_codebase',
+  'list_concepts',
+  'search_by_concept',
+]);
 
 /**
  * Record of a single token savings event
@@ -80,11 +122,130 @@ export interface TokenSavingsStats {
 }
 
 /**
+ * Validate that an object is a valid TokenSavingsEvent
+ */
+function isValidEvent(event: unknown): event is TokenSavingsEvent {
+  if (typeof event !== 'object' || event === null) return false;
+  const e = event as Record<string, unknown>;
+  return (
+    typeof e.type === 'string' &&
+    VALID_EVENT_TYPES.has(e.type) &&
+    typeof e.timestamp === 'number' &&
+    typeof e.charsReturned === 'number' &&
+    typeof e.charsAvoided === 'number' &&
+    typeof e.filesAvoided === 'number'
+  );
+}
+
+/**
  * Token savings tracker for a session
  */
 export class TokenSavingsTracker {
   private events: TokenSavingsEvent[] = [];
   private sessionStart: number = Date.now();
+  private onUpdate: (() => void) | null = null;
+  private projectPath: string | null = null;
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingSave = false;
+
+  /**
+   * Set the project path and load persisted data
+   */
+  setProjectPath(projectPath: string): void {
+    this.projectPath = projectPath;
+    this.loadFromDisk();
+  }
+
+  /**
+   * Get the path to the token savings file
+   */
+  private getFilePath(): string | null {
+    if (!this.projectPath) return null;
+    return path.join(this.projectPath, '.lance-context', 'token-savings.json');
+  }
+
+  /**
+   * Load token savings from disk with validation
+   */
+  private loadFromDisk(): void {
+    const filePath = this.getFilePath();
+    if (!filePath) return;
+
+    try {
+      if (fs.existsSync(filePath)) {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        if (Array.isArray(data.events)) {
+          // Validate each event and only keep valid ones
+          this.events = data.events.filter(isValidEvent);
+          // Apply event limit on load
+          if (this.events.length > MAX_EVENTS) {
+            this.events = this.events.slice(-MAX_EVENTS);
+          }
+        }
+        if (typeof data.sessionStart === 'number') {
+          this.sessionStart = data.sessionStart;
+        }
+      }
+    } catch {
+      // Ignore errors loading from disk
+    }
+  }
+
+  /**
+   * Save token savings to disk (debounced to avoid blocking on every event)
+   */
+  private saveToDisk(): void {
+    const filePath = this.getFilePath();
+    if (!filePath) return;
+
+    // Mark that we have pending changes
+    this.pendingSave = true;
+
+    // If a save is already scheduled, let it handle the write
+    if (this.saveTimer) return;
+
+    // Schedule a debounced write
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      if (!this.pendingSave) return;
+      this.pendingSave = false;
+
+      try {
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(
+          filePath,
+          JSON.stringify({ events: this.events, sessionStart: this.sessionStart }, null, 2)
+        );
+      } catch {
+        // Ignore errors saving to disk
+      }
+    }, SAVE_DEBOUNCE_MS);
+  }
+
+  /**
+   * Set callback to be called when token savings are updated
+   */
+  setOnUpdate(callback: () => void): void {
+    this.onUpdate = callback;
+  }
+
+  /**
+   * Notify that token savings have been updated
+   */
+  private notifyUpdate(): void {
+    // Rotate events if we exceed the limit
+    if (this.events.length > MAX_EVENTS) {
+      this.events = this.events.slice(-MAX_EVENTS);
+    }
+
+    this.saveToDisk();
+    if (this.onUpdate) {
+      this.onUpdate();
+    }
+  }
 
   /**
    * Record a search_code operation
@@ -93,9 +254,13 @@ export class TokenSavingsTracker {
    * @param totalFilesSearched Total files in the index
    */
   recordSearchCode(charsReturned: number, matchedFiles: number, totalFilesSearched: number): void {
-    // Without semantic search, agent might read ~5-10 files to find what they need
+    // Estimate: agent would grep and read ~100 lines of context to find what semantic search found
+    const charsAvoided = Math.max(
+      0,
+      GREP_ESTIMATE.SEARCH_CODE_LINES * AVG_CHARS_PER_LINE - charsReturned
+    );
+    // Estimate: agent would grep through ~5-10 files to find what semantic search found directly
     const filesAvoided = Math.max(0, Math.min(10, totalFilesSearched) - matchedFiles);
-    const charsAvoided = filesAvoided * AVG_LINES_PER_FILE * AVG_CHARS_PER_LINE;
 
     this.events.push({
       type: 'search_code',
@@ -105,6 +270,7 @@ export class TokenSavingsTracker {
       filesAvoided,
       context: `Searched ${totalFilesSearched} files, returned ${matchedFiles} matches`,
     });
+    this.notifyUpdate();
   }
 
   /**
@@ -113,9 +279,13 @@ export class TokenSavingsTracker {
    * @param matchedChunks Number of similar chunks found
    */
   recordSearchSimilar(charsReturned: number, matchedChunks: number): void {
-    // Without search_similar, agent would read multiple files to find patterns
+    // Estimate: agent would grep patterns and read ~150 lines across files
+    const charsAvoided = Math.max(
+      0,
+      GREP_ESTIMATE.SEARCH_SIMILAR_LINES * AVG_CHARS_PER_LINE - charsReturned
+    );
+    // Estimate: agent would read at least 3 files to find similar patterns
     const filesAvoided = Math.max(3, matchedChunks);
-    const charsAvoided = filesAvoided * AVG_LINES_PER_FILE * AVG_CHARS_PER_LINE;
 
     this.events.push({
       type: 'search_similar',
@@ -125,6 +295,7 @@ export class TokenSavingsTracker {
       filesAvoided,
       context: `Found ${matchedChunks} similar code chunks`,
     });
+    this.notifyUpdate();
   }
 
   /**
@@ -133,7 +304,7 @@ export class TokenSavingsTracker {
    * @param fileLines Total lines in the file
    */
   recordSymbolsOverview(charsReturned: number, fileLines: number): void {
-    // Without symbols overview, agent would read the entire file
+    // Without symbols overview, agent would read larger portions of the file
     const charsAvoided = Math.max(0, fileLines * AVG_CHARS_PER_LINE - charsReturned);
 
     this.events.push({
@@ -141,9 +312,10 @@ export class TokenSavingsTracker {
       timestamp: Date.now(),
       charsReturned,
       charsAvoided,
-      filesAvoided: 0, // Same file, just more efficient
+      filesAvoided: 0,
       context: `File has ${fileLines} lines`,
     });
+    this.notifyUpdate();
   }
 
   /**
@@ -152,9 +324,13 @@ export class TokenSavingsTracker {
    * @param filesSearched Number of files searched
    */
   recordFindSymbol(charsReturned: number, filesSearched: number): void {
-    // Without find_symbol, agent would grep and read multiple files
+    // Estimate: agent would grep for symbol and read ~80 lines of context
+    const charsAvoided = Math.max(
+      0,
+      GREP_ESTIMATE.FIND_SYMBOL_LINES * AVG_CHARS_PER_LINE - charsReturned
+    );
+    // Estimate: agent would grep through multiple files to find symbol definition
     const filesAvoided = Math.max(0, Math.min(filesSearched, 5) - 1);
-    const charsAvoided = filesAvoided * AVG_LINES_PER_FILE * AVG_CHARS_PER_LINE;
 
     this.events.push({
       type: 'find_symbol',
@@ -164,6 +340,7 @@ export class TokenSavingsTracker {
       filesAvoided,
       context: `Searched ${filesSearched} files`,
     });
+    this.notifyUpdate();
   }
 
   /**
@@ -172,9 +349,13 @@ export class TokenSavingsTracker {
    * @param totalFiles Total files in codebase
    */
   recordSummarizeCodebase(charsReturned: number, totalFiles: number): void {
-    // Without summarize, agent would explore many files to understand structure
-    const filesAvoided = Math.min(totalFiles, 20); // Agent would read ~20 files
-    const charsAvoided = filesAvoided * AVG_LINES_PER_FILE * AVG_CHARS_PER_LINE;
+    // Estimate: agent would read READMEs, directory listings, ~300 lines total
+    const charsAvoided = Math.max(
+      0,
+      GREP_ESTIMATE.SUMMARIZE_LINES * AVG_CHARS_PER_LINE - charsReturned
+    );
+    // Estimate: agent would explore ~20 files to understand codebase structure
+    const filesAvoided = Math.min(totalFiles, 20);
 
     this.events.push({
       type: 'summarize_codebase',
@@ -184,6 +365,7 @@ export class TokenSavingsTracker {
       filesAvoided,
       context: `Summarized ${totalFiles} files`,
     });
+    this.notifyUpdate();
   }
 
   /**
@@ -192,9 +374,13 @@ export class TokenSavingsTracker {
    * @param clusterCount Number of concept clusters
    */
   recordListConcepts(charsReturned: number, clusterCount: number): void {
-    // Without concepts, agent would explore files to understand organization
+    // Estimate: agent would explore directory structure, read ~200 lines
+    const charsAvoided = Math.max(
+      0,
+      GREP_ESTIMATE.LIST_CONCEPTS_LINES * AVG_CHARS_PER_LINE - charsReturned
+    );
+    // Estimate: agent would explore ~3 files per concept cluster to understand organization
     const filesAvoided = Math.min(clusterCount * 3, 15);
-    const charsAvoided = filesAvoided * AVG_LINES_PER_FILE * AVG_CHARS_PER_LINE;
 
     this.events.push({
       type: 'list_concepts',
@@ -204,6 +390,7 @@ export class TokenSavingsTracker {
       filesAvoided,
       context: `Found ${clusterCount} concept clusters`,
     });
+    this.notifyUpdate();
   }
 
   /**
@@ -212,8 +399,13 @@ export class TokenSavingsTracker {
    * @param matchedChunks Number of chunks in the concept
    */
   recordSearchByConcept(charsReturned: number, matchedChunks: number): void {
+    // Estimate: agent would grep by keywords and read ~120 lines
+    const charsAvoided = Math.max(
+      0,
+      GREP_ESTIMATE.SEARCH_BY_CONCEPT_LINES * AVG_CHARS_PER_LINE - charsReturned
+    );
+    // Estimate: agent would grep and read ~half the matched chunks worth of files
     const filesAvoided = Math.max(2, Math.floor(matchedChunks / 2));
-    const charsAvoided = filesAvoided * AVG_LINES_PER_FILE * AVG_CHARS_PER_LINE;
 
     this.events.push({
       type: 'search_by_concept',
@@ -223,6 +415,7 @@ export class TokenSavingsTracker {
       filesAvoided,
       context: `Explored concept with ${matchedChunks} chunks`,
     });
+    this.notifyUpdate();
   }
 
   /**
@@ -270,14 +463,6 @@ export class TokenSavingsTracker {
       efficiencyPercent,
       sessionStart: this.sessionStart,
     };
-  }
-
-  /**
-   * Reset the tracker for a new session
-   */
-  reset(): void {
-    this.events = [];
-    this.sessionStart = Date.now();
   }
 
   /**

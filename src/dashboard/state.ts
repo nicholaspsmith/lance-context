@@ -194,6 +194,7 @@ export class DashboardStateManager extends EventEmitter {
   setProjectPath(projectPath: string): void {
     this.projectPath = projectPath;
     this.loadUsageFromDisk();
+    tokenTracker.setProjectPath(projectPath);
   }
 
   /**
@@ -444,9 +445,21 @@ export class DashboardStateManager extends EventEmitter {
   getTokenTracker() {
     return tokenTracker;
   }
+
+  /**
+   * Emit token savings update event for real-time dashboard updates
+   */
+  emitTokenSavingsUpdate(): void {
+    this.emit('tokenSavings:update', tokenTracker.getStats());
+  }
 }
 
 /**
  * Singleton instance of the dashboard state manager
  */
 export const dashboardState = new DashboardStateManager();
+
+// Wire up token savings updates to emit SSE events
+tokenTracker.setOnUpdate(() => {
+  dashboardState.emitTokenSavingsUpdate();
+});

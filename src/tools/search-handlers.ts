@@ -2,7 +2,7 @@
  * Tool handlers for search operations.
  */
 
-import type { CodeChunk } from '../search/indexer.js';
+import type { CodeChunk, SimilarCodeResult } from '../search/indexer.js';
 import type { ToolContext, ToolResponse } from './types.js';
 import { createToolResponse } from './types.js';
 import { isString, isNumber, isStringArray } from '../utils/type-guards.js';
@@ -127,6 +127,26 @@ export function parseSearchSimilarArgs(
 }
 
 /**
+ * Format similar code results for display.
+ */
+export function formatSimilarResults(results: SimilarCodeResult[]): string {
+  if (results.length === 0) {
+    return 'No similar code found.';
+  }
+
+  return results
+    .map((r, i) => {
+      let header = `## Similar ${i + 1}: ${r.filepath}:${r.startLine}-${r.endLine} (${(r.similarity * 100).toFixed(1)}% similar)`;
+      if (r.symbolName) {
+        const typeLabel = r.symbolType ? ` (${r.symbolType})` : '';
+        header += `\n**Symbol:** \`${r.symbolName}\`${typeLabel}`;
+      }
+      return `${header}\n\`\`\`${r.language}\n${r.content}\n\`\`\``;
+    })
+    .join('\n\n');
+}
+
+/**
  * Handle search_similar tool.
  */
 export async function handleSearchSimilar(
@@ -143,7 +163,7 @@ export async function handleSearchSimilar(
     excludeSelf: args.excludeSelf,
   });
 
-  const formatted = formatSearchResults(results);
+  const formatted = formatSimilarResults(results);
 
   // Track token savings (optional)
   try {

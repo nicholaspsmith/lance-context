@@ -294,10 +294,16 @@ export async function handleFindSymbol(
     }
   }
 
-  return createToolResponse(
-    formatMatchedSymbols(matchedSymbols, args.namePathPattern),
-    context.toolGuidance
-  );
+  const formatted = formatMatchedSymbols(matchedSymbols, args.namePathPattern);
+
+  // Track token savings (optional)
+  try {
+    dashboardState.getTokenTracker().recordFindSymbol(formatted.length, files.length);
+  } catch {
+    // Token tracking not available
+  }
+
+  return createToolResponse(formatted, context.toolGuidance);
 }
 
 // ============================================================================

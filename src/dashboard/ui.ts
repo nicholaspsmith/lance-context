@@ -1299,19 +1299,19 @@ export function getDashboardHTML(): string {
           <span class="badge" id="savingsBadge">This Session</span>
         </div>
         <div class="stat">
-          <div class="stat-label">Estimated Tokens Saved</div>
+          <div class="stat-label">Tokens Saved</div>
           <div class="stat-value" id="tokensSaved">0</div>
         </div>
         <div class="stat">
-          <div class="stat-label">Efficiency</div>
+          <div class="stat-label">Context Reduction</div>
           <div class="stat-value" id="savingsEfficiency">0%</div>
         </div>
         <div class="stat">
-          <div class="stat-label">Files Not Read</div>
+          <div class="stat-label">File Reads Avoided</div>
           <div class="stat-value small" id="filesAvoided">0</div>
         </div>
         <div class="stat">
-          <div class="stat-label">Operations Tracked</div>
+          <div class="stat-label">Tool Calls</div>
           <div class="stat-value small" id="operationCount">0</div>
         </div>
       </div>
@@ -2679,6 +2679,11 @@ export function getDashboardHTML(): string {
         // The event data is the usage array, need to compute total
         const total = usage.reduce((sum, u) => sum + u.count, 0);
         updateUsage({ usage, total });
+      });
+
+      eventSource.addEventListener('tokenSavings:update', (e) => {
+        const savings = JSON.parse(e.data);
+        updateTokenSavings(savings);
       });
 
       eventSource.addEventListener('heartbeat', () => {

@@ -86,7 +86,6 @@ import type { CommandName } from './dashboard/index.js';
 
 // Symbolic analysis imports
 import {
-  SymbolExtractor,
   searchForPattern,
   formatPatternSearchResults,
   ReferenceFinder,
@@ -95,13 +94,37 @@ import {
   SymbolRenamer,
   formatRenameResult,
   SymbolKind,
-  SymbolKindNames,
-  parseNamePath,
-  matchNamePath,
-  formatNamePath,
 } from './symbols/index.js';
 import { MemoryManager, formatMemoryList } from './memory/index.js';
 import { WorktreeManager, formatWorktreeInfo, formatWorktreeList } from './worktree/index.js';
+
+// Tool handlers for token tracking
+import {
+  handleSearchCode,
+  parseSearchCodeArgs,
+  handleSearchSimilar,
+  parseSearchSimilarArgs,
+} from './tools/search-handlers.js';
+
+import {
+  handleGetSymbolsOverview,
+  parseGetSymbolsOverviewArgs,
+  handleFindSymbol,
+  parseFindSymbolArgs,
+} from './tools/symbol-handlers.js';
+
+import {
+  handleSummarizeCodebase,
+  parseSummarizeCodebaseArgs,
+  handleListConcepts,
+  parseListConceptsArgs,
+  handleSearchByConcept,
+  parseSearchByConceptArgs,
+} from './tools/clustering-handlers.js';
+
+import type { ToolContext } from './tools/types.js';
+import type { ClusteringToolContext } from './tools/clustering-handlers.js';
+import type { SymbolToolContext } from './tools/symbol-handlers.js';
 
 /**
  * Check if browser was recently opened (within the last hour)
@@ -1338,35 +1361,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'search_code': {
-        const query = isString(args?.query) ? args.query : '';
-        if (!query) {
-          throw new LanceContextError('query is required', 'validation', { tool: 'search_code' });
-        }
-        const results = await idx.search({
-          query,
-          limit: isNumber(args?.limit) ? args.limit : 10,
-          pathPattern: isString(args?.pathPattern) ? args.pathPattern : undefined,
-          languages: isStringArray(args?.languages) ? args.languages : undefined,
-        });
-        const formatted = results
-          .map((r, i) => {
-            // Build header with optional symbol context
-            let header = `## Result ${i + 1}: ${r.filepath}:${r.startLine}-${r.endLine}`;
-            if (r.symbolName) {
-              const typeLabel = r.symbolType ? ` (${r.symbolType})` : '';
-              header += `\n**Symbol:** \`${r.symbolName}\`${typeLabel}`;
-            }
-            return `${header}\n\`\`\`${r.language}\n${r.content}\n\`\`\``;
-          })
-          .join('\n\n');
-        return {
-          content: [
-            {
-              type: 'text',
-              text: (formatted || 'No results found.') + TOOL_GUIDANCE,
-            },
-          ],
+        const searchContext: ToolContext = {
+          indexer: idx,
+          projectPath: PROJECT_PATH,
+          toolGuidance: TOOL_GUIDANCE,
         };
+        const result = await handleSearchCode(parseSearchCodeArgs(args), searchContext);
+        return { ...result };
       }
 
       case 'get_index_status': {
@@ -1423,172 +1424,43 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'search_similar': {
-        const results = await idx.searchSimilar({
-          filepath: isString(args?.filepath) ? args.filepath : undefined,
-          startLine: isNumber(args?.startLine) ? args.startLine : undefined,
-          endLine: isNumber(args?.endLine) ? args.endLine : undefined,
-          code: isString(args?.code) ? args.code : undefined,
-          limit: isNumber(args?.limit) ? args.limit : 10,
-          threshold: isNumber(args?.threshold) ? args.threshold : 0,
-          excludeSelf: isBoolean(args?.excludeSelf) ? args.excludeSelf : true,
-        });
-
-        if (results.length === 0) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: 'No similar code found.' + TOOL_GUIDANCE,
-              },
-            ],
-          };
-        }
-
-        const formatted = results
-          .map((r, i) => {
-            let header = `## Similar ${i + 1}: ${r.filepath}:${r.startLine}-${r.endLine} (${(r.similarity * 100).toFixed(1)}% similar)`;
-            if (r.symbolName) {
-              const typeLabel = r.symbolType ? ` (${r.symbolType})` : '';
-              header += `\n**Symbol:** \`${r.symbolName}\`${typeLabel}`;
-            }
-            return `${header}\n\`\`\`${r.language}\n${r.content}\n\`\`\``;
-          })
-          .join('\n\n');
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: formatted + TOOL_GUIDANCE,
-            },
-          ],
+        const searchContext: ToolContext = {
+          indexer: idx,
+          projectPath: PROJECT_PATH,
+          toolGuidance: TOOL_GUIDANCE,
         };
+        const result = await handleSearchSimilar(parseSearchSimilarArgs(args), searchContext);
+        return { ...result };
       }
 
       case 'summarize_codebase': {
-        const numClusters = isNumber(args?.numClusters) ? args.numClusters : undefined;
-        const summary = await idx.summarizeCodebase(numClusters ? { numClusters } : undefined);
-
-        const languageList = summary.languages
-          .map((l) => `- **${l.language}**: ${l.fileCount} files, ${l.chunkCount} chunks`)
-          .join('\n');
-
-        const conceptList = summary.concepts
-          .map((c) => {
-            const keywords = c.keywords.slice(0, 5).join(', ');
-            return `- **Cluster ${c.id}: ${c.label}** (${c.size} chunks)\n  Keywords: ${keywords}`;
-          })
-          .join('\n');
-
-        const formatted = `# Codebase Summary
-
-## Overview
-- **Total Files**: ${summary.totalFiles}
-- **Total Chunks**: ${summary.totalChunks}
-- **Concept Clusters**: ${summary.concepts.length}
-- **Clustering Quality**: ${(summary.clusteringQuality * 100).toFixed(1)}% (silhouette score)
-- **Generated At**: ${summary.generatedAt}
-
-## Languages
-${languageList}
-
-## Concept Areas
-${conceptList}`;
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: formatted + TOOL_GUIDANCE,
-            },
-          ],
+        const clusterContext: ClusteringToolContext = {
+          indexer: idx,
+          toolGuidance: TOOL_GUIDANCE,
         };
+        const result = await handleSummarizeCodebase(
+          parseSummarizeCodebaseArgs(args),
+          clusterContext
+        );
+        return { ...result };
       }
 
       case 'list_concepts': {
-        const forceRecluster = isBoolean(args?.forceRecluster) ? args.forceRecluster : false;
-        const concepts = await idx.listConcepts(forceRecluster);
-
-        if (concepts.length === 0) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text:
-                  'No concept clusters found. Make sure the codebase is indexed first.' +
-                  TOOL_GUIDANCE,
-              },
-            ],
-          };
-        }
-
-        const formatted = concepts
-          .map((c) => {
-            const keywords = c.keywords.slice(0, 5).join(', ');
-            return `## Cluster ${c.id}: ${c.label}
-- **Size**: ${c.size} code chunks
-- **Keywords**: ${keywords}
-- **Representatives**: ${c.representativeChunks.slice(0, 3).join(', ')}`;
-          })
-          .join('\n\n');
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `# Concept Clusters\n\n${formatted}` + TOOL_GUIDANCE,
-            },
-          ],
+        const clusterContext: ClusteringToolContext = {
+          indexer: idx,
+          toolGuidance: TOOL_GUIDANCE,
         };
+        const result = await handleListConcepts(parseListConceptsArgs(args), clusterContext);
+        return { ...result };
       }
 
       case 'search_by_concept': {
-        const conceptId = isNumber(args?.conceptId) ? args.conceptId : -1;
-        if (conceptId < 0) {
-          throw new LanceContextError(
-            'conceptId is required and must be a non-negative number',
-            'validation',
-            { tool: 'search_by_concept' }
-          );
-        }
-
-        const query = isString(args?.query) ? args.query : undefined;
-        const limit = isNumber(args?.limit) ? args.limit : 10;
-
-        const results = await idx.searchByConcept(conceptId, query, limit);
-
-        if (results.length === 0) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text:
-                  `No code found in concept cluster ${conceptId}. Try list_concepts to see available clusters.` +
-                  TOOL_GUIDANCE,
-              },
-            ],
-          };
-        }
-
-        const formatted = results
-          .map((r, i) => {
-            let header = `## Result ${i + 1}: ${r.filepath}:${r.startLine}-${r.endLine}`;
-            if (r.symbolName) {
-              const typeLabel = r.symbolType ? ` (${r.symbolType})` : '';
-              header += `\n**Symbol:** \`${r.symbolName}\`${typeLabel}`;
-            }
-            return `${header}\n\`\`\`${r.language}\n${r.content}\n\`\`\``;
-          })
-          .join('\n\n');
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: formatted + TOOL_GUIDANCE,
-            },
-          ],
+        const clusterContext: ClusteringToolContext = {
+          indexer: idx,
+          toolGuidance: TOOL_GUIDANCE,
         };
+        const result = await handleSearchByConcept(parseSearchByConceptArgs(args), clusterContext);
+        return { ...result };
       }
 
       case 'commit': {
@@ -1746,204 +1618,24 @@ ${conceptList}`;
 
       // --- Symbolic Analysis Tools ---
       case 'get_symbols_overview': {
-        const relativePath = isString(args?.relative_path) ? args.relative_path : '';
-        if (!relativePath) {
-          throw new LanceContextError('relative_path is required', 'validation', {
-            tool: 'get_symbols_overview',
-          });
-        }
-        const depth = isNumber(args?.depth) ? args.depth : 0;
-
-        const extractor = new SymbolExtractor(PROJECT_PATH);
-        const overview = await extractor.getSymbolsOverview(relativePath, depth);
-
-        // Format the output
-        const parts: string[] = [];
-        parts.push(`## Symbols in ${overview.filepath}\n`);
-        parts.push(`Total: ${overview.totalSymbols} symbols\n`);
-
-        for (const [kindName, entries] of Object.entries(overview.byKind)) {
-          parts.push(`\n### ${kindName} (${entries.length})\n`);
-          for (const entry of entries) {
-            const childInfo = entry.children ? ` [${entry.children} children]` : '';
-            parts.push(`- **${entry.name}** (${entry.lines})${childInfo}`);
-          }
-        }
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: parts.join('\n') + TOOL_GUIDANCE,
-            },
-          ],
+        const symbolContext: SymbolToolContext = {
+          projectPath: PROJECT_PATH,
+          toolGuidance: TOOL_GUIDANCE,
         };
+        const result = await handleGetSymbolsOverview(
+          parseGetSymbolsOverviewArgs(args),
+          symbolContext
+        );
+        return { ...result };
       }
 
       case 'find_symbol': {
-        const namePathPattern = isString(args?.name_path_pattern) ? args.name_path_pattern : '';
-        if (!namePathPattern) {
-          throw new LanceContextError('name_path_pattern is required', 'validation', {
-            tool: 'find_symbol',
-          });
-        }
-        const relativePath = isString(args?.relative_path) ? args.relative_path : undefined;
-        const depth = isNumber(args?.depth) ? args.depth : 0;
-        const includeBody = isBoolean(args?.include_body) ? args.include_body : false;
-        const substringMatching = isBoolean(args?.substring_matching)
-          ? args.substring_matching
-          : false;
-        const includeKinds = Array.isArray(args?.include_kinds)
-          ? (args.include_kinds as SymbolKind[])
-          : undefined;
-        const excludeKinds = Array.isArray(args?.exclude_kinds)
-          ? (args.exclude_kinds as SymbolKind[])
-          : undefined;
-
-        const extractor = new SymbolExtractor(PROJECT_PATH);
-
-        // If relativePath is provided, search in that file/directory
-        // Otherwise, we need to search the whole codebase (more expensive)
-        const files: string[] = [];
-        if (relativePath) {
-          const fullPath = path.join(PROJECT_PATH, relativePath);
-          try {
-            const fsStat = fs.statSync(fullPath);
-            if (fsStat.isFile()) {
-              files.push(relativePath);
-            } else {
-              // Directory - find all analyzable files
-              const { glob: globFn } = await import('glob');
-              const codeExtensions = [
-                '*.ts',
-                '*.tsx',
-                '*.js',
-                '*.jsx',
-                '*.py',
-                '*.go',
-                '*.rs',
-                '*.java',
-                '*.rb',
-              ];
-              for (const ext of codeExtensions) {
-                const matches = await globFn(`**/${ext}`, {
-                  cwd: fullPath,
-                  ignore: ['node_modules/**', 'dist/**', '.git/**'],
-                });
-                files.push(...matches.map((f: string) => path.join(relativePath, f)));
-              }
-            }
-          } catch {
-            throw new LanceContextError(`Path not found: ${relativePath}`, 'validation', {
-              tool: 'find_symbol',
-            });
-          }
-        } else {
-          // Search whole codebase - expensive, limit to reasonable set
-          const { glob: globFn } = await import('glob');
-          const codeExtensions = [
-            '*.ts',
-            '*.tsx',
-            '*.js',
-            '*.jsx',
-            '*.py',
-            '*.go',
-            '*.rs',
-            '*.java',
-            '*.rb',
-          ];
-          for (const ext of codeExtensions) {
-            const matches = await globFn(`**/${ext}`, {
-              cwd: PROJECT_PATH,
-              ignore: ['node_modules/**', 'dist/**', '.git/**'],
-            });
-            files.push(...matches);
-          }
-        }
-
-        // Parse the pattern
-        const pattern = parseNamePath(namePathPattern);
-
-        // Find matching symbols
-        const matchedSymbols: Array<{ symbol: import('./symbols/types.js').Symbol; file: string }> =
-          [];
-
-        for (const file of files.slice(0, 100)) {
-          // Limit to prevent timeout
-          try {
-            const symbols = await extractor.extractSymbols(file, includeBody);
-            const findMatches = (
-              syms: import('./symbols/types.js').Symbol[],
-              currentDepth: number
-            ) => {
-              for (const sym of syms) {
-                // Apply kind filters
-                if (excludeKinds && excludeKinds.includes(sym.kind)) continue;
-                if (includeKinds && !includeKinds.includes(sym.kind)) continue;
-
-                if (matchNamePath(sym.namePath, pattern, substringMatching)) {
-                  matchedSymbols.push({ symbol: sym, file });
-                }
-
-                // Search children up to requested depth
-                if (currentDepth < depth && sym.children) {
-                  findMatches(sym.children, currentDepth + 1);
-                }
-              }
-            };
-            findMatches(symbols, 0);
-          } catch {
-            // Skip files that can't be analyzed
-          }
-        }
-
-        if (matchedSymbols.length === 0) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `No symbols found matching pattern: ${namePathPattern}` + TOOL_GUIDANCE,
-              },
-            ],
-          };
-        }
-
-        // Format results
-        const parts: string[] = [];
-        parts.push(`Found ${matchedSymbols.length} matching symbol(s):\n`);
-
-        for (const { symbol } of matchedSymbols) {
-          const kindName = SymbolKindNames[symbol.kind];
-          parts.push(`\n## ${formatNamePath(symbol.namePath)} (${kindName})`);
-          parts.push(
-            `**Location:** ${symbol.location.filepath}:${symbol.location.startLine}-${symbol.location.endLine}`
-          );
-
-          if (symbol.body) {
-            parts.push('\n```');
-            parts.push(symbol.body);
-            parts.push('```');
-          }
-
-          if (symbol.children && symbol.children.length > 0) {
-            parts.push(`\n**Children:** ${symbol.children.length}`);
-            for (const child of symbol.children) {
-              const childKind = SymbolKindNames[child.kind];
-              parts.push(
-                `  - ${child.name} (${childKind}, lines ${child.location.startLine}-${child.location.endLine})`
-              );
-            }
-          }
-        }
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: parts.join('\n') + TOOL_GUIDANCE,
-            },
-          ],
+        const symbolContext: SymbolToolContext = {
+          projectPath: PROJECT_PATH,
+          toolGuidance: TOOL_GUIDANCE,
         };
+        const result = await handleFindSymbol(parseFindSymbolArgs(args), symbolContext);
+        return { ...result };
       }
 
       case 'find_referencing_symbols': {
