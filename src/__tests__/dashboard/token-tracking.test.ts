@@ -125,8 +125,10 @@ describe('TokenSavingsTracker', () => {
       expect(stats.operationCount).toBe(1);
       expect(stats.byType.search_code.count).toBe(1);
       expect(stats.byType.search_code.charsReturned).toBe(1000);
-      // charsAvoided = max(0, 100 * 60 - 1000) = 5000
-      expect(stats.byType.search_code.charsAvoided).toBe(5000);
+      // filesExplored = max(5, 3 + 2) = 5
+      // charsWouldRead = 5 * 100 * 60 = 30000
+      // charsAvoided = max(0, 30000 - 1000) = 29000
+      expect(stats.byType.search_code.charsAvoided).toBe(29000);
     });
 
     it('should record search_similar events', () => {
@@ -176,7 +178,9 @@ describe('TokenSavingsTracker', () => {
 
     it('should not record negative charsAvoided', () => {
       // Return more chars than estimated, should clamp to 0
-      tracker.recordSearchCode(10000, 1, 10);
+      // filesExplored = max(5, 1 + 2) = 5, charsWouldRead = 30000
+      // Need charsReturned >= 30000 to get 0
+      tracker.recordSearchCode(35000, 1, 10);
 
       const stats = tracker.getStats();
       expect(stats.byType.search_code.charsAvoided).toBe(0);
@@ -200,13 +204,15 @@ describe('TokenSavingsTracker', () => {
     });
 
     it('should calculate efficiency percentage correctly', () => {
-      // Record event where we return 1000 chars and avoid 5000
+      // Record event where we return 1000 chars
+      // filesExplored = max(5, 2 + 2) = 5, charsWouldRead = 30000
+      // charsAvoided = 30000 - 1000 = 29000
       tracker.recordSearchCode(1000, 2, 50);
 
       const stats = tracker.getStats();
-      // Total chars = 1000 + 5000 = 6000
-      // Efficiency = 5000 / 6000 = 83.33% -> rounds to 83%
-      expect(stats.efficiencyPercent).toBe(83);
+      // Total chars = 1000 + 29000 = 30000
+      // Efficiency = 29000 / 30000 = 96.67% -> rounds to 97%
+      expect(stats.efficiencyPercent).toBe(97);
     });
 
     it('should return 0% efficiency when no events', () => {
@@ -216,11 +222,12 @@ describe('TokenSavingsTracker', () => {
 
     it('should calculate tokens saved correctly', () => {
       // 4 chars per token
+      // filesExplored = max(5, 2 + 2) = 5, charsAvoided = 30000 - 1000 = 29000
       tracker.recordSearchCode(1000, 2, 50);
 
       const stats = tracker.getStats();
-      // charsAvoided = 5000, tokens = 5000 / 4 = 1250
-      expect(stats.tokensSaved).toBe(1250);
+      // charsAvoided = 29000, tokens = 29000 / 4 = 7250
+      expect(stats.tokensSaved).toBe(7250);
     });
   });
 
@@ -365,34 +372,40 @@ describe('TokenSavingsTracker', () => {
       tracker.setProjectPath(mockProjectPath);
     });
 
-    it('should estimate filesAvoided for search_code based on files searched', () => {
-      // 50 files searched, 3 matched -> avoided ~7 files (min(10, 50) - 3)
+    it('should estimate filesAvoided for search_code based on files explored', () => {
+      // matchedFiles = 3, filesExplored = max(5, 3 + 2) = 5
+      // filesAvoided = 5 - 3 = 2
       tracker.recordSearchCode(100, 3, 50);
 
       const events = tracker.getRecentEvents(1);
-      expect(events[0].filesAvoided).toBe(7);
+      expect(events[0].filesAvoided).toBe(2);
     });
 
-    it('should estimate filesAvoided for search_similar as at least 3', () => {
+    it('should estimate filesAvoided for search_similar based on chunks', () => {
+      // matchedChunks = 2, filesExplored = max(8, 2 + 3) = 8
+      // filesAvoided = 8 - 2 = 6
       tracker.recordSearchSimilar(100, 2);
 
       const events = tracker.getRecentEvents(1);
-      expect(events[0].filesAvoided).toBe(3);
+      expect(events[0].filesAvoided).toBe(6);
     });
 
-    it('should estimate filesAvoided for summarize_codebase capped at 20', () => {
+    it('should estimate filesAvoided for summarize_codebase based on file count', () => {
+      // totalFiles = 100, filesExplored = max(15, min(100, 25)) = 25
+      // filesAvoided = 25
       tracker.recordSummarizeCodebase(100, 100);
 
       const events = tracker.getRecentEvents(1);
-      expect(events[0].filesAvoided).toBe(20);
+      expect(events[0].filesAvoided).toBe(25);
     });
 
-    it('should estimate filesAvoided for list_concepts as 3x clusters capped at 15', () => {
+    it('should estimate filesAvoided for list_concepts based on clusters', () => {
+      // clusterCount = 10, filesExplored = max(12, 10 * 2) = 20
+      // filesAvoided = 20
       tracker.recordListConcepts(100, 10);
 
       const events = tracker.getRecentEvents(1);
-      // 10 clusters * 3 = 30, capped at 15
-      expect(events[0].filesAvoided).toBe(15);
+      expect(events[0].filesAvoided).toBe(20);
     });
   });
 });

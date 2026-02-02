@@ -30,24 +30,32 @@ const MAX_EVENTS = 1000;
 const SAVE_DEBOUNCE_MS = 1000;
 
 /**
- * Estimated lines an agent would read via grep for different operations.
- * These are conservative estimates based on typical grep + read patterns:
- * - grep returns ~5-10 lines of context per match
- * - agent might read 2-3 additional snippets of ~20-30 lines
+ * Estimated lines an agent would read per file when exploring.
+ * Without semantic search, agents typically:
+ * - Read file headers/imports (~20 lines)
+ * - Scan for relevant sections (~50-100 lines)
+ * - Read surrounding context (~30 lines)
  */
-const GREP_ESTIMATE = {
-  /** search_code: grep + read a few snippets to understand context */
-  SEARCH_CODE_LINES: 100,
-  /** search_similar: would need to read multiple files to find patterns */
-  SEARCH_SIMILAR_LINES: 150,
-  /** find_symbol: grep for symbol name, read definition + usages */
-  FIND_SYMBOL_LINES: 80,
-  /** summarize_codebase: would read file headers, READMEs, key files */
-  SUMMARIZE_LINES: 300,
-  /** list_concepts: would explore directory structure, read samples */
-  LIST_CONCEPTS_LINES: 200,
-  /** search_by_concept: grep by keywords, read matching sections */
-  SEARCH_BY_CONCEPT_LINES: 120,
+const LINES_PER_FILE_EXPLORED = 100;
+
+/**
+ * Minimum files an agent would explore for different operations.
+ * These represent the baseline exploration cost even if semantic search
+ * returns results from fewer files.
+ */
+const MIN_FILES_EXPLORED = {
+  /** search_code: would grep and explore several files */
+  SEARCH_CODE: 5,
+  /** search_similar: would need to explore many files to find patterns */
+  SEARCH_SIMILAR: 8,
+  /** find_symbol: would grep and check multiple definitions */
+  FIND_SYMBOL: 4,
+  /** summarize_codebase: would read READMEs, key files, directory structure */
+  SUMMARIZE: 15,
+  /** list_concepts: would explore directory structure extensively */
+  LIST_CONCEPTS: 12,
+  /** search_by_concept: would grep and explore concept area */
+  SEARCH_BY_CONCEPT: 6,
 };
 
 /**
@@ -254,13 +262,13 @@ export class TokenSavingsTracker {
    * @param totalFilesSearched Total files in the index
    */
   recordSearchCode(charsReturned: number, matchedFiles: number, totalFilesSearched: number): void {
-    // Estimate: agent would grep and read ~100 lines of context to find what semantic search found
-    const charsAvoided = Math.max(
-      0,
-      GREP_ESTIMATE.SEARCH_CODE_LINES * AVG_CHARS_PER_LINE - charsReturned
-    );
-    // Estimate: agent would grep through ~5-10 files to find what semantic search found directly
-    const filesAvoided = Math.max(0, Math.min(10, totalFilesSearched) - matchedFiles);
+    // Estimate files agent would have explored without semantic search
+    const filesExplored = Math.max(MIN_FILES_EXPLORED.SEARCH_CODE, matchedFiles + 2);
+    const filesAvoided = Math.max(0, filesExplored - matchedFiles);
+
+    // Estimate chars that would have been read exploring those files
+    const charsWouldRead = filesExplored * LINES_PER_FILE_EXPLORED * AVG_CHARS_PER_LINE;
+    const charsAvoided = Math.max(0, charsWouldRead - charsReturned);
 
     this.events.push({
       type: 'search_code',
@@ -279,13 +287,13 @@ export class TokenSavingsTracker {
    * @param matchedChunks Number of similar chunks found
    */
   recordSearchSimilar(charsReturned: number, matchedChunks: number): void {
-    // Estimate: agent would grep patterns and read ~150 lines across files
-    const charsAvoided = Math.max(
-      0,
-      GREP_ESTIMATE.SEARCH_SIMILAR_LINES * AVG_CHARS_PER_LINE - charsReturned
-    );
-    // Estimate: agent would read at least 3 files to find similar patterns
-    const filesAvoided = Math.max(3, matchedChunks);
+    // Estimate files agent would have explored to find similar patterns
+    const filesExplored = Math.max(MIN_FILES_EXPLORED.SEARCH_SIMILAR, matchedChunks + 3);
+    const filesAvoided = Math.max(0, filesExplored - matchedChunks);
+
+    // Estimate chars that would have been read
+    const charsWouldRead = filesExplored * LINES_PER_FILE_EXPLORED * AVG_CHARS_PER_LINE;
+    const charsAvoided = Math.max(0, charsWouldRead - charsReturned);
 
     this.events.push({
       type: 'search_similar',
@@ -324,13 +332,13 @@ export class TokenSavingsTracker {
    * @param filesSearched Number of files searched
    */
   recordFindSymbol(charsReturned: number, filesSearched: number): void {
-    // Estimate: agent would grep for symbol and read ~80 lines of context
-    const charsAvoided = Math.max(
-      0,
-      GREP_ESTIMATE.FIND_SYMBOL_LINES * AVG_CHARS_PER_LINE - charsReturned
-    );
-    // Estimate: agent would grep through multiple files to find symbol definition
-    const filesAvoided = Math.max(0, Math.min(filesSearched, 5) - 1);
+    // Estimate files agent would have explored to find symbol
+    const filesExplored = Math.max(MIN_FILES_EXPLORED.FIND_SYMBOL, Math.min(filesSearched, 8));
+    const filesAvoided = Math.max(0, filesExplored - 1);
+
+    // Estimate chars that would have been read
+    const charsWouldRead = filesExplored * LINES_PER_FILE_EXPLORED * AVG_CHARS_PER_LINE;
+    const charsAvoided = Math.max(0, charsWouldRead - charsReturned);
 
     this.events.push({
       type: 'find_symbol',
@@ -349,13 +357,13 @@ export class TokenSavingsTracker {
    * @param totalFiles Total files in codebase
    */
   recordSummarizeCodebase(charsReturned: number, totalFiles: number): void {
-    // Estimate: agent would read READMEs, directory listings, ~300 lines total
-    const charsAvoided = Math.max(
-      0,
-      GREP_ESTIMATE.SUMMARIZE_LINES * AVG_CHARS_PER_LINE - charsReturned
-    );
-    // Estimate: agent would explore ~20 files to understand codebase structure
-    const filesAvoided = Math.min(totalFiles, 20);
+    // Estimate files agent would explore to understand codebase structure
+    const filesExplored = Math.max(MIN_FILES_EXPLORED.SUMMARIZE, Math.min(totalFiles, 25));
+    const filesAvoided = filesExplored;
+
+    // Estimate chars that would have been read exploring those files
+    const charsWouldRead = filesExplored * LINES_PER_FILE_EXPLORED * AVG_CHARS_PER_LINE;
+    const charsAvoided = Math.max(0, charsWouldRead - charsReturned);
 
     this.events.push({
       type: 'summarize_codebase',
@@ -374,13 +382,13 @@ export class TokenSavingsTracker {
    * @param clusterCount Number of concept clusters
    */
   recordListConcepts(charsReturned: number, clusterCount: number): void {
-    // Estimate: agent would explore directory structure, read ~200 lines
-    const charsAvoided = Math.max(
-      0,
-      GREP_ESTIMATE.LIST_CONCEPTS_LINES * AVG_CHARS_PER_LINE - charsReturned
-    );
-    // Estimate: agent would explore ~3 files per concept cluster to understand organization
-    const filesAvoided = Math.min(clusterCount * 3, 15);
+    // Estimate files agent would explore to understand codebase organization
+    const filesExplored = Math.max(MIN_FILES_EXPLORED.LIST_CONCEPTS, clusterCount * 2);
+    const filesAvoided = filesExplored;
+
+    // Estimate chars that would have been read
+    const charsWouldRead = filesExplored * LINES_PER_FILE_EXPLORED * AVG_CHARS_PER_LINE;
+    const charsAvoided = Math.max(0, charsWouldRead - charsReturned);
 
     this.events.push({
       type: 'list_concepts',
@@ -399,13 +407,13 @@ export class TokenSavingsTracker {
    * @param matchedChunks Number of chunks in the concept
    */
   recordSearchByConcept(charsReturned: number, matchedChunks: number): void {
-    // Estimate: agent would grep by keywords and read ~120 lines
-    const charsAvoided = Math.max(
-      0,
-      GREP_ESTIMATE.SEARCH_BY_CONCEPT_LINES * AVG_CHARS_PER_LINE - charsReturned
-    );
-    // Estimate: agent would grep and read ~half the matched chunks worth of files
-    const filesAvoided = Math.max(2, Math.floor(matchedChunks / 2));
+    // Estimate files agent would explore to understand concept area
+    const filesExplored = Math.max(MIN_FILES_EXPLORED.SEARCH_BY_CONCEPT, matchedChunks);
+    const filesAvoided = Math.max(0, filesExplored - Math.ceil(matchedChunks / 2));
+
+    // Estimate chars that would have been read
+    const charsWouldRead = filesExplored * LINES_PER_FILE_EXPLORED * AVG_CHARS_PER_LINE;
+    const charsAvoided = Math.max(0, charsWouldRead - charsReturned);
 
     this.events.push({
       type: 'search_by_concept',
