@@ -1,3 +1,10 @@
+## [2.1.1](https://github.com/nicholaspsmith/glancey/compare/v2.1.0...v2.1.1) (2026-02-03)
+
+
+### Bug Fixes
+
+* rename remaining lance-context references to glancey ([#134](https://github.com/nicholaspsmith/glancey/issues/134)) ([093137a](https://github.com/nicholaspsmith/glancey/commit/093137a356f3c7a87a265200fae79d74e17ecf95))
+
 # [2.1.0](https://github.com/nicholaspsmith/glancey/compare/v2.0.0...v2.1.0) (2026-02-02)
 
 
