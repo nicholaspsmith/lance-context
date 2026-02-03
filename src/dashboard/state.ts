@@ -42,7 +42,9 @@ export type CommandName =
   | 'search_by_concept'
   | 'summarize_codebase'
   // Dashboard tools
-  | 'open_dashboard';
+  | 'open_dashboard'
+  // Project setup tools
+  | 'init_project';
 
 /**
  * Command usage statistics
@@ -105,6 +107,8 @@ const COMMAND_LABELS: Record<CommandName, string> = {
   summarize_codebase: 'Summarize Codebase',
   // Dashboard tools
   open_dashboard: 'Open Dashboard',
+  // Project setup tools
+  init_project: 'Init Project',
 };
 
 /** Maximum number of event listeners to prevent memory leaks */

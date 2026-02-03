@@ -125,6 +125,7 @@ import {
 import type { ToolContext } from './tools/types.js';
 import type { ClusteringToolContext } from './tools/clustering-handlers.js';
 import type { SymbolToolContext } from './tools/symbol-handlers.js';
+import { handleInitProject, type InitToolContext } from './tools/init-handlers.js';
 
 /**
  * Check if browser was recently opened (within the last hour)
@@ -235,19 +236,48 @@ const SERVER_INSTRUCTIONS = `# glancey - Semantic Code Search & Codebase Underst
 
 ## Tool Reference
 
-### Semantic Search (glancey exclusive)
+### Codebase Understanding
 | Tool | When to Use |
 |------|-------------|
-| \`search_code\` | Finding code by concept, uncertain of exact names |
-| \`search_similar\` | Finding duplicate/related patterns for refactoring |
 | \`summarize_codebase\` | **First thing** when exploring a new codebase |
-| \`list_concepts\` | Understanding codebase organization and themes |
-| \`search_by_concept\` | Deep-diving into a specific area |
+| \`list_concepts\` | Discover semantic groupings (auth, database, API, etc.) |
+| \`search_by_concept\` | Deep-dive into a specific concept area |
+
+### Semantic Search
+| Tool | When to Use |
+|------|-------------|
+| \`search_code\` | Find code by concept when unsure of exact names |
+| \`search_similar\` | Find duplicate/related patterns for refactoring |
+
+### Symbol Analysis
+| Tool | When to Use |
+|------|-------------|
+| \`get_symbols_overview\` | Understand a file's structure (classes, functions, etc.) |
+| \`find_symbol\` | Find symbols by name pattern (supports globs) |
+| \`find_referencing_symbols\` | Find all references to a symbol |
+| \`search_for_pattern\` | Regex search across codebase |
+
+### Symbol Editing
+| Tool | When to Use |
+|------|-------------|
+| \`replace_symbol_body\` | Rewrite a function/class/method |
+| \`insert_before_symbol\` | Add code before a symbol |
+| \`insert_after_symbol\` | Add code after a symbol |
+| \`rename_symbol\` | Rename symbol and update all references |
+
+### Memory (Persistent Context)
+| Tool | When to Use |
+|------|-------------|
+| \`write_memory\` | Save architectural decisions, patterns, context |
+| \`read_memory\` | Retrieve saved context |
+| \`list_memories\` | See available memory files |
+| \`edit_memory\` | Update existing memory |
+| \`delete_memory\` | Remove outdated memory |
 
 ### Git & Index
 | Tool | When to Use |
 |------|-------------|
-| \`commit\` | **ALWAYS** instead of raw \`git commit\` |
+| \`commit\` | **ALWAYS** use instead of raw \`git commit\` |
 | \`index_codebase\` | After major file changes, or if search seems stale |
 | \`get_index_status\` | Check if reindexing is needed |
 
@@ -258,6 +288,11 @@ const SERVER_INSTRUCTIONS = `# glancey - Semantic Code Search & Codebase Underst
 | \`list_worktrees\` | See active worktrees |
 | \`worktree_status\` | Check a worktree's git state |
 | \`remove_worktree\` | Clean up after parallel work |
+
+### Project Setup
+| Tool | When to Use |
+|------|-------------|
+| \`init_project\` | Set up glancey in a new project (CLAUDE.md + hooks) |
 
 ## CRITICAL: Always Use the \`commit\` Tool
 
@@ -1264,6 +1299,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
         },
       },
+      // --- Project Setup Tools ---
+      {
+        name: 'init_project',
+        description:
+          'Initialize glancey in a project. Creates or updates CLAUDE.md with glancey usage instructions and installs a post-commit hook that warns when commits bypass the glancey commit tool. Run this once when setting up glancey in a new project.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
     ],
   };
 });
@@ -1307,6 +1352,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     'summarize_codebase',
     // Dashboard
     'open_dashboard',
+    // Project setup
+    'init_project',
   ];
   if (validCommands.includes(name as CommandName)) {
     dashboardState.recordCommandUsage(name as CommandName);
@@ -2176,6 +2223,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         } catch (error) {
           throw wrapError('Failed to start dashboard', 'internal', error);
         }
+      }
+
+      case 'init_project': {
+        const context: InitToolContext = {
+          projectPath: PROJECT_PATH,
+        };
+        const result = await handleInitProject(context);
+        return { ...result };
       }
 
       default:
