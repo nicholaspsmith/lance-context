@@ -83,6 +83,20 @@ claude mcp add --scope user --transport stdio glancey -- npx -y glancey@latest
 
 In Claude Code, run `/mcp` to see glancey in the list of MCP servers.
 
+### Initialize Your Project (Recommended)
+
+After installing glancey, run `init_project` in your project to set up agent instructions:
+
+```
+> init_project
+```
+
+This creates:
+- **CLAUDE.md** - Instructions for AI agents on how to use glancey tools
+- **Post-commit hook** - Warns when commits bypass the `commit` tool
+
+The hook is installed in `.husky/` if you use Husky, otherwise in `.git/hooks/`.
+
 ### Project-Level Installation
 
 For project-specific MCP configuration, add a `.mcp.json` to your project root:
