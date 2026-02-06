@@ -67,24 +67,32 @@ describe('beads', () => {
         issueCount: 0,
         openCount: 0,
         readyCount: 0,
-        issues: [],
+        readyIssues: [],
+        openIssues: [],
+        allIssues: [],
       });
     });
 
     it('should return status with issues when beads is available', async () => {
       vi.mocked(access).mockResolvedValue(undefined);
 
-      const mockIssues = [
+      const readyIssues = [
         { id: 'issue-1', title: 'Test Issue 1', status: 'open' },
         { id: 'issue-2', title: 'Test Issue 2', status: 'open' },
+      ];
+      const allIssues = [
+        ...readyIssues,
+        { id: 'issue-3', title: 'Closed Issue', status: 'closed' },
       ];
 
       vi.mocked(exec).mockImplementation((cmd: string, _opts: unknown, callback: unknown) => {
         const cb = callback as (error: Error | null, stdout: string, stderr: string) => void;
         if (cmd.includes('bd ready')) {
-          cb(null, JSON.stringify(mockIssues), '');
+          cb(null, JSON.stringify(readyIssues), '');
+        } else if (cmd.includes('--all')) {
+          cb(null, JSON.stringify(allIssues), '');
         } else if (cmd.includes('bd list')) {
-          cb(null, JSON.stringify(mockIssues), '');
+          cb(null, JSON.stringify(readyIssues), '');
         } else if (cmd.includes('bd info')) {
           cb(null, JSON.stringify({ syncBranch: 'beads', daemonConnected: true }), '');
         } else if (cmd.includes('bd count')) {
@@ -101,7 +109,9 @@ describe('beads', () => {
       expect(status.readyCount).toBe(2);
       expect(status.openCount).toBe(2);
       expect(status.issueCount).toBe(5);
-      expect(status.issues).toHaveLength(2);
+      expect(status.readyIssues).toHaveLength(2);
+      expect(status.openIssues).toHaveLength(2);
+      expect(status.allIssues).toHaveLength(3);
       expect(status.syncBranch).toBe('beads');
       expect(status.daemonRunning).toBe(true);
     });
@@ -118,7 +128,9 @@ describe('beads', () => {
       const status = await getBeadsStatus('/project');
 
       expect(status.available).toBe(true);
-      expect(status.issues).toEqual([]);
+      expect(status.readyIssues).toEqual([]);
+      expect(status.openIssues).toEqual([]);
+      expect(status.allIssues).toEqual([]);
       expect(status.readyCount).toBe(0);
     });
 
@@ -137,28 +149,42 @@ describe('beads', () => {
       expect(status.issueCount).toBe(0);
       expect(status.openCount).toBe(0);
       expect(status.readyCount).toBe(0);
-      expect(status.issues).toEqual([]);
+      expect(status.readyIssues).toEqual([]);
+      expect(status.openIssues).toEqual([]);
+      expect(status.allIssues).toEqual([]);
     });
 
-    it('should return all ready issues for client-side pagination', async () => {
+    it('should return all issues across all three views', async () => {
       vi.mocked(access).mockResolvedValue(undefined);
 
-      const manyIssues = Array.from({ length: 15 }, (_, i) => ({
-        id: `issue-${i}`,
-        title: `Test Issue ${i}`,
+      const readyIssues = Array.from({ length: 5 }, (_, i) => ({
+        id: `ready-${i}`,
+        title: `Ready Issue ${i}`,
         status: 'open',
+      }));
+      const openIssues = Array.from({ length: 15 }, (_, i) => ({
+        id: `open-${i}`,
+        title: `Open Issue ${i}`,
+        status: 'open',
+      }));
+      const allIssues = Array.from({ length: 20 }, (_, i) => ({
+        id: `all-${i}`,
+        title: `Issue ${i}`,
+        status: i < 15 ? 'open' : 'closed',
       }));
 
       vi.mocked(exec).mockImplementation((cmd: string, _opts: unknown, callback: unknown) => {
         const cb = callback as (error: Error | null, stdout: string, stderr: string) => void;
         if (cmd.includes('bd ready')) {
-          cb(null, JSON.stringify(manyIssues), '');
+          cb(null, JSON.stringify(readyIssues), '');
+        } else if (cmd.includes('--all')) {
+          cb(null, JSON.stringify(allIssues), '');
         } else if (cmd.includes('bd list')) {
-          cb(null, JSON.stringify(manyIssues), '');
+          cb(null, JSON.stringify(openIssues), '');
         } else if (cmd.includes('bd info')) {
           cb(null, '{}', '');
         } else if (cmd.includes('bd count')) {
-          cb(null, '15', '');
+          cb(null, '20', '');
         } else {
           cb(null, '', '');
         }
@@ -167,7 +193,9 @@ describe('beads', () => {
 
       const status = await getBeadsStatus('/project');
 
-      expect(status.issues).toHaveLength(15);
+      expect(status.readyIssues).toHaveLength(5);
+      expect(status.openIssues).toHaveLength(15);
+      expect(status.allIssues).toHaveLength(20);
     });
   });
 });
