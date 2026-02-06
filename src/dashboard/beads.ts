@@ -28,7 +28,9 @@ export interface BeadsStatus {
   issueCount: number;
   openCount: number;
   readyCount: number;
-  issues: BeadsIssue[];
+  readyIssues: BeadsIssue[];
+  openIssues: BeadsIssue[];
+  allIssues: BeadsIssue[];
   syncBranch?: string;
   daemonRunning?: boolean;
 }
@@ -58,7 +60,9 @@ export async function getBeadsStatus(projectPath: string): Promise<BeadsStatus> 
       issueCount: 0,
       openCount: 0,
       readyCount: 0,
-      issues: [],
+      readyIssues: [],
+      openIssues: [],
+      allIssues: [],
     };
   }
 
@@ -78,14 +82,34 @@ export async function getBeadsStatus(projectPath: string): Promise<BeadsStatus> 
     }
 
     // Get all open issues
-    const { stdout: listOutput } = await execAsync('bd list --json 2>/dev/null || echo "[]"', {
-      cwd: projectPath,
-      timeout: 5000,
-    });
+    const { stdout: listOutput } = await execAsync(
+      'bd list --limit 0 --json 2>/dev/null || echo "[]"',
+      {
+        cwd: projectPath,
+        timeout: 5000,
+      }
+    );
+
+    let openIssues: BeadsIssue[] = [];
+    try {
+      const parsed = JSON.parse(listOutput.trim() || '[]');
+      openIssues = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      openIssues = [];
+    }
+
+    // Get all issues including closed
+    const { stdout: allOutput } = await execAsync(
+      'bd list --all --limit 0 --json 2>/dev/null || echo "[]"',
+      {
+        cwd: projectPath,
+        timeout: 5000,
+      }
+    );
 
     let allIssues: BeadsIssue[] = [];
     try {
-      const parsed = JSON.parse(listOutput.trim() || '[]');
+      const parsed = JSON.parse(allOutput.trim() || '[]');
       allIssues = Array.isArray(parsed) ? parsed : [];
     } catch {
       allIssues = [];
@@ -117,9 +141,11 @@ export async function getBeadsStatus(projectPath: string): Promise<BeadsStatus> 
     return {
       available: true,
       issueCount: totalCount,
-      openCount: allIssues.length,
+      openCount: openIssues.length,
       readyCount: readyIssues.length,
-      issues: readyIssues,
+      readyIssues,
+      openIssues,
+      allIssues,
       syncBranch,
       daemonRunning,
     };
@@ -130,7 +156,9 @@ export async function getBeadsStatus(projectPath: string): Promise<BeadsStatus> 
       issueCount: 0,
       openCount: 0,
       readyCount: 0,
-      issues: [],
+      readyIssues: [],
+      openIssues: [],
+      allIssues: [],
     };
   }
 }

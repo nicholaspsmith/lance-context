@@ -994,6 +994,48 @@ export function getDashboardHTML(): string {
       color: var(--text-muted);
     }
 
+    .beads-view-toggle {
+      display: flex;
+      gap: 0;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .beads-view-btn {
+      flex: 1;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .beads-view-btn:first-child {
+      border-radius: 4px 0 0 4px;
+    }
+
+    .beads-view-btn:last-child {
+      border-radius: 0 4px 4px 0;
+    }
+
+    .beads-view-btn:not(:first-child) {
+      border-left: none;
+    }
+
+    .beads-view-btn:hover:not(.active) {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+
+    .beads-view-btn.active {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: #fff;
+    }
+
     #beadsToolbar {
       display: flex;
       flex-wrap: wrap;
@@ -1445,8 +1487,13 @@ export function getDashboardHTML(): string {
         <div id="beadsContent" style="display: none;">
           <div class="card">
             <div class="card-header">
-              <span class="card-title">Ready Tasks</span>
+              <span class="card-title" id="beadsCardTitle">Ready Tasks</span>
               <span class="badge" id="readyTasksBadge">0 tasks</span>
+            </div>
+            <div class="beads-view-toggle" id="beadsViewToggle" style="display: none;">
+              <button class="beads-view-btn active" data-view="ready">Ready</button>
+              <button class="beads-view-btn" data-view="open">Open</button>
+              <button class="beads-view-btn" data-view="all">All</button>
             </div>
             <div class="beads-toolbar" id="beadsToolbar" style="display: none;">
               <input type="text" class="form-input" id="beadsSearch" placeholder="Search issues...">
@@ -2529,10 +2576,45 @@ export function getDashboardHTML(): string {
     const beadsPrevPage = document.getElementById('beadsPrevPage');
     const beadsNextPage = document.getElementById('beadsNextPage');
     const beadsPageInfo = document.getElementById('beadsPageInfo');
+    const beadsViewToggle = document.getElementById('beadsViewToggle');
+    const beadsCardTitle = document.getElementById('beadsCardTitle');
 
+    var beadsData = { readyIssues: [], openIssues: [], allIssues: [] };
+    var beadsCurrentView = 'ready';
     var allBeadsIssues = [];
     var beadsCurrentPage = 1;
     var BEADS_PAGE_SIZE = 20;
+
+    function getBeadsViewIssues() {
+      if (beadsCurrentView === 'open') return beadsData.openIssues;
+      if (beadsCurrentView === 'all') return beadsData.allIssues;
+      return beadsData.readyIssues;
+    }
+
+    function updateBeadsView() {
+      allBeadsIssues = getBeadsViewIssues();
+      beadsCurrentPage = 1;
+
+      var titles = { ready: 'Ready Tasks', open: 'Open Tasks', all: 'All Tasks' };
+      beadsCardTitle.textContent = titles[beadsCurrentView] || 'Ready Tasks';
+
+      var counts = {
+        ready: beadsData.readyIssues.length,
+        open: beadsData.openIssues.length,
+        all: beadsData.allIssues.length,
+      };
+      var count = counts[beadsCurrentView] || 0;
+      readyTasksBadge.textContent = count + ' task' + (count !== 1 ? 's' : '');
+
+      beadsToolbar.style.display = allBeadsIssues.length > 0 ? 'flex' : 'none';
+
+      var btns = beadsViewToggle.querySelectorAll('.beads-view-btn');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.toggle('active', btns[i].getAttribute('data-view') === beadsCurrentView);
+      }
+
+      renderBeadsPage();
+    }
 
     function getFilteredBeadsIssues() {
       var filtered = allBeadsIssues;
@@ -2643,7 +2725,12 @@ export function getDashboardHTML(): string {
       } else if (isFiltered) {
         beadsIssuesList.innerHTML = '<div class="beads-empty">No issues match the current filters</div>';
       } else {
-        beadsIssuesList.innerHTML = '<div class="beads-empty">No ready tasks</div>';
+        var emptyLabels = { ready: 'No ready tasks', open: 'No open tasks', all: 'No tasks' };
+        var emptyDiv = document.createElement('div');
+        emptyDiv.className = 'beads-empty';
+        emptyDiv.textContent = emptyLabels[beadsCurrentView] || 'No ready tasks';
+        beadsIssuesList.innerHTML = '';
+        beadsIssuesList.appendChild(emptyDiv);
       }
 
       // Pagination controls
@@ -2669,6 +2756,7 @@ export function getDashboardHTML(): string {
         beadsHeaderStats.style.display = 'none';
         beadsBadgeEl.style.display = 'none';
         beadsToolbar.style.display = 'none';
+        beadsViewToggle.style.display = 'none';
         return;
       }
 
@@ -2690,11 +2778,24 @@ export function getDashboardHTML(): string {
         beadsDaemonText.textContent = 'Daemon not running';
       }
 
-      // Store all issues and render
-      allBeadsIssues = data.issues || [];
-      beadsToolbar.style.display = allBeadsIssues.length > 0 ? 'flex' : 'none';
-      beadsCurrentPage = 1;
-      renderBeadsPage();
+      // Store all issue lists and render current view
+      beadsData = {
+        readyIssues: data.readyIssues || [],
+        openIssues: data.openIssues || [],
+        allIssues: data.allIssues || [],
+      };
+      var hasAnyIssues = beadsData.readyIssues.length > 0 || beadsData.openIssues.length > 0 || beadsData.allIssues.length > 0;
+      beadsViewToggle.style.display = hasAnyIssues ? 'flex' : 'none';
+      updateBeadsView();
+    }
+
+    // Beads view toggle listeners
+    var viewBtns = beadsViewToggle.querySelectorAll('.beads-view-btn');
+    for (var vi = 0; vi < viewBtns.length; vi++) {
+      viewBtns[vi].addEventListener('click', function() {
+        beadsCurrentView = this.getAttribute('data-view') || 'ready';
+        updateBeadsView();
+      });
     }
 
     // Beads event listeners
