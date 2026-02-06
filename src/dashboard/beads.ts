@@ -119,7 +119,7 @@ export async function getBeadsStatus(projectPath: string): Promise<BeadsStatus> 
       issueCount: totalCount,
       openCount: allIssues.length,
       readyCount: readyIssues.length,
-      issues: readyIssues.slice(0, 10), // Limit to 10 for display
+      issues: readyIssues,
       syncBranch,
       daemonRunning,
     };

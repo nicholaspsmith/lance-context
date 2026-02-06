@@ -140,7 +140,7 @@ describe('beads', () => {
       expect(status.issues).toEqual([]);
     });
 
-    it('should limit issues to 10 for display', async () => {
+    it('should return all ready issues for client-side pagination', async () => {
       vi.mocked(access).mockResolvedValue(undefined);
 
       const manyIssues = Array.from({ length: 15 }, (_, i) => ({
@@ -167,7 +167,7 @@ describe('beads', () => {
 
       const status = await getBeadsStatus('/project');
 
-      expect(status.issues).toHaveLength(10);
+      expect(status.issues).toHaveLength(15);
     });
   });
 });

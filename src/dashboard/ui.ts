@@ -994,6 +994,72 @@ export function getDashboardHTML(): string {
       color: var(--text-muted);
     }
 
+    #beadsToolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--border-color);
+      align-items: center;
+      box-sizing: border-box;
+    }
+
+    #beadsToolbar #beadsSearch {
+      width: 100%;
+      padding: 4px 8px;
+      font-size: 12px;
+      border-radius: 3px;
+      box-sizing: border-box;
+    }
+
+    #beadsToolbar select {
+      width: calc(50% - 3px);
+      padding: 4px 8px;
+      font-size: 12px;
+      border-radius: 3px;
+      box-sizing: border-box;
+    }
+
+    .beads-filter-count {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .beads-pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .beads-pagination button {
+      padding: 4px 12px;
+      font-size: 13px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .beads-pagination button:hover:not(:disabled) {
+      background: var(--bg-secondary);
+    }
+
+    .beads-pagination button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    .beads-pagination .beads-page-info {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
     /* Tab navigation */
     .tab-container {
       margin-bottom: 24px;
@@ -1382,8 +1448,30 @@ export function getDashboardHTML(): string {
               <span class="card-title">Ready Tasks</span>
               <span class="badge" id="readyTasksBadge">0 tasks</span>
             </div>
+            <div class="beads-toolbar" id="beadsToolbar" style="display: none;">
+              <input type="text" class="form-input" id="beadsSearch" placeholder="Search issues...">
+              <select class="form-select" id="beadsPriorityFilter">
+                <option value="">All priorities</option>
+                <option value="1">P1</option>
+                <option value="2">P2</option>
+                <option value="3">P3</option>
+                <option value="none">No priority</option>
+              </select>
+              <select class="form-select" id="beadsSortOrder">
+                <option value="priority-desc">Priority: High to Low</option>
+                <option value="priority-asc">Priority: Low to High</option>
+                <option value="alpha-asc">Title: A\u2013Z</option>
+                <option value="alpha-desc">Title: Z\u2013A</option>
+              </select>
+              <span class="beads-filter-count" id="beadsFilterCount"></span>
+            </div>
             <div class="beads-issues" id="beadsIssuesList">
               <div class="beads-empty">No ready tasks</div>
+            </div>
+            <div class="beads-pagination" id="beadsPagination" style="display: none;">
+              <button id="beadsPrevPage">Previous</button>
+              <span class="beads-page-info" id="beadsPageInfo">Page 1 of 1</span>
+              <button id="beadsNextPage">Next</button>
             </div>
           </div>
         </div>
@@ -2432,6 +2520,142 @@ export function getDashboardHTML(): string {
     const beadsDaemonText = document.getElementById('beadsDaemonText');
     const beadsIssuesList = document.getElementById('beadsIssuesList');
     const readyTasksBadge = document.getElementById('readyTasksBadge');
+    const beadsToolbar = document.getElementById('beadsToolbar');
+    const beadsSearch = document.getElementById('beadsSearch');
+    const beadsPriorityFilter = document.getElementById('beadsPriorityFilter');
+    const beadsFilterCount = document.getElementById('beadsFilterCount');
+    const beadsSortOrder = document.getElementById('beadsSortOrder');
+    const beadsPagination = document.getElementById('beadsPagination');
+    const beadsPrevPage = document.getElementById('beadsPrevPage');
+    const beadsNextPage = document.getElementById('beadsNextPage');
+    const beadsPageInfo = document.getElementById('beadsPageInfo');
+
+    var allBeadsIssues = [];
+    var beadsCurrentPage = 1;
+    var BEADS_PAGE_SIZE = 20;
+
+    function getFilteredBeadsIssues() {
+      var filtered = allBeadsIssues;
+      var searchTerm = (beadsSearch.value || '').toLowerCase().trim();
+      var priorityVal = beadsPriorityFilter.value;
+
+      if (searchTerm) {
+        filtered = filtered.filter(function(issue) {
+          return (issue.title && issue.title.toLowerCase().indexOf(searchTerm) !== -1) ||
+                 (issue.description && issue.description.toLowerCase().indexOf(searchTerm) !== -1) ||
+                 (issue.id && issue.id.toLowerCase().indexOf(searchTerm) !== -1);
+        });
+      }
+
+      if (priorityVal === 'none') {
+        filtered = filtered.filter(function(issue) {
+          return !issue.priority;
+        });
+      } else if (priorityVal) {
+        var pNum = parseInt(priorityVal, 10);
+        filtered = filtered.filter(function(issue) {
+          return issue.priority === pNum;
+        });
+      }
+
+      // Sort
+      var sortVal = beadsSortOrder.value;
+      filtered = filtered.slice().sort(function(a, b) {
+        if (sortVal === 'priority-desc') {
+          var pa = a.priority || 999;
+          var pb = b.priority || 999;
+          return pa - pb;
+        } else if (sortVal === 'priority-asc') {
+          var pa = a.priority || 999;
+          var pb = b.priority || 999;
+          return pb - pa;
+        } else if (sortVal === 'alpha-asc') {
+          return (a.title || '').localeCompare(b.title || '');
+        } else if (sortVal === 'alpha-desc') {
+          return (b.title || '').localeCompare(a.title || '');
+        }
+        return 0;
+      });
+
+      return filtered;
+    }
+
+    function buildIssueHtml(issue) {
+      var hasDescription = issue.description && issue.description.trim();
+      var html = '<div class="beads-issue" onclick="toggleBeadsIssue(this)">';
+      html += '<span class="beads-issue-id">' + escapeHtml(issue.id) + '</span>';
+      html += '<div class="beads-issue-content">';
+      html += '<div class="beads-issue-title">';
+      html += '<svg class="beads-issue-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
+      html += '<span>' + escapeHtml(issue.title) + '</span>';
+      html += '</div>';
+      html += '<div class="beads-issue-meta">';
+      if (issue.issue_type) {
+        html += '<span class="beads-issue-type">' + escapeHtml(issue.issue_type) + '</span>';
+      }
+      if (issue.priority) {
+        html += '<span class="beads-issue-priority">';
+        html += '<span class="priority-dot priority-' + issue.priority + '"></span>';
+        html += 'P' + issue.priority;
+        html += '</span>';
+      }
+      html += '</div>';
+      if (hasDescription) {
+        html += '<div class="beads-issue-description">' + escapeHtml(issue.description) + '</div>';
+      } else {
+        html += '<div class="beads-issue-description beads-issue-no-description">No description available</div>';
+      }
+      html += '</div>';
+      html += '</div>';
+      return html;
+    }
+
+    function renderBeadsPage() {
+      var filtered = getFilteredBeadsIssues();
+      var totalPages = Math.max(1, Math.ceil(filtered.length / BEADS_PAGE_SIZE));
+
+      if (beadsCurrentPage > totalPages) {
+        beadsCurrentPage = totalPages;
+      }
+
+      var start = (beadsCurrentPage - 1) * BEADS_PAGE_SIZE;
+      var pageIssues = filtered.slice(start, start + BEADS_PAGE_SIZE);
+
+      // Update filter count
+      var isFiltered = beadsSearch.value.trim() || beadsPriorityFilter.value;
+      if (filtered.length === 0 && isFiltered) {
+        beadsFilterCount.textContent = 'No matches (filtered from ' + allBeadsIssues.length + ')';
+      } else if (isFiltered) {
+        beadsFilterCount.textContent = 'Showing ' + (start + 1) + '\\u2013' + (start + pageIssues.length) + ' of ' + filtered.length + ' (filtered from ' + allBeadsIssues.length + ')';
+      } else if (filtered.length > 0) {
+        beadsFilterCount.textContent = 'Showing ' + (start + 1) + '\\u2013' + (start + pageIssues.length) + ' of ' + filtered.length;
+      } else {
+        beadsFilterCount.textContent = '';
+      }
+
+      // Render issues
+      if (pageIssues.length > 0) {
+        var html = '';
+        for (var i = 0; i < pageIssues.length; i++) {
+          html += buildIssueHtml(pageIssues[i]);
+        }
+        beadsIssuesList.innerHTML = html;
+      } else if (isFiltered) {
+        beadsIssuesList.innerHTML = '<div class="beads-empty">No issues match the current filters</div>';
+      } else {
+        beadsIssuesList.innerHTML = '<div class="beads-empty">No ready tasks</div>';
+      }
+
+      // Pagination controls
+      if (totalPages > 1) {
+        beadsPagination.style.display = 'flex';
+        beadsPageInfo.textContent = 'Page ' + beadsCurrentPage + ' of ' + totalPages;
+        beadsPrevPage.disabled = beadsCurrentPage <= 1;
+        beadsNextPage.disabled = beadsCurrentPage >= totalPages;
+      } else {
+        beadsPagination.style.display = 'none';
+      }
+    }
 
     function updateBeads(data) {
       const beadsUnavailable = document.getElementById('beadsUnavailable');
@@ -2444,6 +2668,7 @@ export function getDashboardHTML(): string {
         beadsContent.style.display = 'none';
         beadsHeaderStats.style.display = 'none';
         beadsBadgeEl.style.display = 'none';
+        beadsToolbar.style.display = 'none';
         return;
       }
 
@@ -2465,42 +2690,50 @@ export function getDashboardHTML(): string {
         beadsDaemonText.textContent = 'Daemon not running';
       }
 
-      // Issues list
-      if (data.issues && data.issues.length > 0) {
-        let html = '';
-        for (const issue of data.issues) {
-          const hasDescription = issue.description && issue.description.trim();
-          html += '<div class="beads-issue" onclick="toggleBeadsIssue(this)">';
-          html += '<span class="beads-issue-id">' + escapeHtml(issue.id) + '</span>';
-          html += '<div class="beads-issue-content">';
-          html += '<div class="beads-issue-title">';
-          html += '<svg class="beads-issue-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
-          html += '<span>' + escapeHtml(issue.title) + '</span>';
-          html += '</div>';
-          html += '<div class="beads-issue-meta">';
-          if (issue.issue_type) {
-            html += '<span class="beads-issue-type">' + escapeHtml(issue.issue_type) + '</span>';
-          }
-          if (issue.priority) {
-            html += '<span class="beads-issue-priority">';
-            html += '<span class="priority-dot priority-' + issue.priority + '"></span>';
-            html += 'P' + issue.priority;
-            html += '</span>';
-          }
-          html += '</div>';
-          if (hasDescription) {
-            html += '<div class="beads-issue-description">' + escapeHtml(issue.description) + '</div>';
-          } else {
-            html += '<div class="beads-issue-description beads-issue-no-description">No description available</div>';
-          }
-          html += '</div>';
-          html += '</div>';
-        }
-        beadsIssuesList.innerHTML = html;
-      } else {
-        beadsIssuesList.innerHTML = '<div class="beads-empty">No ready tasks</div>';
-      }
+      // Store all issues and render
+      allBeadsIssues = data.issues || [];
+      beadsToolbar.style.display = allBeadsIssues.length > 0 ? 'flex' : 'none';
+      beadsCurrentPage = 1;
+      renderBeadsPage();
     }
+
+    // Beads event listeners
+    var beadsSearchTimeout = null;
+    beadsSearch.addEventListener('input', function() {
+      clearTimeout(beadsSearchTimeout);
+      beadsSearchTimeout = setTimeout(function() {
+        beadsCurrentPage = 1;
+        renderBeadsPage();
+      }, 250);
+    });
+
+    beadsPriorityFilter.addEventListener('change', function() {
+      beadsCurrentPage = 1;
+      renderBeadsPage();
+    });
+
+    beadsSortOrder.addEventListener('change', function() {
+      beadsCurrentPage = 1;
+      renderBeadsPage();
+    });
+
+    beadsPrevPage.addEventListener('click', function() {
+      if (beadsCurrentPage > 1) {
+        beadsCurrentPage--;
+        renderBeadsPage();
+        beadsIssuesList.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+
+    beadsNextPage.addEventListener('click', function() {
+      var filtered = getFilteredBeadsIssues();
+      var totalPages = Math.ceil(filtered.length / BEADS_PAGE_SIZE);
+      if (beadsCurrentPage < totalPages) {
+        beadsCurrentPage++;
+        renderBeadsPage();
+        beadsIssuesList.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
 
     // Toggle beads issue expansion
     function toggleBeadsIssue(element) {
