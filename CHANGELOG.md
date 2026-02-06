@@ -1,3 +1,10 @@
+## [2.4.1](https://github.com/nicholaspsmith/glancey/compare/v2.4.0...v2.4.1) (2026-02-06)
+
+
+### Bug Fixes
+
+* beads toolbar padding and page size ([#142](https://github.com/nicholaspsmith/glancey/issues/142)) ([04e5e7d](https://github.com/nicholaspsmith/glancey/commit/04e5e7d3132c829948537f7d5205f621c4144665))
+
 # [2.4.0](https://github.com/nicholaspsmith/glancey/compare/v2.3.0...v2.4.0) (2026-02-06)
 
 
