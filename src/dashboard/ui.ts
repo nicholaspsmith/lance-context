@@ -2393,12 +2393,11 @@ export function getDashboardHTML(): string {
 
     // Update config display
     function updateConfig(config) {
-      // Update project name in header
-      if (config.projectName) {
-        projectNameHeader.textContent = config.projectName;
-      } else if (config.projectPath) {
-        // Fallback to extracting from path if projectName not provided
-        projectNameHeader.textContent = config.projectPath.split('/').pop() || config.projectPath;
+      // Update project name in header and page title
+      var name = config.projectName || (config.projectPath ? config.projectPath.split('/').pop() : null);
+      if (name) {
+        projectNameHeader.textContent = name;
+        document.title = name;
       }
 
       // Update Settings tab pattern chips
