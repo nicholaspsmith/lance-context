@@ -427,9 +427,49 @@ export class TokenSavingsTracker {
   }
 
   /**
-   * Get aggregated statistics
+   * Load token savings events from all agent worktree directories.
    */
-  getStats(): TokenSavingsStats {
+  private loadWorktreeEvents(): TokenSavingsEvent[] {
+    if (!this.projectPath) return [];
+
+    const worktreesDir = path.join(this.projectPath, '.git', 'agent-worktrees');
+    if (!fs.existsSync(worktreesDir)) return [];
+
+    const allEvents: TokenSavingsEvent[] = [];
+    try {
+      const entries = fs.readdirSync(worktreesDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const tokenPath = path.join(worktreesDir, entry.name, '.glancey', 'token-savings.json');
+        try {
+          if (fs.existsSync(tokenPath)) {
+            const data = JSON.parse(fs.readFileSync(tokenPath, 'utf-8'));
+            if (Array.isArray(data.events)) {
+              for (const event of data.events) {
+                if (isValidEvent(event)) {
+                  allEvents.push(event);
+                }
+              }
+            }
+          }
+        } catch {
+          // Skip unreadable worktree token files
+        }
+      }
+    } catch {
+      // Ignore errors scanning worktrees directory
+    }
+
+    return allEvents;
+  }
+
+  /**
+   * Compute stats from a list of events.
+   */
+  private static computeStats(
+    events: TokenSavingsEvent[],
+    sessionStart: number
+  ): TokenSavingsStats {
     const byType: TokenSavingsStats['byType'] = {
       search_code: { count: 0, tokensSaved: 0, charsReturned: 0, charsAvoided: 0 },
       search_similar: { count: 0, tokensSaved: 0, charsReturned: 0, charsAvoided: 0 },
@@ -444,7 +484,7 @@ export class TokenSavingsTracker {
     let totalCharsAvoided = 0;
     let totalFilesAvoided = 0;
 
-    for (const event of this.events) {
+    for (const event of events) {
       totalCharsReturned += event.charsReturned;
       totalCharsAvoided += event.charsAvoided;
       totalFilesAvoided += event.filesAvoided;
@@ -466,11 +506,36 @@ export class TokenSavingsTracker {
       charsReturned: totalCharsReturned,
       charsAvoided: totalCharsAvoided,
       filesAvoided: totalFilesAvoided,
-      operationCount: this.events.length,
+      operationCount: events.length,
       byType,
       efficiencyPercent,
-      sessionStart: this.sessionStart,
+      sessionStart,
     };
+  }
+
+  /**
+   * Get aggregated statistics (main project + agent worktrees combined)
+   */
+  getStatsWithWorktrees(): {
+    main: TokenSavingsStats;
+    agents: TokenSavingsStats;
+    total: TokenSavingsStats;
+  } {
+    const worktreeEvents = this.loadWorktreeEvents();
+    const allEvents = [...this.events, ...worktreeEvents];
+
+    return {
+      main: TokenSavingsTracker.computeStats(this.events, this.sessionStart),
+      agents: TokenSavingsTracker.computeStats(worktreeEvents, this.sessionStart),
+      total: TokenSavingsTracker.computeStats(allEvents, this.sessionStart),
+    };
+  }
+
+  /**
+   * Get aggregated statistics (main project only, excludes worktrees)
+   */
+  getStats(): TokenSavingsStats {
+    return TokenSavingsTracker.computeStats(this.events, this.sessionStart);
   }
 
   /**

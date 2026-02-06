@@ -114,6 +114,9 @@ const COMMAND_LABELS: Record<CommandName, string> = {
 /** Maximum number of event listeners to prevent memory leaks */
 const MAX_LISTENERS = 20;
 
+/** Directory name where agent worktrees are stored */
+const AGENT_WORKTREES_DIR = 'agent-worktrees';
+
 export class DashboardStateManager extends EventEmitter {
   private indexer: CodeIndexer | null = null;
   private config: GlanceyConfig | null = null;
@@ -176,6 +179,43 @@ export class DashboardStateManager extends EventEmitter {
     } catch {
       // Ignore errors
     }
+  }
+
+  /**
+   * Scan agent worktree directories for their usage.json files
+   * and return aggregated counts.
+   */
+  private loadWorktreeUsage(): Map<CommandName, number> {
+    const aggregated = new Map<CommandName, number>();
+    if (!this.projectPath) return aggregated;
+
+    const worktreesDir = path.join(this.projectPath, '.git', AGENT_WORKTREES_DIR);
+    if (!fs.existsSync(worktreesDir)) return aggregated;
+
+    try {
+      const entries = fs.readdirSync(worktreesDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const usagePath = path.join(worktreesDir, entry.name, '.glancey', 'usage.json');
+        try {
+          if (fs.existsSync(usagePath)) {
+            const data = JSON.parse(fs.readFileSync(usagePath, 'utf-8'));
+            for (const [cmd, count] of Object.entries(data)) {
+              if (typeof count === 'number') {
+                const current = aggregated.get(cmd as CommandName) || 0;
+                aggregated.set(cmd as CommandName, current + count);
+              }
+            }
+          }
+        } catch {
+          // Skip unreadable worktree usage files
+        }
+      }
+    } catch {
+      // Ignore errors scanning worktrees directory
+    }
+
+    return aggregated;
   }
 
   /**
@@ -376,13 +416,10 @@ export class DashboardStateManager extends EventEmitter {
   }
 
   /**
-   * Get command usage statistics
+   * Get the full list of tracked command names
    */
-  getCommandUsage(): CommandUsage[] {
-    // Reload from disk to get latest counts (in case another process updated)
-    this.loadUsageFromDisk();
-
-    const allCommands: CommandName[] = [
+  private getAllCommandNames(): CommandName[] {
+    return [
       'search_code',
       'search_similar',
       'index_codebase',
@@ -417,30 +454,80 @@ export class DashboardStateManager extends EventEmitter {
       // Dashboard
       'open_dashboard',
     ];
+  }
 
-    return allCommands.map((command) => ({
+  /**
+   * Get command usage statistics (main project + agent worktrees combined)
+   */
+  getCommandUsage(): CommandUsage[] {
+    // Reload from disk to get latest counts (in case another process updated)
+    this.loadUsageFromDisk();
+    const worktreeUsage = this.loadWorktreeUsage();
+
+    return this.getAllCommandNames().map((command) => ({
       command,
-      count: this.commandUsage.get(command) || 0,
+      count: (this.commandUsage.get(command) || 0) + (worktreeUsage.get(command) || 0),
       label: COMMAND_LABELS[command],
     }));
   }
 
   /**
-   * Get total command count for percentage calculations
+   * Get usage breakdown: main project vs agent worktrees.
+   * Useful for dashboard to show where usage is coming from.
+   */
+  getUsageBreakdown(): { main: CommandUsage[]; agents: CommandUsage[]; total: CommandUsage[] } {
+    this.loadUsageFromDisk();
+    const worktreeUsage = this.loadWorktreeUsage();
+    const allCommands = this.getAllCommandNames();
+
+    return {
+      main: allCommands.map((command) => ({
+        command,
+        count: this.commandUsage.get(command) || 0,
+        label: COMMAND_LABELS[command],
+      })),
+      agents: allCommands.map((command) => ({
+        command,
+        count: worktreeUsage.get(command) || 0,
+        label: COMMAND_LABELS[command],
+      })),
+      total: allCommands.map((command) => ({
+        command,
+        count: (this.commandUsage.get(command) || 0) + (worktreeUsage.get(command) || 0),
+        label: COMMAND_LABELS[command],
+      })),
+    };
+  }
+
+  /**
+   * Get total command count for percentage calculations (includes agent worktrees)
    */
   getTotalCommandCount(): number {
+    this.loadUsageFromDisk();
+    const worktreeUsage = this.loadWorktreeUsage();
+
     let total = 0;
     for (const count of this.commandUsage.values()) {
+      total += count;
+    }
+    for (const count of worktreeUsage.values()) {
       total += count;
     }
     return total;
   }
 
   /**
-   * Get token savings statistics
+   * Get token savings statistics (main project only)
    */
   getTokenSavings(): TokenSavingsStats {
     return tokenTracker.getStats();
+  }
+
+  /**
+   * Get token savings with worktree breakdown
+   */
+  getTokenSavingsWithWorktrees() {
+    return tokenTracker.getStatsWithWorktrees();
   }
 
   /**

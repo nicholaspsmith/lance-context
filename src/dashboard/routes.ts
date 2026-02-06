@@ -133,12 +133,13 @@ function handleHeartbeat(_req: IncomingMessage, res: ServerResponse): void {
 }
 
 /**
- * Handle GET /api/usage - Command usage statistics
+ * Handle GET /api/usage - Command usage statistics (includes agent worktree data)
  */
 function handleUsage(_req: IncomingMessage, res: ServerResponse): void {
   const usage = dashboardState.getCommandUsage();
   const total = dashboardState.getTotalCommandCount();
-  sendJSON(res, { usage, total });
+  const breakdown = dashboardState.getUsageBreakdown();
+  sendJSON(res, { usage, total, breakdown });
 }
 
 /**
@@ -335,11 +336,11 @@ async function handleSaveDashboardSettings(
 }
 
 /**
- * Handle GET /api/token-savings - Get token savings statistics
+ * Handle GET /api/token-savings - Get token savings statistics (includes agent worktree data)
  */
 function handleTokenSavings(_req: IncomingMessage, res: ServerResponse): void {
-  const stats = dashboardState.getTokenSavings();
-  sendJSON(res, stats);
+  const breakdown = dashboardState.getTokenSavingsWithWorktrees();
+  sendJSON(res, { ...breakdown.total, breakdown });
 }
 
 /**
