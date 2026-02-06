@@ -159,6 +159,34 @@ Run the \`init_project\` tool now to set up glancey in this project. This will:
 `;
 
 /**
+ * Template for .claude/commands/agents.md slash command
+ * Note: This is a condensed version. The full prompt lives in .claude/commands/agents.md
+ */
+const AGENTS_SLASH_COMMAND = `---
+name: agents
+description: Launch parallel Claude Code agents on beads tasks in git worktrees
+allowed-tools: Bash, Task, Read, Write, Glob, Grep, Edit, WebFetch, AskUserQuestion, ToolSearch
+---
+
+# /agents — Parallel Agent Orchestrator
+
+You are the orchestrator. Launch 1-10 parallel Claude Code agents, each working autonomously on a beads task in its own git worktree.
+
+**Arguments:** \\\`$ARGUMENTS\\\`
+
+## Phases
+
+1. **Parse & Fetch** — Parse flags (\\\`--auto-merge\\\`, \\\`--count N\\\`, \\\`--model MODEL\\\`, \\\`--budget N\\\`) and run \\\`bd ready --json\\\`
+2. **Select** — Present numbered task list, user picks tasks
+3. **Setup** — Create worktrees via glancey \\\`create_worktree\\\`, claim tasks via \\\`bd update {id} --claim\\\`
+4. **Spawn** — Write agent prompt + MCP config to /tmp, launch \\\`claude -p\\\` per worktree
+5. **Monitor** — Poll PIDs every 30s, tail logs, report status
+6. **Report** — Summary table with PR links, suggest worktree cleanup
+
+Each agent follows: Understand → Implement → Quality Gates → Commit → Self-Review → File Follow-ups → Push & PR → Monitor CI → Finalize.
+`;
+
+/**
  * Post-commit hook script content
  */
 const POST_COMMIT_HOOK = `#!/usr/bin/env sh
@@ -311,6 +339,7 @@ const SLASH_COMMANDS: { filename: string; content: string }[] = [
   { filename: 'glancey.md', content: GLANCEY_SLASH_COMMAND },
   { filename: 'dashboard.md', content: DASHBOARD_SLASH_COMMAND },
   { filename: 'init-project.md', content: INIT_PROJECT_SLASH_COMMAND },
+  { filename: 'agents.md', content: AGENTS_SLASH_COMMAND },
 ];
 
 /**
