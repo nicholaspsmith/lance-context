@@ -30,6 +30,7 @@ coverage/
 # Claude Code auto-generated context
 **/CLAUDE.md
 .claude/plugins/
+.mcp.json
 
 # Serena MCP
 .serena/
