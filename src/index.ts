@@ -1303,7 +1303,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: 'init_project',
         description:
-          'Initialize glancey in a project. Creates or updates CLAUDE.md with glancey usage instructions and installs a post-commit hook that warns when commits bypass the glancey commit tool. Run this once when setting up glancey in a new project.',
+          'Initialize glancey in a project. Creates or updates CLAUDE.md with glancey usage instructions, installs a post-commit hook that warns when commits bypass the glancey commit tool, and adds a /glancey slash command for quick reminders. Run this once when setting up glancey in a new project.',
         inputSchema: {
           type: 'object',
           properties: {},

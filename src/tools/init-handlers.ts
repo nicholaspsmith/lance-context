@@ -92,6 +92,45 @@ This project uses **glancey** MCP for semantic code search and codebase understa
 `;
 
 /**
+ * Template for .claude/commands/glancey.md slash command
+ */
+const GLANCEY_SLASH_COMMAND = `---
+name: glancey
+description: Remind yourself to use glancey's semantic code tools instead of grep/find/manual exploration
+---
+
+# Use Glancey
+
+You have **glancey** MCP tools available. Stop and switch to them now.
+
+## Instead of grep/ripgrep/find, use:
+
+| Instead of... | Use this glancey tool |
+|---|---|
+| \`grep\`/\`rg\` for searching code | **\`search_code\`** - natural language semantic search |
+| \`find\`/\`fd\`/\`glob\` for finding files | **\`search_code\`** or **\`find_symbol\`** |
+| Reading many files to understand code | **\`summarize_codebase\`** + **\`list_concepts\`** |
+| Searching for a function/class name | **\`find_symbol\`** (supports glob patterns) |
+| Checking who calls a function | **\`find_referencing_symbols\`** |
+| Regex search across files | **\`search_for_pattern\`** |
+| Writing code that might already exist | **\`search_similar\`** first |
+| Raw \`git commit\` | **\`commit\`** tool (validates branch, message format) |
+
+## Quick reference
+
+- **Explore unfamiliar code**: \`summarize_codebase\` → \`list_concepts\` → \`search_by_concept\`
+- **Find code by concept**: \`search_code("how does auth work")\`
+- **Find similar patterns**: \`search_similar(code="snippet")\` or \`search_similar(filepath="file.ts", startLine=10, endLine=25)\`
+- **Understand a file**: \`get_symbols_overview(filepath="file.ts")\`
+- **Edit symbols**: \`replace_symbol_body\`, \`insert_before_symbol\`, \`insert_after_symbol\`, \`rename_symbol\`
+- **Save context for later**: \`write_memory\` / \`read_memory\`
+
+## Check index health
+
+If results seem stale, run \`get_index_status\` and \`index_codebase\` if needed.
+`;
+
+/**
  * Post-commit hook script content
  */
 const POST_COMMIT_HOOK = `#!/usr/bin/env sh
@@ -136,6 +175,8 @@ interface InitResult {
   hookInstalled: boolean;
   hookSkipped: boolean;
   hookSkipReason?: string;
+  skillInstalled: boolean;
+  skillSkipped: boolean;
   messages: string[];
 }
 
@@ -236,6 +277,27 @@ function installPostCommitHook(projectPath: string): {
 }
 
 /**
+ * Install the /glancey slash command into .claude/commands/
+ */
+function installSlashCommand(projectPath: string): { installed: boolean; skipped: boolean } {
+  const commandsDir = path.join(projectPath, '.claude', 'commands');
+  const skillPath = path.join(commandsDir, 'glancey.md');
+
+  // Check if it already exists
+  if (fs.existsSync(skillPath)) {
+    return { installed: false, skipped: true };
+  }
+
+  // Ensure .claude/commands/ directory exists
+  if (!fs.existsSync(commandsDir)) {
+    fs.mkdirSync(commandsDir, { recursive: true });
+  }
+
+  fs.writeFileSync(skillPath, GLANCEY_SLASH_COMMAND);
+  return { installed: true, skipped: false };
+}
+
+/**
  * Handle init_project tool.
  */
 export async function handleInitProject(context: InitToolContext): Promise<ToolResponse> {
@@ -244,6 +306,8 @@ export async function handleInitProject(context: InitToolContext): Promise<ToolR
     claudeMdCreated: false,
     hookInstalled: false,
     hookSkipped: false,
+    skillInstalled: false,
+    skillSkipped: false,
     messages: [],
   };
 
@@ -283,6 +347,21 @@ export async function handleInitProject(context: InitToolContext): Promise<ToolR
     result.messages.push(`✗ Failed to install hook: ${error}`);
   }
 
+  // Install /glancey slash command
+  try {
+    const skillResult = installSlashCommand(context.projectPath);
+    result.skillInstalled = skillResult.installed;
+    result.skillSkipped = skillResult.skipped;
+
+    if (skillResult.installed) {
+      result.messages.push('✓ Installed /glancey slash command at .claude/commands/glancey.md');
+    } else if (skillResult.skipped) {
+      result.messages.push('• /glancey slash command already installed');
+    }
+  } catch (error) {
+    result.messages.push(`✗ Failed to install slash command: ${error}`);
+  }
+
   // Build response
   const summary = result.messages.join('\n');
   const nextSteps: string[] = [];
@@ -290,6 +369,10 @@ export async function handleInitProject(context: InitToolContext): Promise<ToolR
   if (result.claudeMdCreated || result.claudeMdUpdated) {
     nextSteps.push('- Review and customize CLAUDE.md as needed');
     nextSteps.push('- Commit the CLAUDE.md changes');
+  }
+
+  if (result.skillInstalled) {
+    nextSteps.push('- Commit .claude/commands/glancey.md so team members get the /glancey command');
   }
 
   if (result.hookInstalled && !usesHusky(context.projectPath)) {
@@ -308,6 +391,7 @@ ${nextSteps.length > 0 ? '## Next Steps\n\n' + nextSteps.join('\n') : ''}
 
 1. **CLAUDE.md** - Added comprehensive instructions for agents to use glancey tools
 2. **Post-commit hook** - Warns when commits bypass the glancey commit tool
+3. **/glancey command** - Type \`/glancey\` anytime to remind the agent to use glancey tools
 
 Agents will now see glancey usage instructions when working in this project.`;
 
