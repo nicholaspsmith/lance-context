@@ -1040,7 +1040,7 @@ export function getDashboardHTML(): string {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      padding: 6px 12px;
+      padding: 0;
       border-bottom: 1px solid var(--border-color);
       align-items: center;
       box-sizing: border-box;
