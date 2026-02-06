@@ -1,3 +1,10 @@
+# [2.4.0](https://github.com/nicholaspsmith/glancey/compare/v2.3.0...v2.4.0) (2026-02-06)
+
+
+### Features
+
+* add ready/open/all view toggle to beads panel ([#141](https://github.com/nicholaspsmith/glancey/issues/141)) ([13c6fbd](https://github.com/nicholaspsmith/glancey/commit/13c6fbd6b7888151a161a1d8f3db846b92a6f235))
+
 # [2.3.0](https://github.com/nicholaspsmith/glancey/compare/v2.2.1...v2.3.0) (2026-02-06)
 
 
