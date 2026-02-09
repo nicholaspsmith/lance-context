@@ -1,6 +1,6 @@
 ---
 name: agents
-description: Launch parallel Claude Code agents, each working autonomously on a beads task in its own git worktree
+description: Launch parallel Claude Code agents, each working autonomously on tasks in their own git worktrees
 allowed-tools: Bash, Task, Read, Write, Glob, Grep, Edit, WebFetch, AskUserQuestion, ToolSearch
 ---
 
@@ -24,19 +24,42 @@ Parse the following flags from `$ARGUMENTS` (all optional):
 | `--budget N` | `5` | Max USD per agent |
 | `--agent NAME` | (none) | Use an existing agent definition from `.claude/agents/NAME.md`. Multiple instances of the same agent run concurrently — the file is a reusable template, not a per-instance resource. |
 
-Then fetch available tasks:
+### Fetch tasks
+
+First, check if `bd` (beads) is available:
+
+```bash
+command -v bd
+```
+
+**If `bd` is available**, fetch tasks:
 
 ```bash
 bd ready --json
 ```
 
-If `bd` is not installed or returns an error, tell the user and stop.
+Then continue to Phase 2 with the beads task list.
+
+**If `bd` is NOT available** (or returns no tasks), offer a manual task mode. Ask the user to describe the tasks they want agents to work on. Accept a list of task descriptions, one per agent. For example:
+
+```
+No beads tasks found. You can specify tasks manually.
+
+How many agents do you want to launch? Enter task descriptions (one per line, empty line to finish):
+
+  1. Fix the login page redirect bug
+  2. Add unit tests for the payment module
+  3. Refactor the database connection pool
+
+```
+
+For manual tasks, generate synthetic task IDs (e.g., `TASK-1`, `TASK-2`, etc.) and use the descriptions as both the title and description in later phases.
 
 ---
 
 ## Phase 2 — Select Tasks
 
-Present the tasks as a numbered list:
+**If using beads tasks**, present them as a numbered list:
 
 ```
 Available tasks:
@@ -50,6 +73,8 @@ Ask the user to pick tasks. Accept:
 - Individual numbers: `1 3 5`
 - Ranges: `1-5`
 - `all` (capped at `--count` if provided, otherwise 10)
+
+**If using manual tasks**, the user already specified them in Phase 1 — skip straight to confirmation.
 
 Confirm the selection before proceeding:
 
@@ -72,9 +97,9 @@ For each selected task:
 
 1. **Create worktree** using the glancey `create_worktree` MCP tool:
    - `short_name`: sanitized short name from task title (lowercase, hyphens, max 30 chars)
-   - `issue_id`: the beads task ID (e.g., `BD-123`)
+   - `issue_id`: the task ID (e.g., `BD-123` for beads, or `TASK-1` for manual tasks)
 
-2. **Claim the task** so no other agent picks it up:
+2. **Claim the task** (beads tasks only — skip for manual tasks):
    ```bash
    bd update {task_id} --claim
    ```
@@ -291,11 +316,11 @@ You are an autonomous coding agent. Complete the task below by following the 9-s
   git fetch origin main && git rebase origin/main && git push --force-with-lease
   gh pr merge --squash --auto
   ```
-- Close the beads task:
+- Close the beads task (skip for manual tasks):
   ```bash
   bd update {task_id} --status done
   ```
-- If NOT auto-merging, just mark the task as ready for review:
+- If NOT auto-merging, just mark the task as ready for review (skip for manual tasks):
   ```bash
   bd update {task_id} --status review
   ```
@@ -312,7 +337,7 @@ You are an autonomous coding agent. Complete the task below by following the 9-s
 
 ## Error Handling
 
-- If `bd` command fails → tell user, suggest installing beads
+- If `bd` command not found → fall back to manual task mode (see Phase 1)
 - If `create_worktree` fails → skip that task, continue with others
 - If `claude -p` is not available → tell user to install Claude Code CLI
 - If an agent PID dies unexpectedly → check its log, report the error
