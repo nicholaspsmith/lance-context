@@ -1,3 +1,10 @@
+## [2.9.1](https://github.com/nicholaspsmith/glancey/compare/v2.9.0...v2.9.1) (2026-02-10)
+
+
+### Bug Fixes
+
+* add manual task mode to /agents when beads is unavailable ([#150](https://github.com/nicholaspsmith/glancey/issues/150)) ([0938219](https://github.com/nicholaspsmith/glancey/commit/093821914ae019d5286808587cbd27516a6539da))
+
 # [2.9.0](https://github.com/nicholaspsmith/glancey/compare/v2.8.2...v2.9.0) (2026-02-08)
 
 
